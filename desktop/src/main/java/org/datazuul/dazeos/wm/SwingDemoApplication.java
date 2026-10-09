@@ -2,6 +2,7 @@ package org.datazuul.dazeos.wm;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -25,9 +26,18 @@ public final class SwingDemoApplication {
         JFrame frame = new JFrame("DazeOS Java WM MVP");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new BorderLayout(8, 8));
-        frame.add(new JLabel("Swing demo; X11 operations are logged, not executed."), BorderLayout.CENTER);
-        JButton arrange = new JButton("Arrange simulated windows");
-        arrange.addActionListener(event -> manager.arrange(1024, 768));
+
+        JLabel info = new JLabel("Swing demo; X11 operations are logged, not executed.", JLabel.CENTER);
+        frame.add(info, BorderLayout.CENTER);
+
+        AtomicInteger clickCount = new AtomicInteger(0);
+        JButton arrange = new JButton("Arrange simulated windows (clicks: 0)");
+        arrange.addActionListener(event -> {
+            int clicks = clickCount.incrementAndGet();
+            manager.arrange(1024, 768);
+            arrange.setText("Arrange simulated windows (clicks: " + clicks + ")");
+            info.setText("Arranged " + manager.registry().snapshot().size() + " windows! (Click #" + clicks + ")");
+        });
         frame.add(arrange, BorderLayout.SOUTH);
         frame.setPreferredSize(new Dimension(560, 140));
         frame.pack();
