@@ -205,15 +205,21 @@ public final class AmadeUI {
 
         @Override
         public Insets getBorderInsets(Component c) {
-            return new Insets(thickness + 3, thickness + 8, thickness + 3, thickness + 8);
+            Insets margin = (c instanceof AbstractButton b) ? b.getMargin() : null;
+            if (margin != null) {
+                return new Insets(thickness + margin.top, thickness + margin.left,
+                        thickness + margin.bottom, thickness + margin.right);
+            }
+            return new Insets(thickness + 2, thickness + 6, thickness + 2, thickness + 6);
         }
 
         @Override
         public Insets getBorderInsets(Component c, Insets insets) {
-            insets.top = thickness + 3;
-            insets.left = thickness + 8;
-            insets.bottom = thickness + 3;
-            insets.right = thickness + 8;
+            Insets ins = getBorderInsets(c);
+            insets.top = ins.top;
+            insets.left = ins.left;
+            insets.bottom = ins.bottom;
+            insets.right = ins.right;
             return insets;
         }
     }

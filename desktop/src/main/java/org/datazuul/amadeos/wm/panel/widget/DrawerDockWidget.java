@@ -86,10 +86,10 @@ public final class DrawerDockWidget extends AbstractDockWidget {
 
         tabBtn.setBackground(theme.base());
         tabBtn.setForeground(theme.textActive());
-        tabBtn.setBorder(new MotifBevelBorder(true, 1));
+        tabBtn.setBorder(new org.datazuul.amadeos.wm.theme.AmadeUI.MotifButtonBorder(1));
 
         mainBtn.setBackground(theme.base());
-        mainBtn.setBorder(new MotifBevelBorder(true, 2));
+        mainBtn.setBorder(new org.datazuul.amadeos.wm.theme.AmadeUI.MotifButtonBorder(2));
         mainBtn.setIcon(IconManager.getIcon(iconKey, 24));
 
         drawerPopup.setBackground(theme.base());

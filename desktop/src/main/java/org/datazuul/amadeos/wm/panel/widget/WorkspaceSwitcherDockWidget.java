@@ -160,11 +160,11 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
         rightStatus.setBackground(theme.sunkenBg());
 
         lockBtn.setBackground(theme.base());
-        lockBtn.setBorder(new MotifBevelBorder(true, 1));
+        lockBtn.setBorder(new org.datazuul.amadeos.wm.theme.AmadeUI.MotifButtonBorder(1));
         lockBtn.setIcon(IconManager.getIcon("lock", 11));
 
         powerBtn.setBackground(theme.base());
-        powerBtn.setBorder(new MotifBevelBorder(true, 1));
+        powerBtn.setBorder(new org.datazuul.amadeos.wm.theme.AmadeUI.MotifButtonBorder(1));
         powerBtn.setIcon(IconManager.getIcon("power", 11));
 
         updateAllButtonAppearances();
