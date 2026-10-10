@@ -43,6 +43,9 @@ public final class ThemeManager {
 
         // Load persisted preference if available
         loadPersistedTheme();
+
+        // Install central Motif 3D styling across Swing
+        AmadeUI.install(currentTheme);
     }
 
     private ThemeManager() {}
@@ -84,6 +87,7 @@ public final class ThemeManager {
         }
 
         currentTheme = theme;
+        AmadeUI.install(theme);
         IconManager.clearCache();
         LOGGER.info(() -> "Applied desktop theme: " + theme.name() + " (" + theme.id() + ")");
 
