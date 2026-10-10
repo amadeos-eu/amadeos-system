@@ -25,6 +25,8 @@ import org.datazuul.dazeos.wm.decoration.FrameWindow;
 import org.datazuul.dazeos.wm.decoration.MotifDecorationTheme;
 import org.datazuul.dazeos.wm.decoration.ResizeDirection;
 import org.datazuul.dazeos.wm.decoration.WindowButton;
+import org.datazuul.dazeos.wm.theme.DesktopTheme;
+import org.datazuul.dazeos.wm.theme.ThemeManager;
 
 public final class X11WindowManagerService implements AutoCloseable {
     private static final Logger LOGGER = Logger.getLogger(X11WindowManagerService.class.getName());
@@ -81,6 +83,7 @@ public final class X11WindowManagerService implements AutoCloseable {
     private final NativeLong wmChangeState;
     private final NativeLong wmState;
     private final NativeLong utf8String;
+    private final NativeLong dazeosThemeAtom;
     private final NativeLong xaWindowAtom;
     private final NativeLong xaAtomAtom;
 
@@ -225,6 +228,7 @@ public final class X11WindowManagerService implements AutoCloseable {
         this.wmChangeState = x11.XInternAtom(display, "WM_CHANGE_STATE", 0);
         this.wmState = x11.XInternAtom(display, "WM_STATE", 0);
         this.utf8String = x11.XInternAtom(display, "UTF8_STRING", 0);
+        this.dazeosThemeAtom = x11.XInternAtom(display, "_DAZEOS_THEME", 0);
         this.xaWindowAtom = new NativeLong(LibX11.XA_WINDOW);
         this.xaAtomAtom = new NativeLong(LibX11.XA_ATOM);
 
@@ -232,6 +236,8 @@ public final class X11WindowManagerService implements AutoCloseable {
                 display, new NativeLong(rootWindow), 0, 0, 1, 1, 0, new NativeLong(0), new NativeLong(0));
         this.checkWindow = createdCheck != null ? createdCheck.longValue() : 0;
         initEwmh();
+
+        ThemeManager.addListener(this::applyThemeGlobally);
     }
 
     public WindowManagerCore core() {
@@ -370,6 +376,19 @@ public final class X11WindowManagerService implements AutoCloseable {
             supMem.setNativeLong((long) i * NativeLong.SIZE, supportedAtoms[i]);
         }
         x11.XChangeProperty(display, new NativeLong(rootWindow), netSupported, xaAtomAtom, 32, LibX11.PropModeReplace, supMem, supportedAtoms.length);
+
+        // Synchronize initial _DAZEOS_THEME on root window
+        String existingTheme = fetchRootPropertyString(dazeosThemeAtom);
+        if (existingTheme != null && !existingTheme.isBlank()) {
+            ThemeManager.applyTheme(existingTheme);
+        } else {
+            byte[] themeBytes = ThemeManager.currentTheme().id().getBytes(StandardCharsets.UTF_8);
+            Memory themeMem = new Memory(themeBytes.length + 1);
+            themeMem.write(0, themeBytes, 0, themeBytes.length);
+            themeMem.setByte(themeBytes.length, (byte) 0);
+            x11.XChangeProperty(display, new NativeLong(rootWindow), dazeosThemeAtom, utf8String, 8, LibX11.PropModeReplace, themeMem, themeBytes.length);
+        }
+
         x11.XFlush(display);
     }
 
@@ -487,6 +506,57 @@ public final class X11WindowManagerService implements AutoCloseable {
             }
         }
         return "Window";
+    }
+
+    public String fetchRootPropertyString(NativeLong atom) {
+        PointerByReference actualTypeRet = new PointerByReference();
+        IntByReference actualFormatRet = new IntByReference();
+        com.sun.jna.ptr.NativeLongByReference nitemsRet = new com.sun.jna.ptr.NativeLongByReference();
+        com.sun.jna.ptr.NativeLongByReference bytesAfterRet = new com.sun.jna.ptr.NativeLongByReference();
+        PointerByReference propRet = new PointerByReference();
+
+        int status = x11.XGetWindowProperty(
+                display, new NativeLong(rootWindow), atom,
+                new NativeLong(0), new NativeLong(64), 0,
+                new NativeLong(0) /* AnyPropertyType */,
+                actualTypeRet, actualFormatRet, nitemsRet, bytesAfterRet, propRet);
+
+        if (status == 0 && propRet.getValue() != null && nitemsRet.getValue() != null && nitemsRet.getValue().longValue() > 0) {
+            Pointer ptr = propRet.getValue();
+            try {
+                int len = (int) nitemsRet.getValue().longValue();
+                byte[] bytes = ptr.getByteArray(0, len);
+                return new String(bytes, StandardCharsets.UTF_8).trim();
+            } finally {
+                x11.XFree(ptr);
+            }
+        }
+        return null;
+    }
+
+    public void applyThemeGlobally(DesktopTheme newTheme) {
+        if (theme instanceof MotifDecorationTheme motifTheme) {
+            motifTheme.setTheme(newTheme);
+        }
+        for (FrameWindow frame : clientToFrame.values()) {
+            frame.render();
+            frame.blit(display, gc, screen);
+        }
+        for (DesktopIconTile tile : iconTiles) {
+            tile.setTheme(newTheme);
+            tile.render();
+            tile.blit(x11, display, gc, screen);
+        }
+        String currentRootTheme = fetchRootPropertyString(dazeosThemeAtom);
+        if (currentRootTheme == null || !currentRootTheme.equals(newTheme.id())) {
+            byte[] bytes = newTheme.id().getBytes(StandardCharsets.UTF_8);
+            Memory mem = new Memory(bytes.length + 1);
+            mem.write(0, bytes, 0, bytes.length);
+            mem.setByte(bytes.length, (byte) 0);
+            x11.XChangeProperty(display, new NativeLong(rootWindow), dazeosThemeAtom, utf8String, 8, LibX11.PropModeReplace, mem, bytes.length);
+        }
+        x11.XFlush(display);
+        LOGGER.info(() -> "WM updated all window frames and desktop icon tiles to theme: " + newTheme.name());
     }
 
     public FrameWindow decorateAndReparent(long clientWin, WindowGeometry geom) {
@@ -840,8 +910,15 @@ public final class X11WindowManagerService implements AutoCloseable {
                 }
             }
             case LibX11.PropertyNotify -> {
-                LibX11.XAnyEvent any = new LibX11.XAnyEvent(event.getPointer());
-                long win = any.window.longValue();
+                LibX11.XPropertyEvent prop = new LibX11.XPropertyEvent(event.getPointer());
+                long win = prop.window != null ? prop.window.longValue() : 0L;
+                if (win == rootWindow && prop.atom != null && prop.atom.equals(dazeosThemeAtom)) {
+                    String themeId = fetchRootPropertyString(dazeosThemeAtom);
+                    if (themeId != null && !themeId.isEmpty()) {
+                        ThemeManager.applyTheme(themeId);
+                    }
+                    break;
+                }
                 FrameWindow frame = clientToFrame.get(win);
                 if (frame != null) {
                     String newTitle = fetchWindowTitle(win);
@@ -1308,6 +1385,7 @@ public final class X11WindowManagerService implements AutoCloseable {
         x11.XSelectInput(display, tileWin, new NativeLong(mask));
 
         DesktopIconTile tile = new DesktopIconTile(clientWin, tileWin, index, title);
+        tile.setTheme(ThemeManager.currentTheme());
         tile.render();
 
         iconTiles.add(tile);

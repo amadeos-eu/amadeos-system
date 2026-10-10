@@ -380,6 +380,27 @@ public interface LibX11 extends Library {
         }
     }
 
+    @Structure.FieldOrder({"type", "serial", "send_event", "display", "window", "atom", "time", "state"})
+    class XPropertyEvent extends Structure {
+        public int type;
+        public NativeLong serial;
+        public int send_event;
+        public Pointer display;
+        public NativeLong window;
+        public NativeLong atom;
+        public NativeLong time;
+        public int state;
+
+        public XPropertyEvent() {
+            super();
+        }
+
+        public XPropertyEvent(Pointer p) {
+            super(p);
+            read();
+        }
+    }
+
     @Structure.FieldOrder({"type", "pad"})
     class XEvent extends Structure {
         public int type;

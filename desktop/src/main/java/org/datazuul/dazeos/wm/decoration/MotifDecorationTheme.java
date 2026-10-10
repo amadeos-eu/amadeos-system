@@ -7,32 +7,36 @@ import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 
+import org.datazuul.dazeos.wm.theme.DesktopTheme;
+import org.datazuul.dazeos.wm.theme.ThemeManager;
+
 public final class MotifDecorationTheme implements DecorationTheme {
     public static final String NAME = "Motif";
-
-    // Authentic Motif workstation warm gray palette
-    private static final Color BG_GRAY = new Color(0xCE, 0xC2, 0xBB);
-    private static final Color HIGHLIGHT = Color.WHITE;
-    private static final Color SOFT_HIGHLIGHT = new Color(0xEA, 0xE5, 0xE2);
-    private static final Color SHADOW = new Color(0x8C, 0x82, 0x7A);
-    private static final Color DARK_SHADOW = new Color(0x42, 0x3B, 0x35);
-
-    // Titlebar: warm gray background inset into frame
-    private static final Color TITLE_BG_ACTIVE = new Color(0xCE, 0xC2, 0xBB);
-    private static final Color TITLE_BG_INACTIVE = new Color(0xBF, 0xB6, 0xAF);
-    private static final Color TITLE_TEXT_ACTIVE = Color.BLACK;
-    private static final Color TITLE_TEXT_INACTIVE = new Color(0x75, 0x6E, 0x68);
 
     private static final Font TITLE_FONT = new Font(Font.SANS_SERIF, Font.BOLD, 12);
 
     private final FrameMetrics metrics;
+    private DesktopTheme theme;
 
     public MotifDecorationTheme() {
-        this(FrameMetrics.defaultMotif());
+        this(FrameMetrics.defaultMotif(), ThemeManager.currentTheme());
     }
 
     public MotifDecorationTheme(FrameMetrics metrics) {
+        this(metrics, ThemeManager.currentTheme());
+    }
+
+    public MotifDecorationTheme(FrameMetrics metrics, DesktopTheme theme) {
         this.metrics = metrics;
+        this.theme = (theme != null) ? theme : ThemeManager.currentTheme();
+    }
+
+    public DesktopTheme theme() {
+        return theme;
+    }
+
+    public void setTheme(DesktopTheme theme) {
+        this.theme = (theme != null) ? theme : ThemeManager.currentTheme();
     }
 
     @Override
@@ -48,13 +52,14 @@ public final class MotifDecorationTheme implements DecorationTheme {
     @Override
     public void paintFrame(Graphics2D g, int width, int height, String title, boolean active,
                            WindowButton hoveredButton, WindowButton pressedButton) {
+        DesktopTheme t = (theme != null) ? theme : ThemeManager.currentTheme();
         g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
         int bw = metrics.borderWidth();
         int tbh = metrics.titleBarHeight();
 
-        // 1. Fill entire frame background with warm workstation gray
-        g.setColor(BG_GRAY);
+        // 1. Fill entire frame background with theme base color
+        g.setColor(t.base());
         g.fillRect(0, 0, width, height);
 
         // 2. Draw outer 3D raised frame borders (2px bevel)
@@ -62,10 +67,10 @@ public final class MotifDecorationTheme implements DecorationTheme {
 
         // 3. Draw inner sunken groove around the innerside of the outer border
         // Top and left: dark shadow; Bottom and right: light highlight
-        g.setColor(DARK_SHADOW);
+        g.setColor(t.darkShadow());
         g.drawLine(bw - 1, bw - 1, width - bw, bw - 1); // Top inner shadow
         g.drawLine(bw - 1, bw - 1, bw - 1, height - bw); // Left inner shadow
-        g.setColor(HIGHLIGHT);
+        g.setColor(t.highlight());
         g.drawLine(bw - 1, height - bw, width - bw, height - bw); // Bottom inner highlight
         g.drawLine(width - bw, bw - 1, width - bw, height - bw); // Right inner highlight
 
@@ -74,13 +79,13 @@ public final class MotifDecorationTheme implements DecorationTheme {
 
         // 4. Draw Titlebar (raised 3D surface on the same level as the buttons)
         Rectangle tb = metrics.getTitleBarBounds(width);
-        g.setColor(active ? TITLE_BG_ACTIVE : TITLE_BG_INACTIVE);
+        g.setColor(active ? t.activeTitleBg() : t.inactiveTitleBg());
         g.fillRect(tb.x, tb.y, tb.width, tb.height);
         draw3DBevel(g, tb.x, tb.y, tb.width, tb.height, true, 2);
 
         // 5. Title Text (centered inside sunken title channel)
         g.setFont(TITLE_FONT);
-        g.setColor(active ? TITLE_TEXT_ACTIVE : TITLE_TEXT_INACTIVE);
+        g.setColor(active ? t.textActive() : t.textInactive());
         FontMetrics fm = g.getFontMetrics();
 
         int maxTextWidth = Math.max(0, tb.width - 16);
@@ -104,11 +109,11 @@ public final class MotifDecorationTheme implements DecorationTheme {
             boolean isPressed = (pressedButton == button);
 
             // Button background
-            Color btnBg = BG_GRAY;
+            Color btnBg = t.base();
             if (isHovered && button == WindowButton.CLOSE) {
                 btnBg = new Color(0xDB, 0x82, 0x82); // soft red tint on close hover
             } else if (isHovered) {
-                btnBg = new Color(0xD8, 0xCE, 0xC7);
+                btnBg = t.softHighlight();
             }
             g.setColor(btnBg);
             g.fillRect(b.x, b.y, b.width, b.height);
@@ -128,7 +133,7 @@ public final class MotifDecorationTheme implements DecorationTheme {
         }
 
         // 8. Horizontal separator groove below title row
-        g.setColor(HIGHLIGHT);
+        g.setColor(t.highlight());
         g.drawLine(bw, tbh, width - bw - 1, tbh);
 
         // 9. Inner sunken bevel around client area
@@ -140,6 +145,7 @@ public final class MotifDecorationTheme implements DecorationTheme {
     }
 
     private void drawButtonGlyph(Graphics2D g, WindowButton button, int cx, int cy, boolean isHovered, boolean isPressed) {
+        DesktopTheme t = (theme != null) ? theme : ThemeManager.currentTheme();
         switch (button) {
             case MENU -> {
                 // Authentic Motif Menu Glyph: 3D recessed horizontal bar / slot
@@ -149,16 +155,16 @@ public final class MotifDecorationTheme implements DecorationTheme {
                 int gy = cy - (gh / 2);
 
                 // Recessed 3D bevel around slot
-                g.setColor(DARK_SHADOW);
+                g.setColor(t.darkShadow());
                 g.drawLine(gx, gy, gx + gw - 1, gy); // top
                 g.drawLine(gx, gy, gx, gy + gh - 1); // left
 
-                g.setColor(HIGHLIGHT);
+                g.setColor(t.highlight());
                 g.drawLine(gx, gy + gh - 1, gx + gw - 1, gy + gh - 1); // bottom
                 g.drawLine(gx + gw - 1, gy, gx + gw - 1, gy + gh - 1); // right
 
                 // Interior fill
-                g.setColor(isPressed ? DARK_SHADOW : SHADOW);
+                g.setColor(isPressed ? t.darkShadow() : t.shadow());
                 g.fillRect(gx + 1, gy + 1, gw - 2, gh - 2);
             }
             case MINIMIZE -> {
@@ -169,15 +175,15 @@ public final class MotifDecorationTheme implements DecorationTheme {
                 int sy = cy - (sh / 2);
 
                 // 3D raised mini-square
-                g.setColor(HIGHLIGHT);
+                g.setColor(t.highlight());
                 g.drawLine(sx, sy, sx + sw - 1, sy); // top
                 g.drawLine(sx, sy, sx, sy + sh - 1); // left
 
-                g.setColor(DARK_SHADOW);
+                g.setColor(t.darkShadow());
                 g.drawLine(sx, sy + sh - 1, sx + sw - 1, sy + sh - 1); // bottom
                 g.drawLine(sx + sw - 1, sy, sx + sw - 1, sy + sh - 1); // right
 
-                g.setColor(BG_GRAY);
+                g.setColor(t.base());
                 g.fillRect(sx + 1, sy + 1, sw - 2, sh - 2);
             }
             case MAXIMIZE -> {
@@ -188,11 +194,11 @@ public final class MotifDecorationTheme implements DecorationTheme {
                 int fy = cy - (fh / 2);
 
                 // Outer 3D bevel (sunken frame)
-                g.setColor(DARK_SHADOW);
+                g.setColor(t.darkShadow());
                 g.drawLine(fx, fy, fx + fw - 1, fy); // top outer
                 g.drawLine(fx, fy, fx, fy + fh - 1); // left outer
 
-                g.setColor(HIGHLIGHT);
+                g.setColor(t.highlight());
                 g.drawLine(fx, fy + fh - 1, fx + fw - 1, fy + fh - 1); // bottom outer
                 g.drawLine(fx + fw - 1, fy, fx + fw - 1, fy + fh - 1); // right outer
 
@@ -202,22 +208,22 @@ public final class MotifDecorationTheme implements DecorationTheme {
                 int iw = fw - 4;
                 int ih = fh - 4;
 
-                g.setColor(HIGHLIGHT);
+                g.setColor(t.highlight());
                 g.drawLine(ix, iy, ix + iw - 1, iy); // top inner
                 g.drawLine(ix, iy, ix, iy + ih - 1); // left inner
 
-                g.setColor(DARK_SHADOW);
+                g.setColor(t.darkShadow());
                 g.drawLine(ix, iy + ih - 1, ix + iw - 1, iy + ih - 1); // bottom inner
                 g.drawLine(ix + iw - 1, iy, ix + iw - 1, iy + ih - 1); // right inner
 
                 // Hollow center
-                g.setColor(BG_GRAY);
+                g.setColor(t.base());
                 g.fillRect(ix + 1, iy + 1, iw - 2, ih - 2);
             }
             case CLOSE -> {
                 // Close Glyph: 3D beveled cross
-                Color hl = (isHovered) ? Color.WHITE : HIGHLIGHT;
-                Color sh = (isHovered) ? Color.WHITE : DARK_SHADOW;
+                Color hl = (isHovered) ? Color.WHITE : t.highlight();
+                Color sh = (isHovered) ? Color.WHITE : t.darkShadow();
 
                 // Main stroke with 3D highlight/shadow pairs
                 g.setColor(sh);
@@ -260,9 +266,10 @@ public final class MotifDecorationTheme implements DecorationTheme {
     }
 
     private void drawNotchLine(Graphics2D g, int x1, int y1, int x2, int y2, boolean vertical) {
-        g.setColor(DARK_SHADOW);
+        DesktopTheme t = (theme != null) ? theme : ThemeManager.currentTheme();
+        g.setColor(t.darkShadow());
         g.drawLine(x1, y1, x2, y2);
-        g.setColor(HIGHLIGHT);
+        g.setColor(t.highlight());
         if (vertical) {
             g.drawLine(x1 + 1, y1, x2 + 1, y2);
         } else {
@@ -271,10 +278,11 @@ public final class MotifDecorationTheme implements DecorationTheme {
     }
 
     private void draw3DBevel(Graphics2D g, int x, int y, int w, int h, boolean raised, int thickness) {
-        Color topLeft1 = raised ? HIGHLIGHT : DARK_SHADOW;
-        Color topLeft2 = raised ? SOFT_HIGHLIGHT : SHADOW;
-        Color bottomRight1 = raised ? DARK_SHADOW : HIGHLIGHT;
-        Color bottomRight2 = raised ? SHADOW : SOFT_HIGHLIGHT;
+        DesktopTheme t = (theme != null) ? theme : ThemeManager.currentTheme();
+        Color topLeft1 = raised ? t.highlight() : t.darkShadow();
+        Color topLeft2 = raised ? t.softHighlight() : t.shadow();
+        Color bottomRight1 = raised ? t.darkShadow() : t.highlight();
+        Color bottomRight2 = raised ? t.shadow() : t.softHighlight();
 
         for (int i = 0; i < thickness; i++) {
             Color tl = (i == 0) ? topLeft1 : topLeft2;

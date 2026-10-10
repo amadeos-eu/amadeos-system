@@ -30,6 +30,7 @@ public class X11EwmhHelper implements AutoCloseable {
     private final NativeLong wmChangeState;
     private final NativeLong wmState;
     private final NativeLong utf8String;
+    private final NativeLong dazeosThemeAtom;
     private final NativeLong xaWindowAtom;
     private final NativeLong xaAtomAtom;
     private final NativeLong xaCardinalAtom;
@@ -66,6 +67,7 @@ public class X11EwmhHelper implements AutoCloseable {
         this.wmChangeState = x11.XInternAtom(display, "WM_CHANGE_STATE", 0);
         this.wmState = x11.XInternAtom(display, "WM_STATE", 0);
         this.utf8String = x11.XInternAtom(display, "UTF8_STRING", 0);
+        this.dazeosThemeAtom = x11.XInternAtom(display, "_DAZEOS_THEME", 0);
         this.xaWindowAtom = new NativeLong(LibX11.XA_WINDOW);
         this.xaAtomAtom = new NativeLong(LibX11.XA_ATOM);
         this.xaCardinalAtom = new NativeLong(LibX11.XA_CARDINAL);
@@ -306,6 +308,46 @@ public class X11EwmhHelper implements AutoCloseable {
         x11.XChangeProperty(display, new NativeLong(win), netWmStrutPartial, xaCardinalAtom, 32, LibX11.PropModeReplace, partialMem, 12);
 
         x11.XFlush(display);
+    }
+
+    public NativeLong dazeosThemeAtom() {
+        return dazeosThemeAtom;
+    }
+
+    public void setDesktopTheme(String themeId) {
+        if (themeId == null) return;
+        byte[] bytes = themeId.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        Memory mem = new Memory(bytes.length + 1);
+        mem.write(0, bytes, 0, bytes.length);
+        mem.setByte(bytes.length, (byte) 0);
+        x11.XChangeProperty(display, new NativeLong(rootWindow), dazeosThemeAtom, utf8String, 8, LibX11.PropModeReplace, mem, bytes.length);
+        x11.XFlush(display);
+    }
+
+    public String getDesktopTheme() {
+        PointerByReference actualTypeRet = new PointerByReference();
+        IntByReference actualFormatRet = new IntByReference();
+        NativeLongByReference nitemsRet = new NativeLongByReference();
+        NativeLongByReference bytesAfterRet = new NativeLongByReference();
+        PointerByReference propRet = new PointerByReference();
+
+        int status = x11.XGetWindowProperty(
+                display, new NativeLong(rootWindow), dazeosThemeAtom,
+                new NativeLong(0), new NativeLong(64), 0,
+                new NativeLong(0) /* AnyPropertyType */,
+                actualTypeRet, actualFormatRet, nitemsRet, bytesAfterRet, propRet);
+
+        if (status == 0 && propRet.getValue() != null && nitemsRet.getValue() != null && nitemsRet.getValue().longValue() > 0) {
+            Pointer ptr = propRet.getValue();
+            try {
+                int len = (int) nitemsRet.getValue().longValue();
+                byte[] bytes = ptr.getByteArray(0, len);
+                return new String(bytes, java.nio.charset.StandardCharsets.UTF_8).trim();
+            } finally {
+                x11.XFree(ptr);
+            }
+        }
+        return null;
     }
 
     @Override

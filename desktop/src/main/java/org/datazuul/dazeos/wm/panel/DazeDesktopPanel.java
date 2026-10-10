@@ -9,36 +9,38 @@ import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridLayout;
-import java.awt.Insets;
 import java.awt.RenderingHints;
 import java.awt.Toolkit;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
-import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.JPopupMenu;
-import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
-import javax.swing.border.BevelBorder;
+import org.datazuul.dazeos.wm.panel.widget.AbstractDockWidget;
+import org.datazuul.dazeos.wm.panel.widget.ClockDockWidget;
+import org.datazuul.dazeos.wm.panel.widget.DockWidget;
+import org.datazuul.dazeos.wm.panel.widget.DrawerDockWidget;
+import org.datazuul.dazeos.wm.panel.widget.DrawerDockWidget.DrawerTool;
+import org.datazuul.dazeos.wm.panel.widget.MemoryDockWidget;
+import org.datazuul.dazeos.wm.panel.widget.WorkspaceSwitcherDockWidget;
+import org.datazuul.dazeos.wm.theme.DesktopTheme;
+import org.datazuul.dazeos.wm.theme.ThemeManager;
 
 public final class DazeDesktopPanel extends JFrame {
     private static final Logger LOGGER = Logger.getLogger(DazeDesktopPanel.class.getName());
@@ -46,37 +48,34 @@ public final class DazeDesktopPanel extends JFrame {
     public static final int DOCK_HEIGHT = 62;
     private static final int DOCK_WIDTH = 750;
 
-    private static final Color MOTIF_BG = new Color(0xB8, 0xB8, 0xB8);
-    private static final Color MOTIF_LIGHT = Color.WHITE;
-    private static final Color MOTIF_DARK = new Color(0x60, 0x60, 0x60);
-    private static final Color MOTIF_SHADOW = new Color(0x30, 0x30, 0x30);
-    private static final Color MOTIF_SUNKEN_BG = new Color(0x9E, 0x9E, 0x9E);
-    private static final Color MOTIF_BLACK = Color.BLACK;
-
-    private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm:ss");
-    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("MMM dd");
     private static final AtomicInteger DOC_COUNTER = new AtomicInteger(0);
 
     private final X11EwmhHelper helper;
-    private final JLabel clockTimeLabel;
-    private final JLabel clockDateLabel;
-    private final JLabel memValueLabel;
-    private final JProgressBar memProgressBar;
+    private final List<DockWidget> widgets = new ArrayList<>();
+    private final JPanel rootPanel;
+    private final JPanel leftSlots;
+    private final JPanel rightSlots;
     private final Timer pollTimer;
 
-    private int activeWorkspace = 1;
-    private final JButton[] workspaceButtons = new JButton[4];
-
     public static void main(String[] args) {
+        String displayName = args.length > 0 ? args[0] : null;
+        X11EwmhHelper ewmhHelper;
+        try {
+            ewmhHelper = X11EwmhHelper.open(displayName);
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Failed to connect to X11 display: " + e.getMessage(), e);
+            System.exit(1);
+            return;
+        }
+
         SwingUtilities.invokeLater(() -> {
             try {
-                String display = System.getenv("DISPLAY");
-                X11EwmhHelper helper = X11EwmhHelper.open(display);
-                DazeDesktopPanel panel = new DazeDesktopPanel(helper);
-                panel.showPanel();
-            } catch (Exception e) {
-                LOGGER.log(Level.SEVERE, "Failed to launch DazeDesktopPanel", e);
-                System.err.println("Failed to start DazeDesktopPanel: " + e.getMessage());
+                DazeDesktopPanel panel = new DazeDesktopPanel(ewmhHelper);
+                panel.setVisible(true);
+                panel.registerAsDock();
+            } catch (Exception ex) {
+                LOGGER.log(Level.SEVERE, "Error initializing desktop panel: " + ex.getMessage(), ex);
+                System.exit(1);
             }
         });
     }
@@ -85,355 +84,198 @@ public final class DazeDesktopPanel extends JFrame {
         super("DazeOS CDE Front Panel");
         this.helper = Objects.requireNonNull(helper);
 
+        DesktopTheme initialTheme = ThemeManager.currentTheme();
+
         setUndecorated(true);
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-        setBackground(MOTIF_BG);
+        setBackground(initialTheme.base());
         setLayout(new BorderLayout());
 
         // Outer CDE 3D chiseled container
-        JPanel rootPanel = new JPanel(new BorderLayout(4, 0)) {
+        rootPanel = new JPanel(new BorderLayout(4, 0)) {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
+                DesktopTheme t = ThemeManager.currentTheme();
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
                 // Top/Left 3D chisel highlight
-                g.setColor(MOTIF_LIGHT);
-                g.drawLine(0, 0, getWidth() - 1, 0);
-                g.drawLine(0, 0, 0, getHeight() - 1);
-                g.drawLine(1, 1, getWidth() - 2, 1);
-                g.drawLine(1, 1, 1, getHeight() - 2);
+                g2.setColor(t.highlight());
+                g2.drawLine(0, 0, getWidth() - 1, 0);
+                g2.drawLine(0, 0, 0, getHeight() - 1);
+                g2.setColor(t.softHighlight());
+                g2.drawLine(1, 1, getWidth() - 2, 1);
+                g2.drawLine(1, 1, 1, getHeight() - 2);
 
                 // Bottom/Right 3D chisel shadow
-                g.setColor(MOTIF_SHADOW);
-                g.drawLine(getWidth() - 1, 0, getWidth() - 1, getHeight() - 1);
-                g.drawLine(0, getHeight() - 1, getWidth() - 1, getHeight() - 1);
-                g.setColor(MOTIF_DARK);
-                g.drawLine(getWidth() - 2, 1, getWidth() - 2, getHeight() - 2);
-                g.drawLine(1, getHeight() - 2, getWidth() - 2, getHeight() - 2);
+                g2.setColor(t.darkShadow());
+                g2.drawLine(getWidth() - 1, 0, getWidth() - 1, getHeight() - 1);
+                g2.drawLine(0, getHeight() - 1, getWidth() - 1, getHeight() - 1);
+                g2.setColor(t.shadow());
+                g2.drawLine(getWidth() - 2, 1, getWidth() - 2, getHeight() - 2);
+                g2.drawLine(1, getHeight() - 2, getWidth() - 2, getHeight() - 2);
             }
         };
-        rootPanel.setBackground(MOTIF_BG);
+        rootPanel.setBackground(initialTheme.base());
         rootPanel.setBorder(BorderFactory.createEmptyBorder(4, 6, 4, 6));
         setContentPane(rootPanel);
 
         // 1. LEFT SLOTS: File Manager, Text Editor, Terminal
-        JPanel leftSlots = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
-        leftSlots.setBackground(MOTIF_BG);
+        leftSlots = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        leftSlots.setBackground(initialTheme.base());
 
-        // Slot 1: File Manager
-        leftSlots.add(createSlotWithDrawer(
-                "📁", "File Manager",
+        DrawerDockWidget fmDrawer = new DrawerDockWidget(
+                "file-manager", "File Manager", "file-manager",
                 e -> spawnFileManager(),
-                "File Manager Tools",
-                new DrawerItem("🏠 Home Directory", e -> launchProcess("xterm", "-e", "sh", "-c", "cd $HOME && ls -la && exec sh")),
-                new DrawerItem("💾 Root Filesystem (/)", e -> launchProcess("xterm", "-e", "sh", "-c", "cd / && ls -la && exec sh"))
-        ));
+                List.of(
+                        new DrawerTool("Home Directory (~)", "file-manager", e -> launchProcess("xterm", "-e", "sh", "-c", "cd $HOME && ls -la && exec sh")),
+                        new DrawerTool("Root Filesystem (/)", "file-manager", e -> launchProcess("xterm", "-e", "sh", "-c", "cd / && ls -la && exec sh"))
+                )
+        );
+        widgets.add(fmDrawer);
+        leftSlots.add(fmDrawer.component());
 
-        // Slot 2: Text Editor
-        leftSlots.add(createSlotWithDrawer(
-                "📝", "Text Editor",
+        DrawerDockWidget editorDrawer = new DrawerDockWidget(
+                "editor", "Text Editor", "text-editor",
                 e -> spawnDocumentWindow(),
-                "Document & Notes",
-                new DrawerItem("📄 New Document", e -> spawnDocumentWindow()),
-                new DrawerItem("📋 Quick Notes", e -> spawnDocumentWindow())
-        ));
+                List.of(
+                        new DrawerTool("New Document Window", "text-editor", e -> spawnDocumentWindow()),
+                        new DrawerTool("Quick Scratchpad", "text-editor", e -> spawnDocumentWindow())
+                )
+        );
+        widgets.add(editorDrawer);
+        leftSlots.add(editorDrawer.component());
 
-        // Slot 3: Terminal
-        leftSlots.add(createSlotWithDrawer(
-                "📟", "Terminal (xterm)",
+        DrawerDockWidget termDrawer = new DrawerDockWidget(
+                "terminal", "Terminal (xterm)", "terminal",
                 e -> launchProcess("xterm"),
-                "Terminal Tools",
-                new DrawerItem("📟 Launch xterm", e -> launchProcess("xterm")),
-                new DrawerItem("⚡ Root Shell Console", e -> launchProcess("xterm", "-title", "Root Shell", "-e", "sudo", "sh")),
-                new DrawerItem("📋 Session Diagnostics", e -> showLogViewerDialog(this))
-        ));
+                List.of(
+                        new DrawerTool("Launch xterm", "terminal", e -> launchProcess("xterm")),
+                        new DrawerTool("Root Console (sudo)", "terminal", e -> launchProcess("xterm", "-title", "Root Shell", "-e", "sudo", "sh")),
+                        new DrawerTool("Diagnostics Logs", "diagnostics", e -> showLogViewerDialog(this))
+                )
+        );
+        widgets.add(termDrawer);
+        leftSlots.add(termDrawer.component());
 
         rootPanel.add(leftSlots, BorderLayout.WEST);
 
-        // 2. CENTER: Iconic CDE Workspace Switcher Pad
-        JPanel centerPad = createCenterWorkspacePad();
-        rootPanel.add(centerPad, BorderLayout.CENTER);
+        // 2. CENTER: Iconic CDE 4-way Workspace Switcher Pad
+        WorkspaceSwitcherDockWidget switcher = new WorkspaceSwitcherDockWidget(
+                wsNum -> LOGGER.info(() -> "Switched to workspace: " + wsNum),
+                () -> showSessionPowerDialog(this)
+        );
+        widgets.add(switcher);
+        rootPanel.add(switcher.component(), BorderLayout.CENTER);
 
         // 3. RIGHT SLOTS: Clock, Memory Meter, Tools, Trash/Power
-        JPanel rightSlots = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
-        rightSlots.setBackground(MOTIF_BG);
+        rightSlots = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
+        rightSlots.setBackground(initialTheme.base());
 
-        // Slot 4: Digital Clock & Date
-        JPanel clockBox = new JPanel(new GridLayout(2, 1, 0, 0));
-        clockBox.setPreferredSize(new Dimension(68, 52));
-        clockBox.setBackground(MOTIF_SUNKEN_BG);
-        clockBox.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createBevelBorder(BevelBorder.LOWERED, MOTIF_LIGHT, MOTIF_SHADOW),
-                BorderFactory.createEmptyBorder(2, 2, 2, 2)
-        ));
-        clockTimeLabel = new JLabel(LocalTime.now().format(TIME_FMT), JLabel.CENTER);
-        clockTimeLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 11));
-        clockTimeLabel.setForeground(MOTIF_BLACK);
+        ClockDockWidget clockWidget = new ClockDockWidget();
+        widgets.add(clockWidget);
+        rightSlots.add(clockWidget.component());
 
-        clockDateLabel = new JLabel(LocalDate.now().format(DATE_FMT).toUpperCase(), JLabel.CENTER);
-        clockDateLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 9));
-        clockDateLabel.setForeground(new Color(0x33, 0x33, 0x33));
+        MemoryDockWidget memoryWidget = new MemoryDockWidget();
+        widgets.add(memoryWidget);
+        rightSlots.add(memoryWidget.component());
 
-        clockBox.add(clockTimeLabel);
-        clockBox.add(clockDateLabel);
-        rightSlots.add(clockBox);
-
-        // Slot 5: Memory Meter
-        JPanel memBox = new JPanel(new BorderLayout(2, 2));
-        memBox.setPreferredSize(new Dimension(62, 52));
-        memBox.setBackground(MOTIF_SUNKEN_BG);
-        memBox.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createBevelBorder(BevelBorder.LOWERED, MOTIF_LIGHT, MOTIF_SHADOW),
-                BorderFactory.createEmptyBorder(4, 4, 4, 4)
-        ));
-        memValueLabel = new JLabel("RAM", JLabel.CENTER);
-        memValueLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 10));
-        memValueLabel.setForeground(MOTIF_BLACK);
-
-        memProgressBar = new JProgressBar(0, 100);
-        memProgressBar.setValue(35);
-        memProgressBar.setPreferredSize(new Dimension(54, 8));
-        memProgressBar.setForeground(new Color(0x2E, 0x8B, 0x57)); // Sea green
-        memProgressBar.setBackground(new Color(0x50, 0x50, 0x50));
-        memProgressBar.setBorder(BorderFactory.createLineBorder(Color.BLACK, 1));
-
-        memBox.add(memValueLabel, BorderLayout.CENTER);
-        memBox.add(memProgressBar, BorderLayout.SOUTH);
-        rightSlots.add(memBox);
-
-        // Slot 6: Diagnostics & Tools
-        rightSlots.add(createSlotWithDrawer(
-                "📋", "Session Diagnostics",
+        DrawerDockWidget diagDrawer = new DrawerDockWidget(
+                "diagnostics", "Session Diagnostics", "diagnostics",
                 e -> showLogViewerDialog(this),
-                "System Diagnostics",
-                new DrawerItem("📋 Reload Logs", e -> showLogViewerDialog(this)),
-                new DrawerItem("🖥 System Info", e -> launchProcess("xterm", "-e", "sh", "-c", "uname -a; free -h; lscpu | head -n 15; exec sh"))
-        ));
+                List.of(
+                        new DrawerTool("View Session Diagnostics", "diagnostics", e -> showLogViewerDialog(this)),
+                        new DrawerTool("Hardware & System Info", "terminal", e -> launchProcess("xterm", "-e", "sh", "-c", "uname -a; free -h; lscpu | head -n 15; exec sh"))
+                )
+        );
+        widgets.add(diagDrawer);
+        rightSlots.add(diagDrawer.component());
 
-        // Slot 7: Trash / Power Session
-        rightSlots.add(createSlotWithDrawer(
-                "🗑️", "Trash & Power",
+        DrawerDockWidget trashDrawer = new DrawerDockWidget(
+                "trash", "Trash & Session", "trash",
                 e -> showSessionPowerDialog(this),
-                "Session & Trash",
-                new DrawerItem("⏻ Session Controls...", e -> showSessionPowerDialog(this)),
-                new DrawerItem("🗑️ Clean /tmp", e -> launchProcess("xterm", "-e", "sh", "-c", "df -h /tmp; echo 'DazeOS temporary storage clean'; exec sh"))
-        ));
+                List.of(
+                        new DrawerTool("Session & Power Controls...", "power", e -> showSessionPowerDialog(this)),
+                        new DrawerTool("Inspect /tmp Storage", "trash", e -> launchProcess("xterm", "-e", "sh", "-c", "df -h /tmp; echo 'DazeOS temporary storage clean'; exec sh"))
+                )
+        );
+        widgets.add(trashDrawer);
+        rightSlots.add(trashDrawer.component());
 
         rootPanel.add(rightSlots, BorderLayout.EAST);
 
-        // Periodic timer to refresh clock and memory stats
-        pollTimer = new Timer(1000, e -> updateClockAndMemory());
-    }
-
-    public void showPanel() {
-        Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
-        int screenW = (helper.screenWidth() > 0) ? helper.screenWidth() : screen.width;
-        int screenH = (helper.screenHeight() > 0) ? helper.screenHeight() : screen.height;
-
-        int panelW = Math.min(DOCK_WIDTH, screenW - 20);
-        int panelH = DOCK_HEIGHT;
-        int panelX = (screenW - panelW) / 2;
-        int panelY = screenH - panelH;
-
-        setBounds(panelX, panelY, panelW, panelH);
-        setVisible(true);
-
-        // Register dock properties on native X11 window
-        try {
-            long nativeWinId = Native.getWindowID(this);
-            if (nativeWinId != 0) {
-                helper.setDockProperties(nativeWinId, screenW, screenH, panelH);
-                LOGGER.info("Registered DazeDesktopPanel as CDE Front Panel dock (XID: " + nativeWinId + ")");
-            }
-        } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "Failed to register dock window properties: " + e.getMessage(), e);
+        // Start all widgets
+        for (DockWidget w : widgets) {
+            w.start();
         }
 
-        updateClockAndMemory();
+        // Listen for internal ThemeManager changes
+        ThemeManager.addListener(this::applyTheme);
+
+        // Position dock centered at bottom
+        int screenW = helper.screenWidth();
+        int screenH = helper.screenHeight();
+        int dockX = Math.max(0, (screenW - DOCK_WIDTH) / 2);
+        int dockY = screenH - DOCK_HEIGHT;
+        setBounds(dockX, dockY, DOCK_WIDTH, DOCK_HEIGHT);
+
+        // Check for theme updates on root window
+        pollTimer = new Timer(1000, e -> {
+            String remoteThemeId = helper.getDesktopTheme();
+            if (remoteThemeId != null && !remoteThemeId.isBlank()
+                    && !remoteThemeId.equals(ThemeManager.currentTheme().id())) {
+                ThemeManager.applyTheme(remoteThemeId);
+            }
+        });
         pollTimer.start();
     }
 
-    private JPanel createCenterWorkspacePad() {
-        JPanel pad = new JPanel(new BorderLayout(4, 0));
-        pad.setBackground(MOTIF_SUNKEN_BG);
-        pad.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createBevelBorder(BevelBorder.LOWERED, MOTIF_LIGHT, MOTIF_SHADOW),
-                BorderFactory.createEmptyBorder(2, 4, 2, 4)
-        ));
+    public void applyTheme(DesktopTheme theme) {
+        setBackground(theme.base());
+        rootPanel.setBackground(theme.base());
+        leftSlots.setBackground(theme.base());
+        rightSlots.setBackground(theme.base());
 
-        // Left Status: Activity LED & Lock
-        JPanel leftStatus = new JPanel(new GridLayout(2, 1, 0, 2));
-        leftStatus.setBackground(MOTIF_SUNKEN_BG);
+        for (DockWidget w : widgets) {
+            w.onThemeChanged(theme);
+        }
+        repaint();
+    }
 
-        JPanel ledPanel = new JPanel() {
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g;
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(0x10, 0xB9, 0x81)); // Green glow
-                g2.fillOval(3, 3, 8, 8);
-                g2.setColor(new Color(0x04, 0x78, 0x57));
-                g2.drawOval(3, 3, 8, 8);
-            }
-        };
-        ledPanel.setPreferredSize(new Dimension(14, 14));
-        ledPanel.setBackground(MOTIF_SUNKEN_BG);
-        ledPanel.setToolTipText("System Activity LED");
-        leftStatus.add(ledPanel);
+    public void registerAsDock() {
+        long winId = getNativeWindowId();
+        if (winId == 0) {
+            LOGGER.warning("Could not determine native X11 window ID for desktop panel");
+            return;
+        }
 
-        JButton lockBtn = createMiniMotifButton("🔒", "Lock Screen");
-        lockBtn.addActionListener(e -> JOptionPane.showMessageDialog(this, "Screen Lock is active.", "Lock", JOptionPane.INFORMATION_MESSAGE));
-        leftStatus.add(lockBtn);
-        pad.add(leftStatus, BorderLayout.WEST);
+        LOGGER.info(() -> "Registering CDE Front Panel native window: " + winId);
+        int screenW = helper.screenWidth();
+        int screenH = helper.screenHeight();
+        helper.setDockProperties(winId, screenW, screenH, DOCK_HEIGHT);
+    }
 
-        // Center: 2x2 Workspace Buttons (One, Two, Three, Four)
-        JPanel grid = new JPanel(new GridLayout(2, 2, 2, 2));
-        grid.setBackground(MOTIF_SUNKEN_BG);
-
-        String[] wsNames = {"One", "Two", "Three", "Four"};
-        for (int i = 0; i < 4; i++) {
-            int wsNum = i + 1;
-            JButton btn = new JButton(wsNames[i]);
-            btn.setFont(new Font(Font.MONOSPACED, Font.BOLD, 10));
-            btn.setFocusPainted(false);
-            btn.setMargin(new Insets(1, 4, 1, 4));
-            updateWorkspaceButtonAppearance(btn, wsNum == activeWorkspace);
-
-            btn.addActionListener(e -> {
-                activeWorkspace = wsNum;
-                for (int j = 0; j < 4; j++) {
-                    updateWorkspaceButtonAppearance(workspaceButtons[j], (j + 1) == activeWorkspace);
+    private long getNativeWindowId() {
+        try {
+            java.lang.reflect.Method getPeer = java.awt.Component.class.getDeclaredMethod("getPeer");
+            getPeer.setAccessible(true);
+            Object peer = getPeer.invoke(this);
+            if (peer != null) {
+                java.lang.reflect.Method getWindow = peer.getClass().getMethod("getWindow");
+                Object winObj = getWindow.invoke(peer);
+                if (winObj instanceof Number num) {
+                    return num.longValue();
                 }
-            });
-            workspaceButtons[i] = btn;
-            grid.add(btn);
-        }
-        pad.add(grid, BorderLayout.CENTER);
-
-        // Right Status: Power Off Session Button
-        JPanel rightStatus = new JPanel(new GridLayout(2, 1, 0, 2));
-        rightStatus.setBackground(MOTIF_SUNKEN_BG);
-
-        JPanel amberLed = new JPanel() {
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g;
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(0xF5, 0x9E, 0x0B)); // Amber
-                g2.fillOval(3, 3, 8, 8);
-                g2.setColor(new Color(0xB4, 0x53, 0x09));
-                g2.drawOval(3, 3, 8, 8);
             }
-        };
-        amberLed.setPreferredSize(new Dimension(14, 14));
-        amberLed.setBackground(MOTIF_SUNKEN_BG);
-        amberLed.setToolTipText("Session Active");
-        rightStatus.add(amberLed);
-
-        JButton powerBtn = createMiniMotifButton("⏻", "Session & Power Controls");
-        powerBtn.setForeground(new Color(0xC0, 0x20, 0x20));
-        powerBtn.addActionListener(e -> showSessionPowerDialog(this));
-        rightStatus.add(powerBtn);
-        pad.add(rightStatus, BorderLayout.EAST);
-
-        return pad;
-    }
-
-    private void updateWorkspaceButtonAppearance(JButton btn, boolean isActive) {
-        if (isActive) {
-            btn.setBackground(new Color(0xCC, 0xCC, 0xCC));
-            btn.setBorder(BorderFactory.createBevelBorder(BevelBorder.LOWERED, MOTIF_LIGHT, MOTIF_DARK));
-            btn.setForeground(Color.BLACK);
-        } else {
-            btn.setBackground(MOTIF_BG);
-            btn.setBorder(BorderFactory.createBevelBorder(BevelBorder.RAISED, MOTIF_LIGHT, MOTIF_DARK));
-            btn.setForeground(new Color(0x33, 0x33, 0x33));
+        } catch (Exception ignored) {
         }
-    }
-
-    private record DrawerItem(String label, java.awt.event.ActionListener action) {}
-
-    private JPanel createSlotWithDrawer(
-            String icon, String tooltip,
-            java.awt.event.ActionListener primaryAction,
-            String drawerTitle,
-            DrawerItem... drawerItems) {
-
-        JPanel slot = new JPanel(new BorderLayout(0, 1));
-        slot.setBackground(MOTIF_BG);
-        slot.setPreferredSize(new Dimension(46, 52));
-
-        // 1. Up-Arrow Drawer Tab Button (▲)
-        JButton drawerTab = new JButton("▲");
-        drawerTab.setFont(new Font(Font.MONOSPACED, Font.BOLD, 8));
-        drawerTab.setFocusPainted(false);
-        drawerTab.setMargin(new Insets(0, 0, 0, 0));
-        drawerTab.setPreferredSize(new Dimension(46, 9));
-        drawerTab.setBackground(new Color(0xD0, 0xD0, 0xD0));
-        drawerTab.setBorder(BorderFactory.createBevelBorder(BevelBorder.RAISED, MOTIF_LIGHT, MOTIF_DARK));
-        drawerTab.setToolTipText("Open " + drawerTitle + " drawer");
-
-        // 2. Primary Tool Button
-        JButton toolBtn = new JButton(icon);
-        toolBtn.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 20));
-        toolBtn.setFocusPainted(false);
-        toolBtn.setMargin(new Insets(2, 2, 2, 2));
-        toolBtn.setBackground(MOTIF_BG);
-        toolBtn.setBorder(BorderFactory.createBevelBorder(BevelBorder.RAISED, MOTIF_LIGHT, MOTIF_DARK));
-        toolBtn.setToolTipText(tooltip);
-        toolBtn.addActionListener(primaryAction);
-
-        // Drawer Popup Menu
-        JPopupMenu drawerPopup = new JPopupMenu();
-        drawerPopup.setBackground(MOTIF_BG);
-        drawerPopup.setBorder(BorderFactory.createBevelBorder(BevelBorder.RAISED, MOTIF_LIGHT, MOTIF_DARK));
-
-        JLabel header = new JLabel("  " + drawerTitle);
-        header.setFont(new Font(Font.MONOSPACED, Font.BOLD, 10));
-        header.setForeground(new Color(0x33, 0x33, 0x33));
-        drawerPopup.add(header);
-        drawerPopup.addSeparator();
-
-        for (DrawerItem item : drawerItems) {
-            JMenuItem mi = new JMenuItem(item.label());
-            mi.setBackground(MOTIF_BG);
-            mi.setForeground(MOTIF_BLACK);
-            mi.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
-            mi.addActionListener(item.action());
-            drawerPopup.add(mi);
+        try {
+            return Native.getWindowID(this);
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Native.getWindowID failed: " + e.getMessage());
+            return 0;
         }
-
-        drawerTab.addActionListener(e -> {
-            drawerPopup.show(slot, 0, -drawerPopup.getPreferredSize().height);
-        });
-
-        slot.add(drawerTab, BorderLayout.NORTH);
-        slot.add(toolBtn, BorderLayout.CENTER);
-        return slot;
-    }
-
-    private JButton createMiniMotifButton(String text, String tooltip) {
-        JButton btn = new JButton(text);
-        btn.setFont(new Font(Font.MONOSPACED, Font.BOLD, 9));
-        btn.setFocusPainted(false);
-        btn.setBackground(MOTIF_BG);
-        btn.setBorder(BorderFactory.createBevelBorder(BevelBorder.RAISED, MOTIF_LIGHT, MOTIF_DARK));
-        btn.setMargin(new Insets(1, 1, 1, 1));
-        btn.setToolTipText(tooltip);
-        return btn;
-    }
-
-    private void updateClockAndMemory() {
-        clockTimeLabel.setText(LocalTime.now().format(TIME_FMT));
-        clockDateLabel.setText(LocalDate.now().format(DATE_FMT).toUpperCase());
-
-        long free = Runtime.getRuntime().freeMemory() / (1024 * 1024);
-        long total = Runtime.getRuntime().totalMemory() / (1024 * 1024);
-        long used = total - free;
-        memValueLabel.setText(used + "M");
-        int percent = (int) ((used * 100) / Math.max(1, total));
-        memProgressBar.setValue(percent);
     }
 
     private void launchProcess(String... cmd) {
@@ -448,20 +290,52 @@ public final class DazeDesktopPanel extends JFrame {
         launchProcess("xterm", "-title", "File Manager", "-e", "sh", "-c", "echo 'DazeOS File Manager:'; ls -la; exec sh");
     }
 
-    public static void showSessionPowerDialog(JFrame parent) {
+    private void spawnDocumentWindow() {
+        int docId = DOC_COUNTER.incrementAndGet();
+        JFrame docFrame = new JFrame("Document #" + docId);
+        docFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        docFrame.setLayout(new BorderLayout(8, 8));
+
+        DesktopTheme t = ThemeManager.currentTheme();
+        docFrame.getContentPane().setBackground(t.base());
+
+        JTextArea area = new JTextArea("DazeOS Document #" + docId + "\n\nType notes here...\n");
+        area.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
+        area.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+        docFrame.add(new JScrollPane(area), BorderLayout.CENTER);
+
+        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        btnPanel.setBackground(t.base());
+        JButton closeBtn = new JButton("Close");
+        closeBtn.addActionListener(e -> docFrame.dispose());
+        btnPanel.add(closeBtn);
+        docFrame.add(btnPanel, BorderLayout.SOUTH);
+
+        docFrame.setSize(440, 280);
+        docFrame.setLocationByPlatform(true);
+        docFrame.setVisible(true);
+    }
+
+    private void showSessionPowerDialog(JFrame parent) {
         JDialog dialog = new JDialog(parent, "DazeOS Session & Power Control", true);
         dialog.setLayout(new BorderLayout(12, 12));
+        DesktopTheme t = ThemeManager.currentTheme();
+        dialog.getContentPane().setBackground(t.base());
 
-        JPanel header = new JPanel(new java.awt.GridLayout(2, 1, 4, 4));
+        JPanel header = new JPanel(new GridLayout(2, 1, 4, 4));
+        header.setBackground(t.base());
         header.setBorder(BorderFactory.createEmptyBorder(12, 16, 0, 16));
-        JLabel title = new JLabel("DazeOS Desktop Session (CDE Front Panel)", JLabel.CENTER);
-        title.setFont(title.getFont().deriveFont(Font.BOLD, 15.0f));
+        JLabel title = new JLabel("DazeOS Desktop Session (M8)", JLabel.CENTER);
+        title.setFont(title.getFont().deriveFont(15.0f));
+        title.setForeground(t.textActive());
         JLabel subtitle = new JLabel("Select an action to end or control your session:", JLabel.CENTER);
+        subtitle.setForeground(t.textActive());
         header.add(title);
         header.add(subtitle);
         dialog.add(header, BorderLayout.NORTH);
 
-        JPanel grid = new JPanel(new java.awt.GridLayout(2, 2, 12, 12));
+        JPanel grid = new JPanel(new GridLayout(2, 2, 12, 12));
+        grid.setBackground(t.base());
         grid.setBorder(BorderFactory.createEmptyBorder(8, 16, 8, 16));
 
         JButton logoutBtn = new JButton("<html><center><b>Log Out</b><br><small>Restart desktop session</small></center></html>");
@@ -503,6 +377,7 @@ public final class DazeDesktopPanel extends JFrame {
         dialog.add(grid, BorderLayout.CENTER);
 
         JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        footer.setBackground(t.base());
         footer.setBorder(BorderFactory.createEmptyBorder(0, 16, 12, 16));
         JButton cancelBtn = new JButton("Cancel");
         cancelBtn.addActionListener(e -> dialog.dispose());
@@ -515,11 +390,11 @@ public final class DazeDesktopPanel extends JFrame {
         dialog.setVisible(true);
     }
 
-    private static void requestSessionAction(String action) {
+    private void requestSessionAction(String action) {
         try {
             String home = System.getProperty("user.home", "/tmp");
             Files.writeString(
-                    java.nio.file.Path.of(home, ".dazeos-session-action"),
+                    new File(home, ".dazeos-session-action").toPath(),
                     action,
                     StandardCharsets.UTF_8);
         } catch (Exception ignored) {
@@ -527,16 +402,17 @@ public final class DazeDesktopPanel extends JFrame {
         System.exit(0);
     }
 
-    private static void showLogViewerDialog(JFrame parent) {
+    private void showLogViewerDialog(JFrame parent) {
         JDialog dialog = new JDialog(parent, "DazeOS Session Diagnostics & Logs", false);
         dialog.setLayout(new BorderLayout(8, 8));
+        DesktopTheme t = ThemeManager.currentTheme();
+        dialog.getContentPane().setBackground(t.base());
 
         String homeDir = System.getProperty("user.home", "/tmp");
         File sessionLog = new File(homeDir, ".dazeos-session.log");
         File wmLog = new File(homeDir, ".dazeos-wm.log");
 
         JTabbedPane tabbedPane = new JTabbedPane();
-
         JTextArea sessionArea = createLogTextArea(sessionLog);
         tabbedPane.addTab("Session Log (~/.dazeos-session.log)", new JScrollPane(sessionArea));
 
@@ -546,6 +422,7 @@ public final class DazeDesktopPanel extends JFrame {
         dialog.add(tabbedPane, BorderLayout.CENTER);
 
         JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        bottomPanel.setBackground(t.base());
         JButton refreshBtn = new JButton("Reload Logs");
         refreshBtn.addActionListener(e -> {
             sessionArea.setText(readLogContent(sessionLog));
@@ -564,7 +441,7 @@ public final class DazeDesktopPanel extends JFrame {
         dialog.setVisible(true);
     }
 
-    private static JTextArea createLogTextArea(File file) {
+    private JTextArea createLogTextArea(File file) {
         JTextArea area = new JTextArea(readLogContent(file));
         area.setEditable(false);
         area.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
@@ -572,7 +449,7 @@ public final class DazeDesktopPanel extends JFrame {
         return area;
     }
 
-    private static String readLogContent(File file) {
+    private String readLogContent(File file) {
         if (!file.exists()) {
             return "(Log file " + file.getAbsolutePath() + " does not exist yet.)";
         }
@@ -581,37 +458,5 @@ public final class DazeDesktopPanel extends JFrame {
         } catch (Exception e) {
             return "Error reading " + file.getAbsolutePath() + ": " + e.getMessage();
         }
-    }
-
-    private static void spawnDocumentWindow() {
-        int winNum = DOC_COUNTER.incrementAndGet();
-        JFrame docFrame = new JFrame("Document Window #" + winNum);
-        docFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        docFrame.setLayout(new BorderLayout(8, 8));
-
-        JTextArea textArea = new JTextArea(
-                "Welcome to DazeOS Document Window #" + winNum + "!\n\n"
-                + "- Click anywhere in this window to focus and raise it.\n"
-                + "- Minimize this window to see it parked as a 3D icon tile in the top-left corner!\n"
-                + "- Click the top-left tile to restore the window!\n"
-                + "- Close this window when finished.");
-        textArea.setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 6));
-        docFrame.add(new JScrollPane(textArea), BorderLayout.CENTER);
-
-        JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        AtomicInteger clickCounter = new AtomicInteger(0);
-        JButton counterBtn = new JButton("Clicks: 0");
-        counterBtn.addActionListener(e -> counterBtn.setText("Clicks: " + clickCounter.incrementAndGet()));
-        JButton closeBtn = new JButton("Close");
-        closeBtn.addActionListener(e -> docFrame.dispose());
-
-        bottomPanel.add(counterBtn);
-        bottomPanel.add(closeBtn);
-        docFrame.add(bottomPanel, BorderLayout.SOUTH);
-
-        docFrame.setPreferredSize(new Dimension(420, 260));
-        docFrame.pack();
-        docFrame.setLocationByPlatform(true);
-        docFrame.setVisible(true);
     }
 }

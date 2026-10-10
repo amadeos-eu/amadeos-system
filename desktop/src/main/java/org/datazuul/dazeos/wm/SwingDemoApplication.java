@@ -1,20 +1,32 @@
 package org.datazuul.dazeos.wm;
 
 import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.Graphics2D;
 import java.awt.GridLayout;
+import java.awt.image.BufferedImage;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.swing.BorderFactory;
+import javax.swing.DefaultListCellRenderer;
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
+import javax.swing.Timer;
+import org.datazuul.dazeos.wm.panel.X11EwmhHelper;
+import org.datazuul.dazeos.wm.theme.DesktopTheme;
+import org.datazuul.dazeos.wm.theme.ThemeManager;
 
 public final class SwingDemoApplication {
     private static final AtomicInteger WINDOW_COUNTER = new AtomicInteger(0);
@@ -46,7 +58,7 @@ public final class SwingDemoApplication {
         headerPanel.add(statusLabel);
         mainFrame.add(headerPanel, BorderLayout.NORTH);
 
-        JPanel centerPanel = new JPanel(new GridLayout(2, 1, 8, 8));
+        JPanel centerPanel = new JPanel(new GridLayout(3, 1, 8, 8));
         centerPanel.setBorder(BorderFactory.createEmptyBorder(8, 14, 8, 14));
 
         JPanel row1 = new JPanel(new GridLayout(1, 3, 10, 0));
@@ -77,6 +89,45 @@ public final class SwingDemoApplication {
         row1.add(terminalBtn);
         centerPanel.add(row1);
 
+        // Theme selection row
+        JPanel rowTheme = new JPanel(new BorderLayout(10, 0));
+        JLabel themeLabel = new JLabel("Desktop Color Theme:");
+        JComboBox<DesktopTheme> themeCombo = new JComboBox<>(
+                ThemeManager.availableThemes().toArray(new DesktopTheme[0])
+        );
+        themeCombo.setSelectedItem(ThemeManager.currentTheme());
+        themeCombo.setRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                JLabel l = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                if (value instanceof DesktopTheme dt) {
+                    l.setText(dt.name());
+                    BufferedImage swatch = new BufferedImage(14, 14, BufferedImage.TYPE_INT_RGB);
+                    Graphics2D g2 = swatch.createGraphics();
+                    g2.setColor(dt.base());
+                    g2.fillRect(0, 0, 14, 14);
+                    g2.setColor(dt.darkShadow());
+                    g2.drawRect(0, 0, 13, 13);
+                    g2.dispose();
+                    l.setIcon(new ImageIcon(swatch));
+                }
+                return l;
+            }
+        });
+        themeCombo.addActionListener(e -> {
+            DesktopTheme selected = (DesktopTheme) themeCombo.getSelectedItem();
+            if (selected != null && !selected.id().equals(ThemeManager.currentTheme().id())) {
+                ThemeManager.applyTheme(selected.id());
+                try (X11EwmhHelper helper = X11EwmhHelper.open(null)) {
+                    helper.setDesktopTheme(selected.id());
+                } catch (Exception ignored) {}
+                statusLabel.setText("Applied desktop color theme: " + selected.name());
+            }
+        });
+        rowTheme.add(themeLabel, BorderLayout.WEST);
+        rowTheme.add(themeCombo, BorderLayout.CENTER);
+        centerPanel.add(rowTheme);
+
         JPanel row2 = new JPanel(new GridLayout(1, 2, 10, 0));
         JButton logsBtn = new JButton("View Session Logs");
         logsBtn.addActionListener(e -> showLogViewerDialog(mainFrame));
@@ -94,8 +145,40 @@ public final class SwingDemoApplication {
         footerLabel.setBorder(BorderFactory.createEmptyBorder(0, 10, 12, 10));
         mainFrame.add(footerLabel, BorderLayout.SOUTH);
 
-        mainFrame.setPreferredSize(new Dimension(680, 260));
-        mainFrame.setMinimumSize(new Dimension(600, 240));
+        // Dynamic theme synchronization
+        Runnable updateThemeColors = () -> {
+            DesktopTheme t = ThemeManager.currentTheme();
+            mainFrame.getContentPane().setBackground(t.base());
+            headerPanel.setBackground(t.base());
+            centerPanel.setBackground(t.base());
+            row1.setBackground(t.base());
+            rowTheme.setBackground(t.base());
+            row2.setBackground(t.base());
+            titleLabel.setForeground(t.textActive());
+            statusLabel.setForeground(t.textActive());
+            themeLabel.setForeground(t.textActive());
+            footerLabel.setForeground(t.textInactive());
+            if (!t.equals(themeCombo.getSelectedItem())) {
+                themeCombo.setSelectedItem(t);
+            }
+            mainFrame.repaint();
+        };
+        ThemeManager.addListener(t -> SwingUtilities.invokeLater(updateThemeColors));
+        updateThemeColors.run();
+
+        // Monitor root window _DAZEOS_THEME for changes made by other processes
+        Timer remoteThemeWatcher = new Timer(1000, e -> {
+            try (X11EwmhHelper helper = X11EwmhHelper.open(null)) {
+                String remoteId = helper.getDesktopTheme();
+                if (remoteId != null && !remoteId.isBlank() && !remoteId.equals(ThemeManager.currentTheme().id())) {
+                    ThemeManager.applyTheme(remoteId);
+                }
+            } catch (Exception ignored) {}
+        });
+        remoteThemeWatcher.start();
+
+        mainFrame.setPreferredSize(new Dimension(680, 280));
+        mainFrame.setMinimumSize(new Dimension(600, 250));
         mainFrame.pack();
         mainFrame.setLocationByPlatform(true);
         mainFrame.setVisible(true);
@@ -259,7 +342,9 @@ public final class SwingDemoApplication {
 
         bottomPanel.add(counterBtn);
         bottomPanel.add(closeBtn);
-        docFrame.add(bottomPanel, BorderLayout.SOUTH);
+        DesktopTheme t = ThemeManager.currentTheme();
+        docFrame.getContentPane().setBackground(t.base());
+        bottomPanel.setBackground(t.base());
 
         docFrame.setPreferredSize(new Dimension(420, 260));
         docFrame.pack();
