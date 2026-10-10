@@ -78,9 +78,8 @@ public final class PamAuthenticator {
         int uid = LibC.INSTANCE.getuid();
         if (mockPam || uid != 0) {
             // Non-root development fallback: accept default amadeos/amadeos credentials
-            boolean isUser = "amadeos".equals(username) || "dazeos".equals(username);
+            boolean isUser = "amadeos".equals(username);
             boolean isPass = "amadeos".equals(password) || "amadeoz".equals(password)
-                    || "dazeos".equals(password) || "dayeos".equals(password)
                     || "live".equals(password) || password.isEmpty();
             if (isUser && isPass) {
                 LOGGER.info("Non-root/mock mode: authenticated successfully for user " + username);
@@ -155,9 +154,8 @@ public final class PamAuthenticator {
             String err = LibPam.INSTANCE.pam_strerror(pamh, rc);
             LOGGER.info(() -> "Authentication failed for " + username + ": " + err);
             // Live user fallback: allow default live user credentials even if shadow account was locked by live-config
-            boolean isLiveUser = "amadeos".equals(username) || "dazeos".equals(username);
+            boolean isLiveUser = "amadeos".equals(username);
             boolean isLivePass = "amadeos".equals(finalPassword) || "amadeoz".equals(finalPassword)
-                    || "dazeos".equals(finalPassword) || "dayeos".equals(finalPassword)
                     || "live".equals(finalPassword) || finalPassword.isEmpty();
             if (isLiveUser && isLivePass) {
                 LOGGER.info("Granting live session access for user '" + username + "'");
@@ -172,7 +170,7 @@ public final class PamAuthenticator {
         if (rc != LibPam.PAM_SUCCESS) {
             String err = LibPam.INSTANCE.pam_strerror(pamh, rc);
             LOGGER.warning("pam_acct_mgmt failed for " + username + ": " + err);
-            if ("amadeos".equals(username) || "dazeos".equals(username)) {
+            if ("amadeos".equals(username)) {
                 LOGGER.info("Bypassing account restriction for live user '" + username + "'");
             } else {
                 LibPam.INSTANCE.pam_end(pamh, rc);
@@ -189,7 +187,7 @@ public final class PamAuthenticator {
         if (rc != LibPam.PAM_SUCCESS) {
             String err = LibPam.INSTANCE.pam_strerror(pamh, rc);
             LOGGER.warning("pam_open_session failed: " + err);
-            if (!"amadeos".equals(username) && !"dazeos".equals(username)) {
+            if (!"amadeos".equals(username)) {
                 LibPam.INSTANCE.pam_setcred(pamh, LibPam.PAM_DELETE_CRED);
                 LibPam.INSTANCE.pam_end(pamh, rc);
                 return AuthResult.fail("Failed to open PAM session: " + err);

@@ -32,8 +32,7 @@ class PamAuthenticatorTest {
             assertEquals("amadeos", res.session().username());
             res.session().close();
 
-            // Also verify backward compatible dazeos login
-            PamAuthenticator.AuthResult res2 = auth.authenticate("dazeos", "dazeos");
+            PamAuthenticator.AuthResult res2 = auth.authenticate("amadeos", "amadeoz");
             assertTrue(res2.success());
             res2.session().close();
         } finally {
@@ -60,7 +59,7 @@ class PamAuthenticatorTest {
         System.setProperty("amadeos.mock.pam", "true");
         try {
             PamAuthenticator auth = new PamAuthenticator();
-            PamAuthenticator.AuthResult res = auth.authenticate("dazeos", "dayeos");
+            PamAuthenticator.AuthResult res = auth.authenticate("amadeos", "amadeoz");
             assertTrue(res.success());
             assertNotNull(res.session());
             res.session().close();

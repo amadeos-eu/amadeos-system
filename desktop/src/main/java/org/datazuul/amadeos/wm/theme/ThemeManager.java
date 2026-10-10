@@ -162,9 +162,6 @@ public final class ThemeManager {
         try {
             String userHome = System.getProperty("user.home", "/tmp");
             Path conf = Path.of(userHome, ".config", "amadeos", "theme.conf");
-            if (!Files.exists(conf)) {
-                conf = Path.of(userHome, ".config", "dazeos", "theme.conf");
-            }
             if (Files.exists(conf)) {
                 String id = Files.readString(conf, StandardCharsets.UTF_8).trim();
                 if (THEMES.containsKey(id)) {
