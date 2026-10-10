@@ -60,34 +60,21 @@ public final class MotifDecorationTheme implements DecorationTheme {
         // 2. Draw outer 3D raised frame borders (2px bevel)
         draw3DBevel(g, 0, 0, width, height, true, 2);
 
-        // 3. Draw authentic Motif corner tabs (segmented 3D joint lines)
-        int cornerLen = bw * 3;
-        drawCornerJoints(g, width, height, bw, cornerLen);
+        // 3. Draw authentic Motif corner tabs (segmented 3D joint lines aligned with button sides)
+        drawCornerJoints(g, width, height, bw, tbh);
 
-        // 4. Draw Titlebar inset
-        int tbX = bw + 1;
-        int tbY = bw + 1;
-        int tbW = width - (2 * bw) - 2;
-        int tbH = tbh - bw - 1;
-
+        // 4. Draw Titlebar inset (sunken 3D channel)
+        Rectangle tb = metrics.getTitleBarBounds(width);
         g.setColor(active ? TITLE_BG_ACTIVE : TITLE_BG_INACTIVE);
-        g.fillRect(tbX, tbY, tbW, tbH);
+        g.fillRect(tb.x, tb.y, tb.width, tb.height);
+        draw3DBevel(g, tb.x, tb.y, tb.width, tb.height, false, 2);
 
-        // 3D recessed channel around title bar
-        draw3DBevel(g, tbX, tbY, tbW, tbH, false, 1);
-
-        // 5. Title Text (centered between left menu button and right buttons)
+        // 5. Title Text (centered inside sunken title channel)
         g.setFont(TITLE_FONT);
         g.setColor(active ? TITLE_TEXT_ACTIVE : TITLE_TEXT_INACTIVE);
         FontMetrics fm = g.getFontMetrics();
 
-        Rectangle menuBounds = metrics.getButtonBounds(width, WindowButton.MENU);
-        Rectangle minBounds = metrics.getButtonBounds(width, WindowButton.MINIMIZE);
-
-        int textLeft = menuBounds.x + menuBounds.width + 8;
-        int textRight = minBounds.x - 8;
-        int maxTextWidth = Math.max(0, textRight - textLeft);
-
+        int maxTextWidth = Math.max(0, tb.width - 16);
         String displayTitle = title != null ? title : "";
         if (fm.stringWidth(displayTitle) > maxTextWidth) {
             while (!displayTitle.isEmpty() && fm.stringWidth(displayTitle + "...") > maxTextWidth) {
@@ -97,8 +84,8 @@ public final class MotifDecorationTheme implements DecorationTheme {
         }
 
         int titleStrWidth = fm.stringWidth(displayTitle);
-        int textX = textLeft + Math.max(0, (maxTextWidth - titleStrWidth) / 2);
-        int textY = tbY + ((tbH - fm.getHeight()) / 2) + fm.getAscent();
+        int textX = tb.x + Math.max(0, (tb.width - titleStrWidth) / 2);
+        int textY = tb.y + ((tb.height - fm.getHeight()) / 2) + fm.getAscent();
         g.drawString(displayTitle, textX, textY);
 
         // 6. Draw Buttons with 3D Beveled Glyphs
@@ -136,7 +123,7 @@ public final class MotifDecorationTheme implements DecorationTheme {
         int clientY = tbh;
         int clientW = width - (2 * bw);
         int clientH = height - tbh - bw;
-        draw3DBevel(g, clientX - 1, clientY - 1, clientW + 2, clientH + 2, false, 1);
+        draw3DBevel(g, clientX, clientY, clientW, clientH, false, 1);
     }
 
     private void drawButtonGlyph(Graphics2D g, WindowButton button, int cx, int cy, boolean isHovered, boolean isPressed) {
@@ -231,18 +218,31 @@ public final class MotifDecorationTheme implements DecorationTheme {
         }
     }
 
-    private void drawCornerJoints(Graphics2D g, int width, int height, int bw, int cornerLen) {
-        // Vertical 3D notch joints on top and bottom borders
-        drawNotchLine(g, cornerLen, 0, cornerLen, bw, true);
-        drawNotchLine(g, width - cornerLen, 0, width - cornerLen, bw, true);
-        drawNotchLine(g, cornerLen, height - bw, cornerLen, height, true);
-        drawNotchLine(g, width - cornerLen, height - bw, width - cornerLen, height, true);
+    private void drawCornerJoints(Graphics2D g, int width, int height, int bw, int tbh) {
+        int cornerLeft = metrics.borderWidth() + metrics.buttonSize();
+        int cornerRight = width - metrics.borderWidth() - (3 * metrics.buttonSize());
 
-        // Horizontal 3D notch joints on left and right borders
-        drawNotchLine(g, 0, cornerLen, bw, cornerLen, false);
-        drawNotchLine(g, 0, height - cornerLen, bw, height - cornerLen, false);
-        drawNotchLine(g, width - bw, cornerLen, width, cornerLen, false);
-        drawNotchLine(g, width - bw, height - cornerLen, width, height - cornerLen, false);
+        // Vertical 3D notch joints on top border:
+        // Top-left notch aligns with right edge of MENU button:
+        drawNotchLine(g, cornerLeft - 1, 0, cornerLeft - 1, bw - 1, true);
+        // Top-right notch aligns with left edge of MINIMIZE button:
+        drawNotchLine(g, cornerRight - 1, 0, cornerRight - 1, bw - 1, true);
+
+        // Vertical 3D notch joints on bottom border:
+        drawNotchLine(g, cornerLeft - 1, height - bw, cornerLeft - 1, height - 1, true);
+        drawNotchLine(g, cornerRight - 1, height - bw, cornerRight - 1, height - 1, true);
+
+        // Horizontal 3D notch joints on left border:
+        // Top-left notch aligns with bottom edge of title bar / buttons:
+        drawNotchLine(g, 0, tbh - 1, bw - 1, tbh - 1, false);
+        // Bottom-left notch aligns symmetrically from bottom:
+        drawNotchLine(g, 0, height - tbh - 1, bw - 1, height - tbh - 1, false);
+
+        // Horizontal 3D notch joints on right border:
+        // Top-right notch aligns with bottom edge of title bar / buttons:
+        drawNotchLine(g, width - bw, tbh - 1, width - 1, tbh - 1, false);
+        // Bottom-right notch aligns symmetrically from bottom:
+        drawNotchLine(g, width - bw, height - tbh - 1, width - 1, height - tbh - 1, false);
     }
 
     private void drawNotchLine(Graphics2D g, int x1, int y1, int x2, int y2, boolean vertical) {

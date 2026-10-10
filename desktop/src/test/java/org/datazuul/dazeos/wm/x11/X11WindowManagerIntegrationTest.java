@@ -234,5 +234,60 @@ class X11WindowManagerIntegrationTest {
             }
         }
     }
+
+    @Test
+    void testConfigureRequestPreservesClientInsetsAndResizesFrame() throws Exception {
+        try (X11WindowManagerService wm = X11WindowManagerService.open(display)) {
+            Process client = new ProcessBuilder("xmessage", "-display", display, "-buttons", "OK:0", "Configure Test").start();
+            try {
+                Thread.sleep(500);
+                wm.processPendingEvents();
+
+                assertFalse(wm.core().registry().snapshot().isEmpty());
+                long windowId = wm.core().registry().snapshot().iterator().next().id();
+                FrameWindow frame = wm.getFrameForClient(windowId);
+                assertNotNull(frame);
+
+                // Initial position
+                int initialClientX = frame.clientX();
+                int initialClientY = frame.clientY();
+                assertEquals(frame.metrics().clientOffsetX(), initialClientX);
+                assertEquals(frame.metrics().clientOffsetY(), initialClientY);
+
+                // Simulate client requesting a move to screen (120, 180) and resize to (350, 150)
+                // (Like Swing JOptionPane sizing and placing itself on root)
+                LibX11.XEvent cfgEvent = new LibX11.XEvent();
+                LibX11.XConfigureRequestEvent cfg = new LibX11.XConfigureRequestEvent(cfgEvent.getPointer());
+                cfg.type = LibX11.ConfigureRequest;
+                cfg.window = new com.sun.jna.NativeLong(windowId);
+                cfg.x = 120;
+                cfg.y = 180;
+                cfg.width = 350;
+                cfg.height = 150;
+                cfg.value_mask = new com.sun.jna.NativeLong(LibX11.CWX | LibX11.CWY | LibX11.CWWidth | LibX11.CWHeight);
+                cfg.write();
+                cfgEvent.type = LibX11.ConfigureRequest;
+
+                wm.handleEvent(cfgEvent);
+
+                // Verify: Frame moved to (120, 180) on root
+                assertEquals(120, frame.frameX());
+                assertEquals(180, frame.frameY());
+
+                // Verify: Frame resized to wrap the requested client size
+                assertEquals(frame.metrics().frameWidth(350), frame.frameWidth());
+                assertEquals(frame.metrics().frameHeight(150), frame.frameHeight());
+
+                // CRITICAL: Verify client internal coordinates inside frame did NOT get clobbered to (120, 180)
+                // Client must remain locked to (clientOffsetX, clientOffsetY) inside frame
+                assertEquals(frame.metrics().clientOffsetX(), frame.clientX());
+                assertEquals(frame.metrics().clientOffsetY(), frame.clientY());
+                assertEquals(350, frame.clientWidth());
+                assertEquals(150, frame.clientHeight());
+            } finally {
+                client.destroyForcibly();
+            }
+        }
+    }
 }
 

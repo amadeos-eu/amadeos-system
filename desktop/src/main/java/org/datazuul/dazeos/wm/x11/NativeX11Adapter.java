@@ -43,6 +43,7 @@ public final class NativeX11Adapter implements X11Adapter {
             if (gc != null) {
                 frame.blit(display, gc, screen);
             }
+            sendSyntheticConfigureNotify(frame);
         } else {
             x11.XMoveResizeWindow(display, new NativeLong(windowId), geometry.x(), geometry.y(), geometry.width(), geometry.height());
         }
@@ -149,5 +150,26 @@ public final class NativeX11Adapter implements X11Adapter {
             }
         }
         return false;
+    }
+
+    private void sendSyntheticConfigureNotify(FrameWindow frame) {
+        long clientWin = frame.clientWindow().longValue();
+        LibX11.XConfigureEvent ce = new LibX11.XConfigureEvent();
+        ce.type = LibX11.ConfigureNotify;
+        ce.serial = new NativeLong(0);
+        ce.send_event = 1;
+        ce.display = display;
+        ce.event = new NativeLong(clientWin);
+        ce.window = new NativeLong(clientWin);
+        ce.x = frame.frameX() + frame.clientX();
+        ce.y = frame.frameY() + frame.clientY();
+        ce.width = frame.clientWidth();
+        ce.height = frame.clientHeight();
+        ce.border_width = 0;
+        ce.above = new NativeLong(0);
+        ce.override_redirect = 0;
+        ce.write();
+
+        x11.XSendEvent(display, new NativeLong(clientWin), 0, new NativeLong(LibX11.StructureNotifyMask), ce.getPointer());
     }
 }

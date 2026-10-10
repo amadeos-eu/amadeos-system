@@ -22,7 +22,7 @@ public final class FrameMetrics {
     }
 
     public static FrameMetrics defaultMotif() {
-        return new FrameMetrics(26, 6, 20, 20, 3);
+        return new FrameMetrics(26, 6, 26, 20, 0);
     }
 
     public int titleBarHeight() {
@@ -35,6 +35,10 @@ public final class FrameMetrics {
 
     public int buttonSize() {
         return buttonSize;
+    }
+
+    public int buttonSpacing() {
+        return buttonSpacing;
     }
 
     public int frameWidth(int clientWidth) {
@@ -62,16 +66,20 @@ public final class FrameMetrics {
     }
 
     public Rectangle getTitleBarBounds(int frameWidth) {
-        return new Rectangle(borderWidth, borderWidth, Math.max(1, frameWidth - (2 * borderWidth)), titleBarHeight - borderWidth);
+        int x = borderWidth + buttonSize;
+        int w = Math.max(1, frameWidth - (2 * borderWidth) - (4 * buttonSize));
+        int h = titleBarHeight - borderWidth;
+        return new Rectangle(x, borderWidth, w, h);
     }
 
     public Rectangle getButtonBounds(int frameWidth, WindowButton button) {
-        int y = borderWidth + Math.max(0, (titleBarHeight - borderWidth - buttonSize) / 2);
+        int y = borderWidth;
+        int h = titleBarHeight - borderWidth;
         return switch (button) {
-            case MENU -> new Rectangle(borderWidth + 3, y, buttonSize, buttonSize);
-            case CLOSE -> new Rectangle(frameWidth - borderWidth - buttonSize - 3, y, buttonSize, buttonSize);
-            case MAXIMIZE -> new Rectangle(frameWidth - borderWidth - (2 * buttonSize) - (2 * buttonSpacing) - 3, y, buttonSize, buttonSize);
-            case MINIMIZE -> new Rectangle(frameWidth - borderWidth - (3 * buttonSize) - (3 * buttonSpacing) - 3, y, buttonSize, buttonSize);
+            case MENU -> new Rectangle(borderWidth, y, buttonSize, h);
+            case CLOSE -> new Rectangle(frameWidth - borderWidth - buttonSize, y, buttonSize, h);
+            case MAXIMIZE -> new Rectangle(frameWidth - borderWidth - (2 * buttonSize), y, buttonSize, h);
+            case MINIMIZE -> new Rectangle(frameWidth - borderWidth - (3 * buttonSize), y, buttonSize, h);
         };
     }
 
@@ -89,13 +97,7 @@ public final class FrameMetrics {
     }
 
     public boolean isTitleBarDragZone(int frameWidth, int x, int y) {
-        if (y < borderWidth || y >= titleBarHeight) {
-            return false;
-        }
-        if (x < borderWidth || x >= frameWidth - borderWidth) {
-            return false;
-        }
-        return hitTestButton(frameWidth, x, y).isEmpty();
+        return getTitleBarBounds(frameWidth).contains(x, y);
     }
 
     public ResizeDirection hitTestBorder(int frameWidth, int frameHeight, int x, int y) {
@@ -109,10 +111,15 @@ public final class FrameMetrics {
             return ResizeDirection.NONE;
         }
 
-        boolean nearLeft = x < cornerGrabLength;
-        boolean nearRight = x >= frameWidth - cornerGrabLength;
-        boolean nearTop = y < cornerGrabLength;
-        boolean nearBottom = y >= frameHeight - cornerGrabLength;
+        int cornerLeft = borderWidth + buttonSize;
+        int cornerRight = frameWidth - borderWidth - (3 * buttonSize);
+        int cornerTop = titleBarHeight;
+        int cornerBottom = frameHeight - titleBarHeight;
+
+        boolean nearLeft = x < cornerLeft;
+        boolean nearRight = x >= cornerRight;
+        boolean nearTop = y < cornerTop;
+        boolean nearBottom = y >= cornerBottom;
 
         // Corners
         if ((onTop || onLeft) && nearTop && nearLeft) return ResizeDirection.NW;

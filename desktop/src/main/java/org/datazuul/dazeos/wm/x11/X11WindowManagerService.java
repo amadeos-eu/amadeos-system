@@ -447,9 +447,35 @@ public final class X11WindowManagerService implements AutoCloseable {
         x11.XMapWindow(display, frameWin);
 
         frame.blit(display, gc, screen);
+        sendSyntheticConfigureNotify(frame);
         x11.XFlush(display);
 
         return frame;
+    }
+
+    public void sendSyntheticConfigureNotify(FrameWindow frame) {
+        if (frame == null) {
+            return;
+        }
+        long clientWin = frame.clientWindow().longValue();
+        LibX11.XConfigureEvent ce = new LibX11.XConfigureEvent();
+        ce.type = LibX11.ConfigureNotify;
+        ce.serial = new NativeLong(0);
+        ce.send_event = 1;
+        ce.display = display;
+        ce.event = new NativeLong(clientWin);
+        ce.window = new NativeLong(clientWin);
+        ce.x = frame.frameX() + frame.clientX();
+        ce.y = frame.frameY() + frame.clientY();
+        ce.width = frame.clientWidth();
+        ce.height = frame.clientHeight();
+        ce.border_width = 0;
+        ce.above = new NativeLong(0);
+        ce.override_redirect = 0;
+        ce.write();
+
+        x11.XSendEvent(display, new NativeLong(clientWin), 0, new NativeLong(LibX11.StructureNotifyMask), ce.getPointer());
+        x11.XFlush(display);
     }
 
     public void scanExistingWindows() {
@@ -549,18 +575,25 @@ public final class X11WindowManagerService implements AutoCloseable {
                     transientFor = parentMem.getNativeLong(0).longValue();
                 }
 
-                WindowGeometry initialGeom;
+                FrameMetrics m = theme.metrics();
+                int clientW = Math.max(100, w);
+                int clientH = Math.max(60, h);
+                int frameW = m.frameWidth(clientW);
+                int frameH = m.frameHeight(clientH);
+
+                int frameX, frameY;
                 var parentRecord = (transientFor != 0) ? core.registry().find(transientFor) : Optional.<WindowRecord>empty();
                 if (parentRecord.isPresent()) {
                     WindowGeometry parentGeom = parentRecord.get().geometry();
-                    int cx = parentGeom.x() + (parentGeom.width() - w) / 2;
-                    int cy = parentGeom.y() + (parentGeom.height() - h) / 2;
-                    cx = Math.max(10, Math.min(cx, screenWidth - w - 10));
-                    cy = Math.max(10, Math.min(cy, screenHeight - h - 10));
-                    initialGeom = new WindowGeometry(cx, cy, w, h);
+                    frameX = parentGeom.x() + (parentGeom.width() - frameW) / 2;
+                    frameY = parentGeom.y() + (parentGeom.height() - frameH) / 2;
+                    frameX = Math.max(10, Math.min(frameX, screenWidth - frameW - 10));
+                    frameY = Math.max(10, Math.min(frameY, screenHeight - frameH - 10));
                 } else {
-                    initialGeom = new WindowGeometry(x, y, w, h);
+                    frameX = Math.max(0, x);
+                    frameY = Math.max(0, y);
                 }
+                WindowGeometry initialGeom = new WindowGeometry(frameX, frameY, clientW, clientH);
 
                 FrameWindow frame = decorateAndReparent(win, initialGeom);
                 WindowGeometry managedGeom = (frame != null)
@@ -655,16 +688,46 @@ public final class X11WindowManagerService implements AutoCloseable {
             case LibX11.ConfigureRequest -> {
                 LibX11.XConfigureRequestEvent cfg = new LibX11.XConfigureRequestEvent(event.getPointer());
                 long win = cfg.window.longValue();
-                LibX11.XWindowChanges changes = new LibX11.XWindowChanges();
-                changes.x = cfg.x;
-                changes.y = cfg.y;
-                changes.width = cfg.width;
-                changes.height = cfg.height;
-                changes.border_width = cfg.border_width;
-                changes.sibling = cfg.above;
-                changes.stack_mode = cfg.detail;
-                x11.XConfigureWindow(display, new NativeLong(win), cfg.value_mask, changes);
-                x11.XFlush(display);
+                FrameWindow frame = clientToFrame.get(win);
+                if (frame != null) {
+                    FrameMetrics m = theme.metrics();
+                    long mask = (cfg.value_mask != null) ? cfg.value_mask.longValue() : 0L;
+                    int clientW = ((mask & LibX11.CWWidth) != 0) ? Math.max(100, cfg.width) : frame.clientWidth();
+                    int clientH = ((mask & LibX11.CWHeight) != 0) ? Math.max(60, cfg.height) : frame.clientHeight();
+                    int frameW = m.frameWidth(clientW);
+                    int frameH = m.frameHeight(clientH);
+
+                    int frameX = frame.frameX();
+                    int frameY = frame.frameY();
+                    if ((mask & LibX11.CWX) != 0) {
+                        frameX = cfg.x;
+                    }
+                    if ((mask & LibX11.CWY) != 0) {
+                        frameY = cfg.y;
+                    }
+
+                    frame.setBounds(frameX, frameY, frameW, frameH);
+                    x11.XMoveResizeWindow(display, frame.frameWindow(), frameX, frameY, frameW, frameH);
+                    x11.XMoveResizeWindow(display, frame.clientWindow(), frame.clientX(), frame.clientY(), frame.clientWidth(), frame.clientHeight());
+                    frame.render();
+                    frame.blit(display, gc, screen);
+
+                    sendSyntheticConfigureNotify(frame);
+
+                    core.registry().updateGeometry(win, new WindowGeometry(frameX, frameY, frameW, frameH));
+                    x11.XFlush(display);
+                } else {
+                    LibX11.XWindowChanges changes = new LibX11.XWindowChanges();
+                    changes.x = cfg.x;
+                    changes.y = cfg.y;
+                    changes.width = cfg.width;
+                    changes.height = cfg.height;
+                    changes.border_width = cfg.border_width;
+                    changes.sibling = cfg.above;
+                    changes.stack_mode = cfg.detail;
+                    x11.XConfigureWindow(display, new NativeLong(win), cfg.value_mask != null ? cfg.value_mask : new NativeLong(0), changes);
+                    x11.XFlush(display);
+                }
             }
             case LibX11.DestroyNotify -> {
                 LibX11.XDestroyWindowEvent dest = new LibX11.XDestroyWindowEvent(event.getPointer());
@@ -803,6 +866,7 @@ public final class X11WindowManagerService implements AutoCloseable {
                         wireframeX, wireframeY,
                         wireframeW, wireframeH));
                 x11.XDefineCursor(display, interactionFrame.frameWindow(), cursorDefault);
+                sendSyntheticConfigureNotify(interactionFrame);
             }
             interactionType = InteractionType.NONE;
             interactionFrame = null;

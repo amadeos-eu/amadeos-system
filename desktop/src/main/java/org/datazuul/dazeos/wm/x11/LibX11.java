@@ -202,6 +202,33 @@ public interface LibX11 extends Library {
         }
     }
 
+    @Structure.FieldOrder({
+        "type", "serial", "send_event", "display", "event", "window",
+        "x", "y", "width", "height", "border_width", "above", "override_redirect"
+    })
+    class XConfigureEvent extends Structure {
+        public int type;
+        public NativeLong serial;
+        public int send_event;
+        public Pointer display;
+        public NativeLong event;
+        public NativeLong window;
+        public int x, y;
+        public int width, height;
+        public int border_width;
+        public NativeLong above;
+        public int override_redirect;
+
+        public XConfigureEvent() {
+            super();
+        }
+
+        public XConfigureEvent(Pointer p) {
+            super(p);
+            read();
+        }
+    }
+
     @Structure.FieldOrder({"type", "serial", "send_event", "display", "event", "window"})
     class XDestroyWindowEvent extends Structure {
         public int type;
