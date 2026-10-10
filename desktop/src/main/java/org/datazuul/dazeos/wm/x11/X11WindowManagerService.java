@@ -70,9 +70,21 @@ public final class X11WindowManagerService implements AutoCloseable {
     private final NativeLong netClientList;
     private final NativeLong netActiveWindow;
     private final NativeLong netCloseWindow;
+    private final NativeLong netWmWindowType;
+    private final NativeLong netWmWindowTypeDock;
+    private final NativeLong netWmWindowTypeNormal;
+    private final NativeLong netWmState;
+    private final NativeLong netWmStateHidden;
+    private final NativeLong netWmStrut;
+    private final NativeLong netWmStrutPartial;
+    private final NativeLong wmChangeState;
+    private final NativeLong wmState;
     private final NativeLong utf8String;
     private final NativeLong xaWindowAtom;
     private final NativeLong xaAtomAtom;
+
+    private final java.util.Set<Long> dockWindows = new java.util.HashSet<>();
+    private int dockMarginBottom = 0;
 
     private static volatile boolean anotherWmDetected = false;
 
@@ -197,6 +209,15 @@ public final class X11WindowManagerService implements AutoCloseable {
         this.netClientList = x11.XInternAtom(display, "_NET_CLIENT_LIST", 0);
         this.netActiveWindow = x11.XInternAtom(display, "_NET_ACTIVE_WINDOW", 0);
         this.netCloseWindow = x11.XInternAtom(display, "_NET_CLOSE_WINDOW", 0);
+        this.netWmWindowType = x11.XInternAtom(display, "_NET_WM_WINDOW_TYPE", 0);
+        this.netWmWindowTypeDock = x11.XInternAtom(display, "_NET_WM_WINDOW_TYPE_DOCK", 0);
+        this.netWmWindowTypeNormal = x11.XInternAtom(display, "_NET_WM_WINDOW_TYPE_NORMAL", 0);
+        this.netWmState = x11.XInternAtom(display, "_NET_WM_STATE", 0);
+        this.netWmStateHidden = x11.XInternAtom(display, "_NET_WM_STATE_HIDDEN", 0);
+        this.netWmStrut = x11.XInternAtom(display, "_NET_WM_STRUT", 0);
+        this.netWmStrutPartial = x11.XInternAtom(display, "_NET_WM_STRUT_PARTIAL", 0);
+        this.wmChangeState = x11.XInternAtom(display, "WM_CHANGE_STATE", 0);
+        this.wmState = x11.XInternAtom(display, "WM_STATE", 0);
         this.utf8String = x11.XInternAtom(display, "UTF8_STRING", 0);
         this.xaWindowAtom = new NativeLong(LibX11.XA_WINDOW);
         this.xaAtomAtom = new NativeLong(LibX11.XA_ATOM);
@@ -227,6 +248,14 @@ public final class X11WindowManagerService implements AutoCloseable {
         return checkWindow;
     }
 
+    public int dockMarginBottom() {
+        return dockMarginBottom;
+    }
+
+    public void setDockMarginBottom(int margin) {
+        this.dockMarginBottom = Math.max(0, margin);
+    }
+
     public FrameWindow getFrameForClient(long clientWin) {
         return clientToFrame.get(clientWin);
     }
@@ -244,6 +273,68 @@ public final class X11WindowManagerService implements AutoCloseable {
             case SE -> cursorSE;
             case NONE -> cursorDefault;
         };
+    }
+
+    public boolean isDockWindow(long win) {
+        if (dockWindows.contains(win)) {
+            return true;
+        }
+        PointerByReference actualTypeRet = new PointerByReference();
+        IntByReference actualFormatRet = new IntByReference();
+        com.sun.jna.ptr.NativeLongByReference nitemsRet = new com.sun.jna.ptr.NativeLongByReference();
+        com.sun.jna.ptr.NativeLongByReference bytesAfterRet = new com.sun.jna.ptr.NativeLongByReference();
+        PointerByReference propRet = new PointerByReference();
+
+        int status = x11.XGetWindowProperty(
+                display, new NativeLong(win), netWmWindowType,
+                new NativeLong(0), new NativeLong(32), 0,
+                new NativeLong(LibX11.XA_ATOM),
+                actualTypeRet, actualFormatRet, nitemsRet, bytesAfterRet, propRet);
+
+        if (status == 0 && propRet.getValue() != null && nitemsRet.getValue() != null && nitemsRet.getValue().longValue() > 0) {
+            int count = (int) nitemsRet.getValue().longValue();
+            Pointer ptr = propRet.getValue();
+            try {
+                for (int i = 0; i < count; i++) {
+                    long atom = ptr.getNativeLong((long) i * NativeLong.SIZE).longValue();
+                    if (atom == netWmWindowTypeDock.longValue()) {
+                        return true;
+                    }
+                }
+            } finally {
+                x11.XFree(ptr);
+            }
+        }
+        return false;
+    }
+
+    public int readDockStrutBottom(long win) {
+        PointerByReference actualTypeRet = new PointerByReference();
+        IntByReference actualFormatRet = new IntByReference();
+        com.sun.jna.ptr.NativeLongByReference nitemsRet = new com.sun.jna.ptr.NativeLongByReference();
+        com.sun.jna.ptr.NativeLongByReference bytesAfterRet = new com.sun.jna.ptr.NativeLongByReference();
+        PointerByReference propRet = new PointerByReference();
+
+        NativeLong[] strutAtoms = new NativeLong[]{netWmStrutPartial, netWmStrut};
+        for (NativeLong atom : strutAtoms) {
+            int status = x11.XGetWindowProperty(
+                    display, new NativeLong(win), atom,
+                    new NativeLong(0), new NativeLong(12), 0,
+                    new NativeLong(LibX11.XA_CARDINAL),
+                    actualTypeRet, actualFormatRet, nitemsRet, bytesAfterRet, propRet);
+            if (status == 0 && propRet.getValue() != null && nitemsRet.getValue() != null && nitemsRet.getValue().longValue() >= 4) {
+                Pointer ptr = propRet.getValue();
+                try {
+                    long bottomStrut = ptr.getNativeLong(3L * NativeLong.SIZE).longValue();
+                    if (bottomStrut > 0) {
+                        return (int) bottomStrut;
+                    }
+                } finally {
+                    x11.XFree(ptr);
+                }
+            }
+        }
+        return 0;
     }
 
     private void initEwmh() {
@@ -265,7 +356,8 @@ public final class X11WindowManagerService implements AutoCloseable {
 
         // _NET_SUPPORTED on root
         NativeLong[] supportedAtoms = new NativeLong[]{
-            netSupportingWmCheck, netWmName, netSupported, netClientList, netActiveWindow, netCloseWindow
+            netSupportingWmCheck, netWmName, netSupported, netClientList, netActiveWindow, netCloseWindow,
+            netWmWindowType, netWmWindowTypeDock, netWmState, netWmStateHidden, netWmStrut, netWmStrutPartial
         };
         Memory supMem = new Memory((long) supportedAtoms.length * NativeLong.SIZE);
         for (int i = 0; i < supportedAtoms.length; i++) {
@@ -294,9 +386,13 @@ public final class X11WindowManagerService implements AutoCloseable {
     private long activeWindow = 0;
 
     public void setActiveWindow(long win) {
-        Memory mem = new Memory(NativeLong.SIZE);
-        mem.setNativeLong(0, new NativeLong(win));
-        x11.XChangeProperty(display, new NativeLong(rootWindow), netActiveWindow, xaWindowAtom, 32, LibX11.PropModeReplace, mem, 1);
+        if (win == 0) {
+            x11.XDeleteProperty(display, new NativeLong(rootWindow), netActiveWindow);
+        } else {
+            Memory mem = new Memory(NativeLong.SIZE);
+            mem.setNativeLong(0, new NativeLong(win));
+            x11.XChangeProperty(display, new NativeLong(rootWindow), netActiveWindow, xaWindowAtom, 32, LibX11.PropModeReplace, mem, 1);
+        }
         x11.XFlush(display);
     }
 
@@ -304,6 +400,23 @@ public final class X11WindowManagerService implements AutoCloseable {
         if (win == 0 || core.registry().find(win).isEmpty()) {
             return;
         }
+
+        FrameWindow targetFrame = clientToFrame.get(win);
+        if (targetFrame != null && targetFrame.isMinimized()) {
+            targetFrame.setMinimized(false);
+            x11.XMapWindow(display, targetFrame.frameWindow());
+            x11.XDeleteProperty(display, new NativeLong(win), netWmState);
+
+            Memory wmStateMem = new Memory(NativeLong.SIZE * 2);
+            wmStateMem.setNativeLong(0, new NativeLong(LibX11.NormalState));
+            wmStateMem.setNativeLong(NativeLong.SIZE, new NativeLong(0));
+            x11.XChangeProperty(display, new NativeLong(win), wmState, wmState, 32, LibX11.PropModeReplace, wmStateMem, 2);
+
+            targetFrame.render();
+            targetFrame.blit(display, gc, screen);
+            sendSyntheticConfigureNotify(targetFrame);
+        }
+
         if (activeWindow != 0 && activeWindow != win && core.registry().find(activeWindow).isPresent()) {
             grabWindowButtons(activeWindow);
         }
@@ -318,8 +431,10 @@ public final class X11WindowManagerService implements AutoCloseable {
             boolean isActive = (frame.clientWindow().longValue() == win);
             if (frame.isActive() != isActive) {
                 frame.setActive(isActive);
-                frame.render();
-                frame.blit(display, gc, screen);
+                if (!frame.isMinimized()) {
+                    frame.render();
+                    frame.blit(display, gc, screen);
+                }
             }
         }
         x11.XFlush(display);
@@ -496,6 +611,15 @@ public final class X11WindowManagerService implements AutoCloseable {
                 LibX11.XWindowAttributes attrs = new LibX11.XWindowAttributes();
                 if (x11.XGetWindowAttributes(display, new NativeLong(child), attrs) != 0) {
                     if (attrs.override_redirect == 0 && attrs.map_state == 2 /* IsViewable */) {
+                        if (isDockWindow(child)) {
+                            dockWindows.add(child);
+                            int strut = readDockStrutBottom(child);
+                            if (strut > 0) {
+                                dockMarginBottom = strut;
+                            }
+                            x11.XRaiseWindow(display, new NativeLong(child));
+                            continue;
+                        }
                         WindowGeometry geom = new WindowGeometry(attrs.x, attrs.y, attrs.width, attrs.height);
                         FrameWindow frame = decorateAndReparent(child, geom);
                         WindowGeometry managedGeom = (frame != null)
@@ -568,6 +692,18 @@ public final class X11WindowManagerService implements AutoCloseable {
                     h = attrs.height;
                 }
 
+                if (isDockWindow(win)) {
+                    dockWindows.add(win);
+                    int strut = readDockStrutBottom(win);
+                    if (strut > 0) {
+                        dockMarginBottom = strut;
+                    }
+                    x11.XMapWindow(display, new NativeLong(win));
+                    x11.XRaiseWindow(display, new NativeLong(win));
+                    LOGGER.info(() -> "Mapped dock window without frame: " + win + " strutBottom=" + dockMarginBottom);
+                    return;
+                }
+
                 // Check for transient window hint (dialogs/popups)
                 Memory parentMem = new Memory(NativeLong.SIZE);
                 long transientFor = 0;
@@ -581,6 +717,7 @@ public final class X11WindowManagerService implements AutoCloseable {
                 int frameW = m.frameWidth(clientW);
                 int frameH = m.frameHeight(clientH);
 
+                int maxUsableH = Math.max(100, screenHeight - dockMarginBottom);
                 int frameX, frameY;
                 var parentRecord = (transientFor != 0) ? core.registry().find(transientFor) : Optional.<WindowRecord>empty();
                 if (parentRecord.isPresent()) {
@@ -588,10 +725,10 @@ public final class X11WindowManagerService implements AutoCloseable {
                     frameX = parentGeom.x() + (parentGeom.width() - frameW) / 2;
                     frameY = parentGeom.y() + (parentGeom.height() - frameH) / 2;
                     frameX = Math.max(10, Math.min(frameX, screenWidth - frameW - 10));
-                    frameY = Math.max(10, Math.min(frameY, screenHeight - frameH - 10));
+                    frameY = Math.max(10, Math.min(frameY, maxUsableH - frameH - 10));
                 } else if (x > 0 || y > 0) {
                     frameX = Math.max(10, Math.min(x, screenWidth - frameW - 10));
-                    frameY = Math.max(10, Math.min(y, screenHeight - frameH - 10));
+                    frameY = Math.max(10, Math.min(y, maxUsableH - frameH - 10));
                 } else {
                     // Smart floating cascade offset from active window (or last managed window)
                     var activeRecord = (activeWindow != 0) ? core.registry().find(activeWindow) : Optional.<WindowRecord>empty();
@@ -599,7 +736,7 @@ public final class X11WindowManagerService implements AutoCloseable {
                         WindowGeometry ag = activeRecord.get().geometry();
                         frameX = ag.x() + 30;
                         frameY = ag.y() + 30;
-                        if (frameX + frameW > screenWidth - 20 || frameY + frameH > screenHeight - 20) {
+                        if (frameX + frameW > screenWidth - 20 || frameY + frameH > maxUsableH - 20) {
                             frameX = 40;
                             frameY = 40;
                         }
@@ -609,7 +746,7 @@ public final class X11WindowManagerService implements AutoCloseable {
                             var last = all.get(all.size() - 1).geometry();
                             frameX = last.x() + 30;
                             frameY = last.y() + 30;
-                            if (frameX + frameW > screenWidth - 20 || frameY + frameH > screenHeight - 20) {
+                            if (frameX + frameW > screenWidth - 20 || frameY + frameH > maxUsableH - 20) {
                                 frameX = 40;
                                 frameY = 40;
                             }
@@ -705,6 +842,30 @@ public final class X11WindowManagerService implements AutoCloseable {
                 } else if (cmsg.message_type != null && cmsg.message_type.equals(netActiveWindow)) {
                     focusClient(win);
                     LOGGER.info(() -> "ClientMessage _NET_ACTIVE_WINDOW handled for " + win);
+                } else if (cmsg.message_type != null && cmsg.message_type.equals(wmChangeState)) {
+                    long targetState = (cmsg.data != null && cmsg.data.length > 0 && cmsg.data[0] != null)
+                            ? cmsg.data[0].longValue() : 0L;
+                    if (targetState == LibX11.IconicState) {
+                        FrameWindow frame = clientToFrame.get(win);
+                        if (frame != null && !frame.isMinimized()) {
+                            minimizeWindow(frame);
+                            LOGGER.info(() -> "ClientMessage WM_CHANGE_STATE (Iconic) minimized window " + win);
+                        }
+                    }
+                } else if (cmsg.message_type != null && cmsg.message_type.equals(netWmState)) {
+                    long action = (cmsg.data != null && cmsg.data.length > 0 && cmsg.data[0] != null) ? cmsg.data[0].longValue() : 0L;
+                    long prop1 = (cmsg.data != null && cmsg.data.length > 1 && cmsg.data[1] != null) ? cmsg.data[1].longValue() : 0L;
+                    long prop2 = (cmsg.data != null && cmsg.data.length > 2 && cmsg.data[2] != null) ? cmsg.data[2].longValue() : 0L;
+                    if (prop1 == netWmStateHidden.longValue() || prop2 == netWmStateHidden.longValue()) {
+                        FrameWindow frame = clientToFrame.get(win);
+                        if (frame != null) {
+                            if (action == 1 /* _NET_WM_STATE_ADD */ || (action == 2 /* TOGGLE */ && !frame.isMinimized())) {
+                                minimizeWindow(frame);
+                            } else if (action == 0 /* _NET_WM_STATE_REMOVE */ || (action == 2 && frame.isMinimized())) {
+                                restoreWindow(frame);
+                            }
+                        }
+                    }
                 }
             }
             case LibX11.ConfigureRequest -> {
@@ -1023,7 +1184,8 @@ public final class X11WindowManagerService implements AutoCloseable {
     private void toggleMaximize(FrameWindow frame) {
         if (!frame.isMaximized()) {
             frame.setUnmaximizedBounds(new Rectangle(frame.frameX(), frame.frameY(), frame.frameWidth(), frame.frameHeight()));
-            frame.setBounds(0, 0, screenWidth, screenHeight);
+            int maxH = Math.max(100, screenHeight - dockMarginBottom);
+            frame.setBounds(0, 0, screenWidth, maxH);
             frame.setMaximized(true);
         } else {
             Rectangle r = frame.unmaximizedBounds();
@@ -1043,10 +1205,25 @@ public final class X11WindowManagerService implements AutoCloseable {
         x11.XFlush(display);
     }
 
-    private void minimizeWindow(FrameWindow frame) {
+    public void minimizeWindow(FrameWindow frame) {
+        if (frame == null || frame.isMinimized()) {
+            return;
+        }
         frame.setMinimized(true);
         x11.XUnmapWindow(display, frame.frameWindow());
         long clientWin = frame.clientWindow().longValue();
+
+        // Set _NET_WM_STATE = _NET_WM_STATE_HIDDEN
+        Memory stateMem = new Memory(NativeLong.SIZE);
+        stateMem.setNativeLong(0, netWmStateHidden);
+        x11.XChangeProperty(display, new NativeLong(clientWin), netWmState, xaAtomAtom, 32, LibX11.PropModeReplace, stateMem, 1);
+
+        // Set ICCCM WM_STATE = IconicState
+        Memory wmStateMem = new Memory(NativeLong.SIZE * 2);
+        wmStateMem.setNativeLong(0, new NativeLong(LibX11.IconicState));
+        wmStateMem.setNativeLong(NativeLong.SIZE, new NativeLong(0));
+        x11.XChangeProperty(display, new NativeLong(clientWin), wmState, wmState, 32, LibX11.PropModeReplace, wmStateMem, 2);
+
         if (activeWindow == clientWin) {
             activeWindow = 0;
             var remaining = core.registry().snapshot();
@@ -1059,11 +1236,22 @@ public final class X11WindowManagerService implements AutoCloseable {
                     }
                 }
             }
+            if (activeWindow == 0) {
+                setActiveWindow(0);
+            }
         }
         x11.XFlush(display);
     }
 
+    public void restoreWindow(FrameWindow frame) {
+        if (frame == null) {
+            return;
+        }
+        focusClient(frame.clientWindow().longValue());
+    }
+
     private void cleanupWindow(long win) {
+        dockWindows.remove(win);
         FrameWindow frame = clientToFrame.remove(win);
         if (frame != null) {
             frameToClient.remove(frame.frameWindow().longValue());

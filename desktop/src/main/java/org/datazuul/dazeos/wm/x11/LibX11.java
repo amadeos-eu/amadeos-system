@@ -7,6 +7,7 @@ import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
 import com.sun.jna.Structure;
 import com.sun.jna.ptr.IntByReference;
+import com.sun.jna.ptr.NativeLongByReference;
 import com.sun.jna.ptr.PointerByReference;
 
 public interface LibX11 extends Library {
@@ -88,10 +89,16 @@ public interface LibX11 extends Library {
 
     // Property modes and standard atoms
     int PropModeReplace = 0;
+    long AnyPropertyType = 0L;
     long XA_ATOM = 4L;
     long XA_CARDINAL = 6L;
     long XA_STRING = 31L;
     long XA_WINDOW = 33L;
+
+    // ICCCM window states
+    int WithdrawnState = 0;
+    int NormalState = 1;
+    int IconicState = 3;
 
     // RevertTo focus
     int RevertToNone = 0;
@@ -630,5 +637,32 @@ public interface LibX11 extends Library {
     int XDrawRectangle(Pointer display, NativeLong drawable, Pointer gc, int x, int y, int width, int height);
 
     int XDrawLine(Pointer display, NativeLong drawable, Pointer gc, int x1, int y1, int x2, int y2);
+
+    int XGetWindowProperty(
+        Pointer display,
+        NativeLong window,
+        NativeLong property,
+        NativeLong long_offset,
+        NativeLong long_length,
+        int delete,
+        NativeLong req_type,
+        PointerByReference actual_type_return,
+        IntByReference actual_format_return,
+        NativeLongByReference nitems_return,
+        NativeLongByReference bytes_after_return,
+        PointerByReference prop_return
+    );
+
+    int XGetGeometry(
+        Pointer display,
+        NativeLong drawable,
+        NativeLongByReference root_return,
+        IntByReference x_return,
+        IntByReference y_return,
+        IntByReference width_return,
+        IntByReference height_return,
+        IntByReference border_width_return,
+        IntByReference depth_return
+    );
 }
 

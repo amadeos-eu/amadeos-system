@@ -3,6 +3,7 @@ package org.datazuul.dazeos.wm.x11;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -323,6 +324,132 @@ class X11WindowManagerIntegrationTest {
                 }
             } finally {
                 client1.destroyForcibly();
+            }
+        }
+    }
+
+    @Test
+    void testMinimizeAndRestoreWindow() throws Exception {
+        try (X11WindowManagerService wm = X11WindowManagerService.open(display);
+             org.datazuul.dazeos.wm.panel.X11EwmhHelper helper = org.datazuul.dazeos.wm.panel.X11EwmhHelper.open(display)) {
+            Process client = new ProcessBuilder("xmessage", "-display", display, "-buttons", "OK:0", "MinRestoreTest").start();
+            try {
+                Thread.sleep(500);
+                wm.processPendingEvents();
+
+                assertFalse(wm.core().registry().snapshot().isEmpty());
+                long winId = wm.core().registry().snapshot().iterator().next().id();
+                FrameWindow frame = wm.getFrameForClient(winId);
+                assertNotNull(frame);
+                assertFalse(frame.isMinimized());
+
+                // 1. Minimize window
+                wm.minimizeWindow(frame);
+                assertTrue(frame.isMinimized(), "Frame must be marked minimized");
+                assertTrue(helper.isWindowMinimized(winId), "Helper must report window as minimized via EWMH/ICCCM");
+
+                // 2. Restore window via ClientMessage _NET_ACTIVE_WINDOW (as sent by taskbar click)
+                helper.activateWindow(winId);
+                Thread.sleep(100);
+                wm.processPendingEvents();
+
+                assertFalse(frame.isMinimized(), "Frame must be un-minimized (restored)");
+                assertFalse(helper.isWindowMinimized(winId), "Window must no longer be minimized");
+                assertTrue(frame.isActive(), "Restored window must be active");
+            } finally {
+                client.destroyForcibly();
+            }
+        }
+    }
+
+    @Test
+    void testClientMessageWmChangeStateMinimizesWindow() throws Exception {
+        try (X11WindowManagerService wm = X11WindowManagerService.open(display);
+             org.datazuul.dazeos.wm.panel.X11EwmhHelper helper = org.datazuul.dazeos.wm.panel.X11EwmhHelper.open(display)) {
+            Process client = new ProcessBuilder("xmessage", "-display", display, "-buttons", "OK:0", "ChangeStateTest").start();
+            try {
+                Thread.sleep(500);
+                wm.processPendingEvents();
+
+                long winId = wm.core().registry().snapshot().iterator().next().id();
+                FrameWindow frame = wm.getFrameForClient(winId);
+                assertNotNull(frame);
+                assertFalse(frame.isMinimized());
+
+                // Taskbar sends WM_CHANGE_STATE (Iconic) when active window button is clicked
+                helper.minimizeWindow(winId);
+                Thread.sleep(100);
+                wm.processPendingEvents();
+
+                assertTrue(frame.isMinimized(), "Window must be minimized after receiving WM_CHANGE_STATE Iconic");
+                assertTrue(helper.isWindowMinimized(winId));
+            } finally {
+                client.destroyForcibly();
+            }
+        }
+    }
+
+    @Test
+    void testDockWindowIsNotDecoratedAndReservesBottomStrut() throws Exception {
+        try (X11WindowManagerService wm = X11WindowManagerService.open(display);
+             org.datazuul.dazeos.wm.panel.X11EwmhHelper helper = org.datazuul.dazeos.wm.panel.X11EwmhHelper.open(display)) {
+            // Create a native dock window
+            LibX11 x11 = LibX11.INSTANCE;
+            com.sun.jna.NativeLong dockWin = x11.XCreateSimpleWindow(
+                    helper.display(), new com.sun.jna.NativeLong(helper.rootWindow()),
+                    0, 564, 800, 36, 0, new com.sun.jna.NativeLong(0), new com.sun.jna.NativeLong(0));
+            assertTrue(dockWin.longValue() != 0);
+
+            // Set dock window type and strut
+            helper.setDockProperties(dockWin.longValue(), 800, 600, 36);
+            x11.XMapWindow(helper.display(), dockWin);
+            x11.XFlush(helper.display());
+
+            Thread.sleep(200);
+            wm.processPendingEvents();
+
+            // Dock window must be recognized as dock
+            assertTrue(wm.isDockWindow(dockWin.longValue()));
+            // Dock window must NOT be framed/decorated
+            assertNull(wm.getFrameForClient(dockWin.longValue()), "Dock must not have a decoration frame");
+            // Strut must be reserved
+            assertEquals(36, wm.dockMarginBottom(), "Dock margin bottom strut must be 36");
+
+            // Now test maximizing a client window respects the dock strut
+            Process client = new ProcessBuilder("xmessage", "-display", display, "-buttons", "OK:0", "MaxTest").start();
+            try {
+                Thread.sleep(500);
+                wm.processPendingEvents();
+
+                long winId = wm.core().registry().snapshot().iterator().next().id();
+                FrameWindow frame = wm.getFrameForClient(winId);
+                assertNotNull(frame);
+
+                // Maximize button click
+                java.awt.Rectangle maxBounds = frame.metrics().getButtonBounds(frame.frameWidth(), org.datazuul.dazeos.wm.decoration.WindowButton.MAXIMIZE);
+                LibX11.XEvent maxEv = new LibX11.XEvent();
+                LibX11.XButtonEvent maxBtn = new LibX11.XButtonEvent(maxEv.getPointer());
+                maxBtn.type = LibX11.ButtonPress;
+                maxBtn.window = frame.frameWindow();
+                maxBtn.button = LibX11.Button1;
+                maxBtn.x = maxBounds.x + 5;
+                maxBtn.y = maxBounds.y + 5;
+                maxBtn.write();
+                maxEv.type = LibX11.ButtonPress;
+                wm.handleEvent(maxEv);
+
+                maxBtn.type = LibX11.ButtonRelease;
+                maxBtn.write();
+                maxEv.type = LibX11.ButtonRelease;
+                wm.handleEvent(maxEv);
+
+                assertTrue(frame.isMaximized());
+                assertEquals(800, frame.frameWidth());
+                // Crucial: maximized height must be 600 - 36 = 564, leaving space for the dock!
+                assertEquals(564, frame.frameHeight(), "Maximized window height must reserve bottom dock space");
+            } finally {
+                client.destroyForcibly();
+                x11.XDestroyWindow(helper.display(), dockWin);
             }
         }
     }
