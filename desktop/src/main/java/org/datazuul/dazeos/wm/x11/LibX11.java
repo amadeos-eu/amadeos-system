@@ -77,6 +77,15 @@ public interface LibX11 extends Library {
     int XYPixmap = 1;
     int ZPixmap = 2;
 
+    // Raster operations and GC modes
+    int GXcopy = 3;
+    int GXxor = 6;
+    int IncludeInferiors = 1;
+    int LineSolid = 0;
+    int LineOnOffDash = 1;
+    int CapButt = 1;
+    int JoinMiter = 0;
+
     // Property modes and standard atoms
     int PropModeReplace = 0;
     long XA_ATOM = 4L;
@@ -575,5 +584,24 @@ public interface LibX11 extends Library {
     int XUngrabPointer(Pointer display, NativeLong time);
 
     int XFetchName(Pointer display, NativeLong window, PointerByReference window_name_return);
+
+    int XSetFunction(Pointer display, Pointer gc, int function);
+
+    int XSetSubwindowMode(Pointer display, Pointer gc, int subwindow_mode);
+
+    int XSetForeground(Pointer display, Pointer gc, NativeLong foreground);
+
+    int XSetLineAttributes(
+        Pointer display,
+        Pointer gc,
+        int line_width,
+        int line_style,
+        int cap_style,
+        int join_style
+    );
+
+    int XDrawRectangle(Pointer display, NativeLong drawable, Pointer gc, int x, int y, int width, int height);
+
+    int XDrawLine(Pointer display, NativeLong drawable, Pointer gc, int x1, int y1, int x2, int y2);
 }
 

@@ -39,9 +39,17 @@ public final class X11WindowManagerService implements AutoCloseable {
 
     private final long checkWindow;
     private final Pointer gc;
+    private final Pointer xorGc;
     private final DecorationTheme theme = new MotifDecorationTheme();
     private final Map<Long, FrameWindow> clientToFrame;
     private final Map<Long, FrameWindow> frameToClient;
+
+    // Wireframe dragging state
+    private boolean wireframeActive = false;
+    private int wireframeX;
+    private int wireframeY;
+    private int wireframeW;
+    private int wireframeH;
 
     // Cursors
     private final NativeLong cursorDefault;
@@ -134,12 +142,18 @@ public final class X11WindowManagerService implements AutoCloseable {
         Map<Long, FrameWindow> frameToClient = new HashMap<>();
 
         Pointer gc = x11.XCreateGC(display, new NativeLong(rootWindow), new NativeLong(0), null);
+        Pointer xorGc = x11.XCreateGC(display, new NativeLong(rootWindow), new NativeLong(0), null);
+        x11.XSetFunction(display, xorGc, LibX11.GXxor);
+        x11.XSetSubwindowMode(display, xorGc, LibX11.IncludeInferiors);
+        x11.XSetForeground(display, xorGc, new NativeLong(0xFFFFFF));
+        x11.XSetLineAttributes(display, xorGc, 2, LibX11.LineSolid, LibX11.CapButt, LibX11.JoinMiter);
+
         NativeX11Adapter adapter = new NativeX11Adapter(x11, display, clientToFrame::get, gc, screen);
         WindowManagerCore core = new WindowManagerCore(
                 new WindowRegistry(), adapter, new FloatingLayoutPolicy(20, 30));
 
         return new X11WindowManagerService(
-                x11, display, screen, rootWindow, screenWidth, screenHeight, core, clientToFrame, frameToClient, gc);
+                x11, display, screen, rootWindow, screenWidth, screenHeight, core, clientToFrame, frameToClient, gc, xorGc);
     }
 
     private X11WindowManagerService(
@@ -152,7 +166,8 @@ public final class X11WindowManagerService implements AutoCloseable {
             WindowManagerCore core,
             Map<Long, FrameWindow> clientToFrame,
             Map<Long, FrameWindow> frameToClient,
-            Pointer gc) {
+            Pointer gc,
+            Pointer xorGc) {
         this.x11 = x11;
         this.display = display;
         this.screen = screen;
@@ -163,6 +178,7 @@ public final class X11WindowManagerService implements AutoCloseable {
         this.clientToFrame = clientToFrame;
         this.frameToClient = frameToClient;
         this.gc = gc;
+        this.xorGc = xorGc;
 
         this.cursorDefault = x11.XCreateFontCursor(display, LibX11.XC_left_ptr);
         this.cursorMove = x11.XCreateFontCursor(display, LibX11.XC_fleur);
@@ -676,6 +692,14 @@ public final class X11WindowManagerService implements AutoCloseable {
         }
     }
 
+    private void toggleWireframe(int x, int y, int w, int h) {
+        x11.XDrawRectangle(display, new NativeLong(rootWindow), xorGc, x, y, Math.max(1, w), Math.max(1, h));
+        int tbh = theme.metrics().titleBarHeight();
+        if (h > tbh) {
+            x11.XDrawLine(display, new NativeLong(rootWindow), xorGc, x, y + tbh, x + w, y + tbh);
+        }
+    }
+
     private void handleFrameButtonPress(FrameWindow frame, LibX11.XButtonEvent btnEvent) {
         long clientWin = frame.clientWindow().longValue();
         focusClient(clientWin);
@@ -696,7 +720,7 @@ public final class X11WindowManagerService implements AutoCloseable {
             return;
         }
 
-        // 2. Check titlebar drag zone
+        // 2. Check titlebar drag zone (wireframe dragging)
         if (frame.isTitleBarDragZone(localX, localY) && btnEvent.button == LibX11.Button1) {
             interactionType = InteractionType.MOVING;
             interactionFrame = frame;
@@ -707,6 +731,14 @@ public final class X11WindowManagerService implements AutoCloseable {
             dragStartFrameW = frame.frameWidth();
             dragStartFrameH = frame.frameHeight();
 
+            // Draw initial wireframe outline
+            wireframeX = dragStartFrameX;
+            wireframeY = dragStartFrameY;
+            wireframeW = dragStartFrameW;
+            wireframeH = dragStartFrameH;
+            toggleWireframe(wireframeX, wireframeY, wireframeW, wireframeH);
+            wireframeActive = true;
+
             long grabMask = LibX11.ButtonReleaseMask | LibX11.PointerMotionMask | LibX11.Button1MotionMask;
             x11.XGrabPointer(display, frame.frameWindow(), 0, new NativeLong(grabMask),
                     LibX11.GrabModeAsync, LibX11.GrabModeAsync, new NativeLong(0), cursorMove, new NativeLong(LibX11.CurrentTime));
@@ -714,7 +746,7 @@ public final class X11WindowManagerService implements AutoCloseable {
             return;
         }
 
-        // 3. Check border resize zones
+        // 3. Check border resize zones (wireframe resizing)
         ResizeDirection dir = frame.hitTestBorder(localX, localY);
         if (dir != ResizeDirection.NONE && btnEvent.button == LibX11.Button1) {
             interactionType = InteractionType.RESIZING;
@@ -727,6 +759,14 @@ public final class X11WindowManagerService implements AutoCloseable {
             dragStartFrameW = frame.frameWidth();
             dragStartFrameH = frame.frameHeight();
 
+            // Draw initial wireframe outline
+            wireframeX = dragStartFrameX;
+            wireframeY = dragStartFrameY;
+            wireframeW = dragStartFrameW;
+            wireframeH = dragStartFrameH;
+            toggleWireframe(wireframeX, wireframeY, wireframeW, wireframeH);
+            wireframeActive = true;
+
             NativeLong dirCursor = getCursorForDirection(dir);
             long grabMask = LibX11.ButtonReleaseMask | LibX11.PointerMotionMask | LibX11.Button1MotionMask;
             x11.XGrabPointer(display, frame.frameWindow(), 0, new NativeLong(grabMask),
@@ -737,12 +777,31 @@ public final class X11WindowManagerService implements AutoCloseable {
 
     private void handleFrameButtonRelease(LibX11.XButtonEvent btnEvent) {
         if (interactionType == InteractionType.MOVING || interactionType == InteractionType.RESIZING) {
+            if (wireframeActive) {
+                // Erase active wireframe
+                toggleWireframe(wireframeX, wireframeY, wireframeW, wireframeH);
+                wireframeActive = false;
+            }
             x11.XUngrabPointer(display, new NativeLong(LibX11.CurrentTime));
+
             if (interactionFrame != null) {
+                if (interactionType == InteractionType.MOVING) {
+                    interactionFrame.setBounds(wireframeX, wireframeY, wireframeW, wireframeH);
+                    x11.XMoveWindow(display, interactionFrame.frameWindow(), wireframeX, wireframeY);
+                } else {
+                    interactionFrame.setBounds(wireframeX, wireframeY, wireframeW, wireframeH);
+                    x11.XMoveResizeWindow(display, interactionFrame.frameWindow(), wireframeX, wireframeY, wireframeW, wireframeH);
+                    x11.XMoveResizeWindow(display, interactionFrame.clientWindow(),
+                            interactionFrame.clientX(), interactionFrame.clientY(),
+                            interactionFrame.clientWidth(), interactionFrame.clientHeight());
+                    interactionFrame.render();
+                    interactionFrame.blit(display, gc, screen);
+                }
+
                 long clientWin = interactionFrame.clientWindow().longValue();
                 core.registry().updateGeometry(clientWin, new WindowGeometry(
-                        interactionFrame.frameX(), interactionFrame.frameY(),
-                        interactionFrame.frameWidth(), interactionFrame.frameHeight()));
+                        wireframeX, wireframeY,
+                        wireframeW, wireframeH));
                 x11.XDefineCursor(display, interactionFrame.frameWindow(), cursorDefault);
             }
             interactionType = InteractionType.NONE;
@@ -777,9 +836,17 @@ public final class X11WindowManagerService implements AutoCloseable {
             int dy = motion.y_root - dragStartRootY;
             int newX = dragStartFrameX + dx;
             int newY = dragStartFrameY + dy;
-            interactionFrame.setBounds(newX, newY, interactionFrame.frameWidth(), interactionFrame.frameHeight());
-            x11.XMoveWindow(display, interactionFrame.frameWindow(), newX, newY);
-            x11.XFlush(display);
+
+            if (wireframeActive && (newX != wireframeX || newY != wireframeY)) {
+                // Erase previous wireframe
+                toggleWireframe(wireframeX, wireframeY, wireframeW, wireframeH);
+                // Update position
+                wireframeX = newX;
+                wireframeY = newY;
+                // Draw new wireframe
+                toggleWireframe(wireframeX, wireframeY, wireframeW, wireframeH);
+                x11.XFlush(display);
+            }
             return;
         }
 
@@ -810,14 +877,18 @@ public final class X11WindowManagerService implements AutoCloseable {
                 fy = dragStartFrameY + (dragStartFrameH - fh);
             }
 
-            interactionFrame.setBounds(fx, fy, fw, fh);
-            x11.XMoveResizeWindow(display, interactionFrame.frameWindow(), fx, fy, fw, fh);
-            x11.XMoveResizeWindow(display, interactionFrame.clientWindow(),
-                    interactionFrame.clientX(), interactionFrame.clientY(),
-                    interactionFrame.clientWidth(), interactionFrame.clientHeight());
-            interactionFrame.render();
-            interactionFrame.blit(display, gc, screen);
-            x11.XFlush(display);
+            if (wireframeActive && (fx != wireframeX || fy != wireframeY || fw != wireframeW || fh != wireframeH)) {
+                // Erase previous wireframe
+                toggleWireframe(wireframeX, wireframeY, wireframeW, wireframeH);
+                // Update bounds
+                wireframeX = fx;
+                wireframeY = fy;
+                wireframeW = fw;
+                wireframeH = fh;
+                // Draw new wireframe
+                toggleWireframe(wireframeX, wireframeY, wireframeW, wireframeH);
+                x11.XFlush(display);
+            }
             return;
         }
 
@@ -940,6 +1011,9 @@ public final class X11WindowManagerService implements AutoCloseable {
             if (cursorSE != null) x11.XFreeCursor(display, cursorSE);
             if (gc != null) {
                 x11.XFreeGC(display, gc);
+            }
+            if (xorGc != null) {
+                x11.XFreeGC(display, xorGc);
             }
             if (checkWindow != 0) {
                 x11.XDestroyWindow(display, new NativeLong(checkWindow));

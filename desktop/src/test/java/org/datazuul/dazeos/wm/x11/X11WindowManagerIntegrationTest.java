@@ -128,8 +128,9 @@ class X11WindowManagerIntegrationTest {
                 eventMotion.type = LibX11.MotionNotify;
                 wm.handleEvent(eventMotion);
 
-                assertEquals(startX + 60, frame.frameX());
-                assertEquals(startY + 40, frame.frameY());
+                // During wireframe drag motion, actual window does not move (preventing ghosting in QEMU)
+                assertEquals(startX, frame.frameX());
+                assertEquals(startY, frame.frameY());
 
                 // 3. Simulate ButtonRelease
                 LibX11.XEvent eventRelease = new LibX11.XEvent();
@@ -141,6 +142,7 @@ class X11WindowManagerIntegrationTest {
                 eventRelease.type = LibX11.ButtonRelease;
                 wm.handleEvent(eventRelease);
 
+                // Window moves on release
                 assertEquals(startX + 60, frame.frameX());
                 assertEquals(startY + 40, frame.frameY());
 
@@ -174,12 +176,14 @@ class X11WindowManagerIntegrationTest {
                 eventResizeMotion.type = LibX11.MotionNotify;
                 wm.handleEvent(eventResizeMotion);
 
-                assertEquals(curW + 50, frame.frameWidth());
-                assertEquals(curH + 30, frame.frameHeight());
+                // During wireframe resize, actual window is not yet resized
+                assertEquals(curW, frame.frameWidth());
+                assertEquals(curH, frame.frameHeight());
 
                 // Release
                 wm.handleEvent(eventRelease);
 
+                // Window resizes on release
                 assertEquals(curW + 50, frame.frameWidth());
                 assertEquals(curH + 30, frame.frameHeight());
 
