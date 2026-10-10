@@ -8,6 +8,7 @@ import java.awt.Graphics2D;
 import java.awt.Insets;
 import java.awt.RenderingHints;
 import javax.swing.AbstractButton;
+import javax.swing.BorderFactory;
 import javax.swing.ButtonModel;
 import javax.swing.JComponent;
 import javax.swing.UIManager;
@@ -81,19 +82,80 @@ public final class AmadeUI {
         UIManager.put("ToggleButton.select", new ColorUIResource(sunken));
         UIManager.put("ToggleButton.border", new MotifButtonBorder(2));
 
+        // Disable default Metal / Ocean blue gradients
+        java.util.List<?> noGrad = java.util.Collections.emptyList();
+        UIManager.put("MenuBar.gradient", noGrad);
+        UIManager.put("MenuItem.gradient", noGrad);
+        UIManager.put("CheckBoxMenuItem.gradient", noGrad);
+        UIManager.put("RadioButtonMenuItem.gradient", noGrad);
+        UIManager.put("Button.gradient", noGrad);
+        UIManager.put("ToggleButton.gradient", noGrad);
+        UIManager.put("CheckBox.gradient", noGrad);
+        UIManager.put("RadioButton.gradient", noGrad);
+        UIManager.put("ScrollBar.gradient", noGrad);
+        UIManager.put("Slider.gradient", noGrad);
+
         // Menus
+        UIManager.put("MenuBarUI", "javax.swing.plaf.basic.BasicMenuBarUI");
         UIManager.put("MenuBar.background", new ColorUIResource(base));
         UIManager.put("MenuBar.border", new MotifBevelBorder(true, 2));
+
+        UIManager.put("MenuUI", "javax.swing.plaf.basic.BasicMenuUI");
         UIManager.put("Menu.background", new ColorUIResource(base));
         UIManager.put("Menu.foreground", new ColorUIResource(text));
         UIManager.put("Menu.selectionBackground", new ColorUIResource(softHighlight));
         UIManager.put("Menu.selectionForeground", new ColorUIResource(text));
+        UIManager.put("Menu.border", BorderFactory.createEmptyBorder(2, 6, 2, 6));
+
+        UIManager.put("MenuItemUI", "javax.swing.plaf.basic.BasicMenuItemUI");
         UIManager.put("MenuItem.background", new ColorUIResource(base));
         UIManager.put("MenuItem.foreground", new ColorUIResource(text));
         UIManager.put("MenuItem.selectionBackground", new ColorUIResource(softHighlight));
         UIManager.put("MenuItem.selectionForeground", new ColorUIResource(text));
+        UIManager.put("MenuItem.acceleratorForeground", new ColorUIResource(shadow));
+        UIManager.put("MenuItem.acceleratorSelectionForeground", new ColorUIResource(text));
+        UIManager.put("MenuItem.border", BorderFactory.createEmptyBorder(2, 6, 2, 6));
+
+        UIManager.put("CheckBoxMenuItemUI", "javax.swing.plaf.basic.BasicCheckBoxMenuItemUI");
+        UIManager.put("CheckBoxMenuItem.background", new ColorUIResource(base));
+        UIManager.put("CheckBoxMenuItem.foreground", new ColorUIResource(text));
+        UIManager.put("CheckBoxMenuItem.selectionBackground", new ColorUIResource(softHighlight));
+        UIManager.put("CheckBoxMenuItem.selectionForeground", new ColorUIResource(text));
+        UIManager.put("CheckBoxMenuItem.acceleratorForeground", new ColorUIResource(shadow));
+        UIManager.put("CheckBoxMenuItem.acceleratorSelectionForeground", new ColorUIResource(text));
+        UIManager.put("CheckBoxMenuItem.border", BorderFactory.createEmptyBorder(2, 6, 2, 6));
+        UIManager.put("CheckBoxMenuItem.checkIcon", new MotifMenuCheckIcon());
+
+        UIManager.put("RadioButtonMenuItemUI", "javax.swing.plaf.basic.BasicRadioButtonMenuItemUI");
+        UIManager.put("RadioButtonMenuItem.background", new ColorUIResource(base));
+        UIManager.put("RadioButtonMenuItem.foreground", new ColorUIResource(text));
+        UIManager.put("RadioButtonMenuItem.selectionBackground", new ColorUIResource(softHighlight));
+        UIManager.put("RadioButtonMenuItem.selectionForeground", new ColorUIResource(text));
+        UIManager.put("RadioButtonMenuItem.acceleratorForeground", new ColorUIResource(shadow));
+        UIManager.put("RadioButtonMenuItem.acceleratorSelectionForeground", new ColorUIResource(text));
+        UIManager.put("RadioButtonMenuItem.border", BorderFactory.createEmptyBorder(2, 6, 2, 6));
+        UIManager.put("RadioButtonMenuItem.checkIcon", new MotifRadioButtonIcon());
+
         UIManager.put("PopupMenu.background", new ColorUIResource(base));
         UIManager.put("PopupMenu.border", new MotifBevelBorder(true, 2));
+
+        UIManager.put("Separator.background", new ColorUIResource(shadow));
+        UIManager.put("Separator.foreground", new ColorUIResource(highlight));
+        UIManager.put("PopupMenuSeparator.background", new ColorUIResource(shadow));
+        UIManager.put("PopupMenuSeparator.foreground", new ColorUIResource(highlight));
+
+        // CheckBoxes & RadioButtons
+        UIManager.put("CheckBoxUI", "javax.swing.plaf.basic.BasicCheckBoxUI");
+        UIManager.put("CheckBox.background", new ColorUIResource(base));
+        UIManager.put("CheckBox.foreground", new ColorUIResource(text));
+        UIManager.put("CheckBox.focus", new ColorUIResource(shadow));
+        UIManager.put("CheckBox.icon", new MotifCheckBoxIcon());
+
+        UIManager.put("RadioButtonUI", "javax.swing.plaf.basic.BasicRadioButtonUI");
+        UIManager.put("RadioButton.background", new ColorUIResource(base));
+        UIManager.put("RadioButton.foreground", new ColorUIResource(text));
+        UIManager.put("RadioButton.focus", new ColorUIResource(shadow));
+        UIManager.put("RadioButton.icon", new MotifRadioButtonIcon());
 
         // Text Fields & Areas
         UIManager.put("TextField.background", new ColorUIResource(Color.WHITE));
@@ -339,6 +401,112 @@ public final class AmadeUI {
             if (isPressed || isSelected) {
                 g2.translate(-1, -1);
             }
+        }
+    }
+
+    /**
+     * Authentic 3D Motif CheckBox Icon for menu items.
+     */
+    public static class MotifMenuCheckIcon implements javax.swing.Icon {
+        private final int size = 12;
+
+        @Override
+        public void paintIcon(Component c, Graphics g, int x, int y) {
+            DesktopTheme t = ThemeManager.currentTheme();
+            Graphics2D g2 = (Graphics2D) g;
+            paintBevel(g2, x, y, size, size, false, 1);
+            g2.setColor(t.sunkenBg());
+            g2.fillRect(x + 1, y + 1, size - 2, size - 2);
+
+            g2.setColor(t.textActive());
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setStroke(new java.awt.BasicStroke(1.5f));
+            g2.drawLine(x + 2, y + 6, x + 5, y + 9);
+            g2.drawLine(x + 5, y + 9, x + 9, y + 3);
+        }
+
+        @Override
+        public int getIconWidth() {
+            return size;
+        }
+
+        @Override
+        public int getIconHeight() {
+            return size;
+        }
+    }
+
+    /**
+     * Authentic 3D Motif CheckBox Icon for standard dialog and panel checkboxes.
+     */
+    public static class MotifCheckBoxIcon implements javax.swing.Icon {
+        private final int size = 13;
+
+        @Override
+        public void paintIcon(Component c, Graphics g, int x, int y) {
+            DesktopTheme t = ThemeManager.currentTheme();
+            Graphics2D g2 = (Graphics2D) g;
+            paintBevel(g2, x, y, size, size, false, 1);
+            g2.setColor(t.sunkenBg());
+            g2.fillRect(x + 1, y + 1, size - 2, size - 2);
+
+            if (c instanceof AbstractButton b && b.isSelected()) {
+                g2.setColor(t.textActive());
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setStroke(new java.awt.BasicStroke(1.8f));
+                g2.drawLine(x + 2, y + 6, x + 5, y + 10);
+                g2.drawLine(x + 5, y + 10, x + 10, y + 3);
+            }
+        }
+
+        @Override
+        public int getIconWidth() {
+            return size;
+        }
+
+        @Override
+        public int getIconHeight() {
+            return size;
+        }
+    }
+
+    /**
+     * Authentic 3D Motif RadioButton Icon.
+     */
+    public static class MotifRadioButtonIcon implements javax.swing.Icon {
+        private final int size = 13;
+
+        @Override
+        public void paintIcon(Component c, Graphics g, int x, int y) {
+            DesktopTheme t = ThemeManager.currentTheme();
+            Graphics2D g2 = (Graphics2D) g;
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            int midX = x + size / 2;
+            int midY = y + size / 2;
+
+            g2.setColor(t.sunkenBg());
+            g2.fillOval(x + 1, y + 1, size - 2, size - 2);
+
+            g2.setColor(t.darkShadow());
+            g2.drawArc(x, y, size - 1, size - 1, 45, 180);
+            g2.setColor(t.highlight());
+            g2.drawArc(x, y, size - 1, size - 1, 225, 180);
+
+            if (c instanceof AbstractButton b && b.isSelected()) {
+                g2.setColor(t.textActive());
+                g2.fillOval(midX - 2, midY - 2, 5, 5);
+            }
+        }
+
+        @Override
+        public int getIconWidth() {
+            return size;
+        }
+
+        @Override
+        public int getIconHeight() {
+            return size;
         }
     }
 }
