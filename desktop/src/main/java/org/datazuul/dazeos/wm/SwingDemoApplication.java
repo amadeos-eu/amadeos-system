@@ -3,6 +3,7 @@ package org.datazuul.dazeos.wm;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.util.concurrent.atomic.AtomicInteger;
+
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -26,7 +27,6 @@ public final class SwingDemoApplication {
         JFrame frame = new JFrame("DazeOS Java WM MVP");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new BorderLayout(8, 8));
-
         JLabel info = new JLabel("Swing demo; X11 operations are logged, not executed.", JLabel.CENTER);
         frame.add(info, BorderLayout.CENTER);
 
