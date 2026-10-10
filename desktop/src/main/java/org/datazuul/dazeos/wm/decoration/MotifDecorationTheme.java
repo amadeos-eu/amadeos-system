@@ -60,7 +60,16 @@ public final class MotifDecorationTheme implements DecorationTheme {
         // 2. Draw outer 3D raised frame borders (2px bevel)
         draw3DBevel(g, 0, 0, width, height, true, 2);
 
-        // 3. Draw authentic Motif corner tabs (segmented 3D joint lines aligned with button sides)
+        // 3. Draw inner sunken groove around the innerside of the outer border
+        // Top and left: dark shadow; Bottom and right: light highlight
+        g.setColor(DARK_SHADOW);
+        g.drawLine(bw - 1, bw - 1, width - bw, bw - 1); // Top inner shadow
+        g.drawLine(bw - 1, bw - 1, bw - 1, height - bw); // Left inner shadow
+        g.setColor(HIGHLIGHT);
+        g.drawLine(bw - 1, height - bw, width - bw, height - bw); // Bottom inner highlight
+        g.drawLine(width - bw, bw - 1, width - bw, height - bw); // Right inner highlight
+
+        // 4. Draw authentic Motif corner tabs (segmented 3D joint lines aligned with button sides)
         drawCornerJoints(g, width, height, bw, tbh);
 
         // 4. Draw Titlebar (raised 3D surface on the same level as the buttons)
@@ -118,7 +127,11 @@ public final class MotifDecorationTheme implements DecorationTheme {
             drawButtonGlyph(g, button, cx, cy, isHovered, isPressed);
         }
 
-        // 7. Inner sunken bevel around client area
+        // 8. Horizontal separator groove below title row
+        g.setColor(HIGHLIGHT);
+        g.drawLine(bw, tbh, width - bw - 1, tbh);
+
+        // 9. Inner sunken bevel around client area
         int clientX = bw;
         int clientY = tbh;
         int clientW = width - (2 * bw);
