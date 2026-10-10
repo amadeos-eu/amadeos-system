@@ -65,3 +65,4 @@ DEMO_PID=$!
 
 echo "[run-xephyr] DazeOS is running! Close the Xephyr window to exit."
 wait $XEPHYR_PID
+

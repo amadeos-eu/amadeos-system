@@ -55,3 +55,4 @@ class DesktopIconTileTest {
         assertEquals(68, DesktopIconTile.TILE_HEIGHT);
     }
 }
+

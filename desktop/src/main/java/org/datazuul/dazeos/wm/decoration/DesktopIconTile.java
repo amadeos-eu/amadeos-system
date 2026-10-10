@@ -9,6 +9,7 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
+import org.datazuul.dazeos.wm.x11.LibC;
 import org.datazuul.dazeos.wm.x11.LibX11;
 
 public final class DesktopIconTile {
@@ -27,7 +28,6 @@ public final class DesktopIconTile {
     private int index;
     private String title;
     private final BufferedImage image;
-    private Pointer ximage;
 
     public DesktopIconTile(long clientWin, NativeLong tileWin, int index, String title) {
         this.clientWin = clientWin;
@@ -210,33 +210,39 @@ public final class DesktopIconTile {
 
     public void blit(LibX11 x11, Pointer display, Pointer gc, int screen) {
         int[] data = ((DataBufferInt) image.getRaster().getDataBuffer()).getData();
-        com.sun.jna.Memory mem = new com.sun.jna.Memory((long) data.length * 4);
-        mem.write(0, data, 0, data.length);
-
-        Pointer visual = x11.XDefaultVisual(display, screen);
-        int depth = x11.XDefaultDepth(display, screen);
-
-        if (ximage != null) {
-            x11.XDestroyImage(ximage);
-            ximage = null;
+        long dataSize = (long) data.length * 4L;
+        Pointer nativeMem = LibC.INSTANCE.malloc(dataSize);
+        if (nativeMem == null) {
+            return;
         }
 
-        ximage = x11.XCreateImage(
-                display, visual, depth, LibX11.ZPixmap, 0, mem,
-                TILE_WIDTH, TILE_HEIGHT, 32, TILE_WIDTH * 4);
+        boolean imageCreated = false;
+        try {
+            nativeMem.write(0, data, 0, data.length);
+            Pointer visual = x11.XDefaultVisual(display, screen);
+            int depth = x11.XDefaultDepth(display, screen);
 
-        if (ximage != null) {
-            x11.XPutImage(display, tileWin, gc, ximage, 0, 0, 0, 0, TILE_WIDTH, TILE_HEIGHT);
+            Pointer ximage = x11.XCreateImage(
+                    display, visual, depth, LibX11.ZPixmap, 0, nativeMem,
+                    TILE_WIDTH, TILE_HEIGHT, 32, TILE_WIDTH * 4);
+
+            if (ximage != null) {
+                imageCreated = true;
+                x11.XPutImage(display, tileWin, gc, ximage, 0, 0, 0, 0, TILE_WIDTH, TILE_HEIGHT);
+                // XDestroyImage frees both the XImage structure and the underlying nativeMem data
+                x11.XDestroyImage(ximage);
+            }
+        } finally {
+            if (!imageCreated) {
+                LibC.INSTANCE.free(nativeMem);
+            }
         }
     }
 
     public void destroy(LibX11 x11, Pointer display) {
-        if (ximage != null) {
-            x11.XDestroyImage(ximage);
-            ximage = null;
-        }
         if (tileWin != null && tileWin.longValue() != 0) {
             x11.XDestroyWindow(display, tileWin);
         }
     }
 }
+

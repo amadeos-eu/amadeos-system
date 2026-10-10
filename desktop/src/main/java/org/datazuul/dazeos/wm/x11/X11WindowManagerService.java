@@ -941,22 +941,25 @@ public final class X11WindowManagerService implements AutoCloseable {
             case LibX11.DestroyNotify -> {
                 LibX11.XDestroyWindowEvent dest = new LibX11.XDestroyWindowEvent(event.getPointer());
                 long win = dest.window.longValue();
+                if (frameToClient.containsKey(win) || tileWinToTile.containsKey(win)) {
+                    // Internal decoration frame or tile window destroyed, ignore
+                    return;
+                }
                 cleanupWindow(win);
-                LOGGER.info(() -> "Unmanaged destroyed window: " + win);
             }
             case LibX11.UnmapNotify -> {
                 LibX11.XUnmapEvent unmap = new LibX11.XUnmapEvent(event.getPointer());
                 long win = unmap.window.longValue();
-                if (frameToClient.containsKey(win)) {
-                    // Frame itself unmapped (e.g. iconified), ignore
+                if (frameToClient.containsKey(win) || tileWinToTile.containsKey(win)) {
+                    // Internal decoration frame or tile window unmapped, ignore
                     return;
                 }
                 FrameWindow frame = clientToFrame.get(win);
                 if (frame != null && frame.isMinimized()) {
+                    // Window minimized by WM, unmap is expected, do not destroy
                     return;
                 }
                 cleanupWindow(win);
-                LOGGER.info(() -> "Unmanaged unmapped window: " + win);
             }
             default -> {
                 // Ignore unhandled events
@@ -1338,6 +1341,13 @@ public final class X11WindowManagerService implements AutoCloseable {
     }
 
     private void cleanupWindow(long win) {
+        boolean isClient = clientToFrame.containsKey(win);
+        boolean isDock = dockWindows.contains(win);
+        boolean isTileClient = clientToTile.containsKey(win);
+        if (!isClient && !isDock && !isTileClient) {
+            return;
+        }
+
         dockWindows.remove(win);
         removeAndReflowIconTile(win);
         FrameWindow frame = clientToFrame.remove(win);
