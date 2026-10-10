@@ -39,9 +39,9 @@ public final class SwingDemoApplication {
 
         JPanel headerPanel = new JPanel(new GridLayout(2, 1, 4, 4));
         headerPanel.setBorder(BorderFactory.createEmptyBorder(10, 12, 0, 12));
-        JLabel titleLabel = new JLabel("DazeOS Desktop Session (M6)", JLabel.CENTER);
+        JLabel titleLabel = new JLabel("DazeOS Desktop Session (M7)", JLabel.CENTER);
         titleLabel.setFont(titleLabel.getFont().deriveFont(16.0f));
-        JLabel statusLabel = new JLabel("Supervised Java Window Manager with ICCCM, EWMH & Session Controls", JLabel.CENTER);
+        JLabel statusLabel = new JLabel("Reparenting Window Manager with Server-Side 3D Motif Decorations & Interactive Sizing", JLabel.CENTER);
         headerPanel.add(titleLabel);
         headerPanel.add(statusLabel);
         mainFrame.add(headerPanel, BorderLayout.NORTH);
@@ -107,7 +107,7 @@ public final class SwingDemoApplication {
 
         JPanel header = new JPanel(new GridLayout(2, 1, 4, 4));
         header.setBorder(BorderFactory.createEmptyBorder(12, 16, 0, 16));
-        JLabel title = new JLabel("DazeOS Desktop Session (M6)", JLabel.CENTER);
+        JLabel title = new JLabel("DazeOS Desktop Session (M7)", JLabel.CENTER);
         title.setFont(title.getFont().deriveFont(15.0f));
         JLabel subtitle = new JLabel("Select an action to end or control your session:", JLabel.CENTER);
         header.add(title);

@@ -5,7 +5,10 @@ import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
 import com.sun.jna.ptr.IntByReference;
 import com.sun.jna.ptr.PointerByReference;
+import java.awt.Rectangle;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
@@ -15,6 +18,12 @@ import org.datazuul.dazeos.wm.WindowGeometry;
 import org.datazuul.dazeos.wm.WindowManagerCore;
 import org.datazuul.dazeos.wm.WindowRecord;
 import org.datazuul.dazeos.wm.WindowRegistry;
+import org.datazuul.dazeos.wm.decoration.DecorationTheme;
+import org.datazuul.dazeos.wm.decoration.FrameMetrics;
+import org.datazuul.dazeos.wm.decoration.FrameWindow;
+import org.datazuul.dazeos.wm.decoration.MotifDecorationTheme;
+import org.datazuul.dazeos.wm.decoration.ResizeDirection;
+import org.datazuul.dazeos.wm.decoration.WindowButton;
 
 public final class X11WindowManagerService implements AutoCloseable {
     private static final Logger LOGGER = Logger.getLogger(X11WindowManagerService.class.getName());
@@ -29,6 +38,22 @@ public final class X11WindowManagerService implements AutoCloseable {
     private final AtomicBoolean running = new AtomicBoolean(false);
 
     private final long checkWindow;
+    private final Pointer gc;
+    private final DecorationTheme theme = new MotifDecorationTheme();
+    private final Map<Long, FrameWindow> clientToFrame;
+    private final Map<Long, FrameWindow> frameToClient;
+
+    // Cursors
+    private final NativeLong cursorDefault;
+    private final NativeLong cursorMove;
+    private final NativeLong cursorN;
+    private final NativeLong cursorS;
+    private final NativeLong cursorW;
+    private final NativeLong cursorE;
+    private final NativeLong cursorNW;
+    private final NativeLong cursorNE;
+    private final NativeLong cursorSW;
+    private final NativeLong cursorSE;
 
     // EWMH and ICCCM atoms
     private final NativeLong netSupportingWmCheck;
@@ -42,6 +67,26 @@ public final class X11WindowManagerService implements AutoCloseable {
     private final NativeLong xaAtomAtom;
 
     private static volatile boolean anotherWmDetected = false;
+
+    // Mouse interaction states
+    private enum InteractionType {
+        NONE,
+        MOVING,
+        RESIZING,
+        BUTTON_PRESS
+    }
+
+    private InteractionType interactionType = InteractionType.NONE;
+    private FrameWindow interactionFrame = null;
+    private WindowButton currentPressedButton = null;
+    private ResizeDirection resizeDirection = ResizeDirection.NONE;
+
+    private int dragStartRootX;
+    private int dragStartRootY;
+    private int dragStartFrameX;
+    private int dragStartFrameY;
+    private int dragStartFrameW;
+    private int dragStartFrameH;
 
     private static final LibX11.XErrorHandler ERROR_HANDLER = (disp, errorEvent) -> {
         if (errorEvent != null && (errorEvent.error_code & 0xFF) == LibX11.BadAccess) {
@@ -85,11 +130,16 @@ public final class X11WindowManagerService implements AutoCloseable {
             throw new IllegalStateException("Another window manager is already running on this display!");
         }
 
-        NativeX11Adapter adapter = new NativeX11Adapter(x11, display);
+        Map<Long, FrameWindow> clientToFrame = new HashMap<>();
+        Map<Long, FrameWindow> frameToClient = new HashMap<>();
+
+        Pointer gc = x11.XCreateGC(display, new NativeLong(rootWindow), new NativeLong(0), null);
+        NativeX11Adapter adapter = new NativeX11Adapter(x11, display, clientToFrame::get, gc, screen);
         WindowManagerCore core = new WindowManagerCore(
                 new WindowRegistry(), adapter, new FloatingLayoutPolicy(20, 30));
 
-        return new X11WindowManagerService(x11, display, screen, rootWindow, screenWidth, screenHeight, core);
+        return new X11WindowManagerService(
+                x11, display, screen, rootWindow, screenWidth, screenHeight, core, clientToFrame, frameToClient, gc);
     }
 
     private X11WindowManagerService(
@@ -99,7 +149,10 @@ public final class X11WindowManagerService implements AutoCloseable {
             long rootWindow,
             int screenWidth,
             int screenHeight,
-            WindowManagerCore core) {
+            WindowManagerCore core,
+            Map<Long, FrameWindow> clientToFrame,
+            Map<Long, FrameWindow> frameToClient,
+            Pointer gc) {
         this.x11 = x11;
         this.display = display;
         this.screen = screen;
@@ -107,6 +160,20 @@ public final class X11WindowManagerService implements AutoCloseable {
         this.screenWidth = screenWidth;
         this.screenHeight = screenHeight;
         this.core = core;
+        this.clientToFrame = clientToFrame;
+        this.frameToClient = frameToClient;
+        this.gc = gc;
+
+        this.cursorDefault = x11.XCreateFontCursor(display, LibX11.XC_left_ptr);
+        this.cursorMove = x11.XCreateFontCursor(display, LibX11.XC_fleur);
+        this.cursorN = x11.XCreateFontCursor(display, LibX11.XC_top_side);
+        this.cursorS = x11.XCreateFontCursor(display, LibX11.XC_bottom_side);
+        this.cursorW = x11.XCreateFontCursor(display, LibX11.XC_left_side);
+        this.cursorE = x11.XCreateFontCursor(display, LibX11.XC_right_side);
+        this.cursorNW = x11.XCreateFontCursor(display, LibX11.XC_top_left_corner);
+        this.cursorNE = x11.XCreateFontCursor(display, LibX11.XC_top_right_corner);
+        this.cursorSW = x11.XCreateFontCursor(display, LibX11.XC_bottom_left_corner);
+        this.cursorSE = x11.XCreateFontCursor(display, LibX11.XC_bottom_right_corner);
 
         this.netSupportingWmCheck = x11.XInternAtom(display, "_NET_SUPPORTING_WM_CHECK", 0);
         this.netWmName = x11.XInternAtom(display, "_NET_WM_NAME", 0);
@@ -142,6 +209,25 @@ public final class X11WindowManagerService implements AutoCloseable {
 
     public long checkWindow() {
         return checkWindow;
+    }
+
+    public FrameWindow getFrameForClient(long clientWin) {
+        return clientToFrame.get(clientWin);
+    }
+
+    private NativeLong getCursorForDirection(ResizeDirection dir) {
+        if (dir == null) return cursorDefault;
+        return switch (dir) {
+            case N -> cursorN;
+            case S -> cursorS;
+            case W -> cursorW;
+            case E -> cursorE;
+            case NW -> cursorNW;
+            case NE -> cursorNE;
+            case SW -> cursorSW;
+            case SE -> cursorSE;
+            case NONE -> cursorDefault;
+        };
     }
 
     private void initEwmh() {
@@ -203,15 +289,24 @@ public final class X11WindowManagerService implements AutoCloseable {
             return;
         }
         if (activeWindow != 0 && activeWindow != win && core.registry().find(activeWindow).isPresent()) {
-            // Re-grab button on the window losing focus so subsequent clicks will refocus it
             grabWindowButtons(activeWindow);
         }
         activeWindow = win;
-        // Ungrab button on the active window so all clicks and text selection go directly to client without grab interference
         ungrabWindowButtons(win);
         core.focus(win);
         core.raise(win);
         setActiveWindow(win);
+
+        // Update active highlight across all decoration frames
+        for (FrameWindow frame : clientToFrame.values()) {
+            boolean isActive = (frame.clientWindow().longValue() == win);
+            if (frame.isActive() != isActive) {
+                frame.setActive(isActive);
+                frame.render();
+                frame.blit(display, gc, screen);
+            }
+        }
+        x11.XFlush(display);
     }
 
     private void grabWindowButtons(long win) {
@@ -238,6 +333,109 @@ public final class X11WindowManagerService implements AutoCloseable {
         );
     }
 
+    public String fetchWindowTitle(long win) {
+        PointerByReference nameRet = new PointerByReference();
+        if (x11.XFetchName(display, new NativeLong(win), nameRet) != 0) {
+            Pointer ptr = nameRet.getValue();
+            if (ptr != null) {
+                try {
+                    String title = ptr.getString(0);
+                    if (title != null && !title.isBlank()) {
+                        return title;
+                    }
+                } finally {
+                    x11.XFree(ptr);
+                }
+            }
+        }
+        return "Window";
+    }
+
+    public FrameWindow decorateAndReparent(long clientWin, WindowGeometry geom) {
+        if (clientToFrame.containsKey(clientWin)) {
+            return clientToFrame.get(clientWin);
+        }
+
+        String title = fetchWindowTitle(clientWin);
+        FrameMetrics m = theme.metrics();
+
+        int clientX = geom.x();
+        int clientY = geom.y();
+        int clientW = Math.max(100, geom.width());
+        int clientH = Math.max(60, geom.height());
+
+        int frameW = m.frameWidth(clientW);
+        int frameH = m.frameHeight(clientH);
+        int frameX = Math.max(0, clientX);
+        int frameY = Math.max(0, clientY);
+
+        NativeLong frameWin = x11.XCreateSimpleWindow(
+                display,
+                new NativeLong(rootWindow),
+                frameX,
+                frameY,
+                frameW,
+                frameH,
+                0,
+                new NativeLong(0),
+                new NativeLong(0)
+        );
+
+        if (frameWin == null || frameWin.longValue() == 0) {
+            LOGGER.warning("Failed to create frame window for client " + clientWin);
+            return null;
+        }
+
+        // Add client to save set so if WM stops, client windows are preserved and restored to root
+        x11.XAddToSaveSet(display, new NativeLong(clientWin));
+
+        // Select events on frame
+        long frameMask = LibX11.ExposureMask
+                | LibX11.ButtonPressMask
+                | LibX11.ButtonReleaseMask
+                | LibX11.PointerMotionMask
+                | LibX11.Button1MotionMask
+                | LibX11.EnterWindowMask
+                | LibX11.LeaveWindowMask
+                | LibX11.StructureNotifyMask
+                | LibX11.SubstructureRedirectMask
+                | LibX11.SubstructureNotifyMask;
+        x11.XSelectInput(display, frameWin, new NativeLong(frameMask));
+
+        // Select StructureNotify and PropertyChange on client
+        x11.XSelectInput(display, new NativeLong(clientWin), new NativeLong(LibX11.StructureNotifyMask | LibX11.PropertyChangeMask));
+
+        // Reparent client into frame
+        x11.XReparentWindow(display, new NativeLong(clientWin), frameWin, m.clientOffsetX(), m.clientOffsetY());
+
+        // Ensure client is sized to inner frame area
+        x11.XMoveResizeWindow(display, new NativeLong(clientWin), m.clientOffsetX(), m.clientOffsetY(), clientW, clientH);
+
+        FrameWindow frame = new FrameWindow(
+                new NativeLong(clientWin),
+                frameWin,
+                frameX,
+                frameY,
+                frameW,
+                frameH,
+                theme
+        );
+        frame.setTitle(title);
+        frame.render();
+
+        clientToFrame.put(clientWin, frame);
+        frameToClient.put(frameWin.longValue(), frame);
+
+        // Map both client and frame
+        x11.XMapWindow(display, new NativeLong(clientWin));
+        x11.XMapWindow(display, frameWin);
+
+        frame.blit(display, gc, screen);
+        x11.XFlush(display);
+
+        return frame;
+    }
+
     public void scanExistingWindows() {
         PointerByReference rootReturn = new PointerByReference();
         PointerByReference parentReturn = new PointerByReference();
@@ -250,14 +448,18 @@ public final class X11WindowManagerService implements AutoCloseable {
             int nchildren = nchildrenReturn.getValue();
             long[] children = childrenReturn.getValue().getLongArray(0, nchildren);
             for (long child : children) {
-                if (child == 0 || child == rootWindow || child == checkWindow) {
+                if (child == 0 || child == rootWindow || child == checkWindow || frameToClient.containsKey(child)) {
                     continue;
                 }
                 LibX11.XWindowAttributes attrs = new LibX11.XWindowAttributes();
                 if (x11.XGetWindowAttributes(display, new NativeLong(child), attrs) != 0) {
                     if (attrs.override_redirect == 0 && attrs.map_state == 2 /* IsViewable */) {
                         WindowGeometry geom = new WindowGeometry(attrs.x, attrs.y, attrs.width, attrs.height);
-                        core.manage(child, geom);
+                        FrameWindow frame = decorateAndReparent(child, geom);
+                        WindowGeometry managedGeom = (frame != null)
+                                ? new WindowGeometry(frame.frameX(), frame.frameY(), frame.frameWidth(), frame.frameHeight())
+                                : geom;
+                        core.manage(child, managedGeom);
                         grabWindowButtons(child);
                     }
                 }
@@ -306,7 +508,7 @@ public final class X11WindowManagerService implements AutoCloseable {
         running.set(false);
     }
 
-    private void handleEvent(LibX11.XEvent event) {
+    void handleEvent(LibX11.XEvent event) {
         switch (event.type) {
             case LibX11.MapRequest -> {
                 LibX11.XMapRequestEvent mapReq = new LibX11.XMapRequestEvent(event.getPointer());
@@ -340,11 +542,19 @@ public final class X11WindowManagerService implements AutoCloseable {
                     cx = Math.max(10, Math.min(cx, screenWidth - w - 10));
                     cy = Math.max(10, Math.min(cy, screenHeight - h - 10));
                     initialGeom = new WindowGeometry(cx, cy, w, h);
-                    core.manage(win, initialGeom);
-                    core.adapter().configureWindow(win, initialGeom);
                 } else {
                     initialGeom = new WindowGeometry(x, y, w, h);
-                    core.manage(win, initialGeom);
+                }
+
+                FrameWindow frame = decorateAndReparent(win, initialGeom);
+                WindowGeometry managedGeom = (frame != null)
+                        ? new WindowGeometry(frame.frameX(), frame.frameY(), frame.frameWidth(), frame.frameHeight())
+                        : initialGeom;
+
+                core.manage(win, managedGeom);
+                if (parentRecord.isPresent()) {
+                    core.adapter().configureWindow(win, managedGeom);
+                } else {
                     core.arrange(screenWidth, screenHeight);
                 }
 
@@ -352,18 +562,68 @@ public final class X11WindowManagerService implements AutoCloseable {
                 focusClient(win);
                 updateClientList();
                 long finalTransientFor = transientFor;
-                LOGGER.info(() -> "Managed new client window: " + win + " geometry=" + initialGeom
+                LOGGER.info(() -> "Managed reparented client window: " + win + " geometry=" + managedGeom
                         + (finalTransientFor != 0 ? " (transient for " + finalTransientFor + ")" : ""));
             }
             case LibX11.ButtonPress -> {
                 LibX11.XButtonEvent btnEvent = new LibX11.XButtonEvent(event.getPointer());
-                long win = btnEvent.window.longValue();
-                if (core.registry().find(win).isPresent()) {
-                    focusClient(win);
-                    LOGGER.fine(() -> "ButtonPress: focused and raised window " + win);
+                long eventWin = btnEvent.window.longValue();
+
+                FrameWindow frameByFrame = frameToClient.get(eventWin);
+                if (frameByFrame != null) {
+                    handleFrameButtonPress(frameByFrame, btnEvent);
+                    return;
+                }
+
+                if (core.registry().find(eventWin).isPresent()) {
+                    focusClient(eventWin);
+                    LOGGER.fine(() -> "ButtonPress: focused and raised client window " + eventWin);
                 }
                 x11.XAllowEvents(display, LibX11.ReplayPointer, btnEvent.time != null ? btnEvent.time : new NativeLong(LibX11.CurrentTime));
                 x11.XFlush(display);
+            }
+            case LibX11.ButtonRelease -> {
+                LibX11.XButtonEvent btnEvent = new LibX11.XButtonEvent(event.getPointer());
+                handleFrameButtonRelease(btnEvent);
+            }
+            case LibX11.MotionNotify -> {
+                LibX11.XMotionEvent motion = new LibX11.XMotionEvent(event.getPointer());
+                handleFrameMotion(motion);
+            }
+            case LibX11.Expose -> {
+                LibX11.XExposeEvent exp = new LibX11.XExposeEvent(event.getPointer());
+                if (exp.count == 0) {
+                    FrameWindow frame = frameToClient.get(exp.window.longValue());
+                    if (frame != null) {
+                        frame.render();
+                        frame.blit(display, gc, screen);
+                        x11.XFlush(display);
+                    }
+                }
+            }
+            case LibX11.LeaveNotify -> {
+                LibX11.XAnyEvent any = new LibX11.XAnyEvent(event.getPointer());
+                FrameWindow frame = frameToClient.get(any.window.longValue());
+                if (frame != null && frame.hoveredButton() != null && interactionType == InteractionType.NONE) {
+                    frame.setHoveredButton(null);
+                    frame.render();
+                    frame.blit(display, gc, screen);
+                    x11.XFlush(display);
+                }
+            }
+            case LibX11.PropertyNotify -> {
+                LibX11.XAnyEvent any = new LibX11.XAnyEvent(event.getPointer());
+                long win = any.window.longValue();
+                FrameWindow frame = clientToFrame.get(win);
+                if (frame != null) {
+                    String newTitle = fetchWindowTitle(win);
+                    if (!newTitle.equals(frame.title())) {
+                        frame.setTitle(newTitle);
+                        frame.render();
+                        frame.blit(display, gc, screen);
+                        x11.XFlush(display);
+                    }
+                }
             }
             case LibX11.ClientMessage -> {
                 LibX11.XClientMessageEvent cmsg = new LibX11.XClientMessageEvent(event.getPointer());
@@ -393,29 +653,21 @@ public final class X11WindowManagerService implements AutoCloseable {
             case LibX11.DestroyNotify -> {
                 LibX11.XDestroyWindowEvent dest = new LibX11.XDestroyWindowEvent(event.getPointer());
                 long win = dest.window.longValue();
-                core.unmanage(win);
-                if (activeWindow == win) {
-                    activeWindow = 0;
-                    var remaining = core.registry().snapshot();
-                    if (!remaining.isEmpty()) {
-                        focusClient(remaining.iterator().next().id());
-                    }
-                }
-                updateClientList();
+                cleanupWindow(win);
                 LOGGER.info(() -> "Unmanaged destroyed window: " + win);
             }
             case LibX11.UnmapNotify -> {
                 LibX11.XUnmapEvent unmap = new LibX11.XUnmapEvent(event.getPointer());
                 long win = unmap.window.longValue();
-                core.unmanage(win);
-                if (activeWindow == win) {
-                    activeWindow = 0;
-                    var remaining = core.registry().snapshot();
-                    if (!remaining.isEmpty()) {
-                        focusClient(remaining.iterator().next().id());
-                    }
+                if (frameToClient.containsKey(win)) {
+                    // Frame itself unmapped (e.g. iconified), ignore
+                    return;
                 }
-                updateClientList();
+                FrameWindow frame = clientToFrame.get(win);
+                if (frame != null && frame.isMinimized()) {
+                    return;
+                }
+                cleanupWindow(win);
                 LOGGER.info(() -> "Unmanaged unmapped window: " + win);
             }
             default -> {
@@ -424,10 +676,271 @@ public final class X11WindowManagerService implements AutoCloseable {
         }
     }
 
+    private void handleFrameButtonPress(FrameWindow frame, LibX11.XButtonEvent btnEvent) {
+        long clientWin = frame.clientWindow().longValue();
+        focusClient(clientWin);
+
+        int localX = btnEvent.x;
+        int localY = btnEvent.y;
+
+        // 1. Check window buttons
+        Optional<WindowButton> btn = frame.hitTestButton(localX, localY);
+        if (btn.isPresent() && btnEvent.button == LibX11.Button1) {
+            interactionType = InteractionType.BUTTON_PRESS;
+            interactionFrame = frame;
+            currentPressedButton = btn.get();
+            frame.setPressedButton(currentPressedButton);
+            frame.render();
+            frame.blit(display, gc, screen);
+            x11.XFlush(display);
+            return;
+        }
+
+        // 2. Check titlebar drag zone
+        if (frame.isTitleBarDragZone(localX, localY) && btnEvent.button == LibX11.Button1) {
+            interactionType = InteractionType.MOVING;
+            interactionFrame = frame;
+            dragStartRootX = btnEvent.x_root;
+            dragStartRootY = btnEvent.y_root;
+            dragStartFrameX = frame.frameX();
+            dragStartFrameY = frame.frameY();
+            dragStartFrameW = frame.frameWidth();
+            dragStartFrameH = frame.frameHeight();
+
+            long grabMask = LibX11.ButtonReleaseMask | LibX11.PointerMotionMask | LibX11.Button1MotionMask;
+            x11.XGrabPointer(display, frame.frameWindow(), 0, new NativeLong(grabMask),
+                    LibX11.GrabModeAsync, LibX11.GrabModeAsync, new NativeLong(0), cursorMove, new NativeLong(LibX11.CurrentTime));
+            x11.XFlush(display);
+            return;
+        }
+
+        // 3. Check border resize zones
+        ResizeDirection dir = frame.hitTestBorder(localX, localY);
+        if (dir != ResizeDirection.NONE && btnEvent.button == LibX11.Button1) {
+            interactionType = InteractionType.RESIZING;
+            interactionFrame = frame;
+            resizeDirection = dir;
+            dragStartRootX = btnEvent.x_root;
+            dragStartRootY = btnEvent.y_root;
+            dragStartFrameX = frame.frameX();
+            dragStartFrameY = frame.frameY();
+            dragStartFrameW = frame.frameWidth();
+            dragStartFrameH = frame.frameHeight();
+
+            NativeLong dirCursor = getCursorForDirection(dir);
+            long grabMask = LibX11.ButtonReleaseMask | LibX11.PointerMotionMask | LibX11.Button1MotionMask;
+            x11.XGrabPointer(display, frame.frameWindow(), 0, new NativeLong(grabMask),
+                    LibX11.GrabModeAsync, LibX11.GrabModeAsync, new NativeLong(0), dirCursor, new NativeLong(LibX11.CurrentTime));
+            x11.XFlush(display);
+        }
+    }
+
+    private void handleFrameButtonRelease(LibX11.XButtonEvent btnEvent) {
+        if (interactionType == InteractionType.MOVING || interactionType == InteractionType.RESIZING) {
+            x11.XUngrabPointer(display, new NativeLong(LibX11.CurrentTime));
+            if (interactionFrame != null) {
+                long clientWin = interactionFrame.clientWindow().longValue();
+                core.registry().updateGeometry(clientWin, new WindowGeometry(
+                        interactionFrame.frameX(), interactionFrame.frameY(),
+                        interactionFrame.frameWidth(), interactionFrame.frameHeight()));
+                x11.XDefineCursor(display, interactionFrame.frameWindow(), cursorDefault);
+            }
+            interactionType = InteractionType.NONE;
+            interactionFrame = null;
+            resizeDirection = ResizeDirection.NONE;
+            x11.XFlush(display);
+            return;
+        }
+
+        if (interactionType == InteractionType.BUTTON_PRESS && interactionFrame != null) {
+            FrameWindow frame = interactionFrame;
+            WindowButton pressed = currentPressedButton;
+            frame.setPressedButton(null);
+            interactionType = InteractionType.NONE;
+            interactionFrame = null;
+            currentPressedButton = null;
+
+            frame.render();
+            frame.blit(display, gc, screen);
+
+            Optional<WindowButton> releasedOver = frame.hitTestButton(btnEvent.x, btnEvent.y);
+            if (releasedOver.isPresent() && releasedOver.get() == pressed) {
+                handleButtonClick(frame, pressed);
+            }
+            x11.XFlush(display);
+        }
+    }
+
+    private void handleFrameMotion(LibX11.XMotionEvent motion) {
+        if (interactionType == InteractionType.MOVING && interactionFrame != null) {
+            int dx = motion.x_root - dragStartRootX;
+            int dy = motion.y_root - dragStartRootY;
+            int newX = dragStartFrameX + dx;
+            int newY = dragStartFrameY + dy;
+            interactionFrame.setBounds(newX, newY, interactionFrame.frameWidth(), interactionFrame.frameHeight());
+            x11.XMoveWindow(display, interactionFrame.frameWindow(), newX, newY);
+            x11.XFlush(display);
+            return;
+        }
+
+        if (interactionType == InteractionType.RESIZING && interactionFrame != null) {
+            int dx = motion.x_root - dragStartRootX;
+            int dy = motion.y_root - dragStartRootY;
+
+            FrameMetrics m = interactionFrame.metrics();
+            int minW = Math.max(140, m.borderWidth() * 2 + 100);
+            int minH = Math.max(60, m.titleBarHeight() + m.borderWidth() + 20);
+
+            int fx = dragStartFrameX;
+            int fy = dragStartFrameY;
+            int fw = dragStartFrameW;
+            int fh = dragStartFrameH;
+
+            if (resizeDirection == ResizeDirection.E || resizeDirection == ResizeDirection.NE || resizeDirection == ResizeDirection.SE) {
+                fw = Math.max(minW, dragStartFrameW + dx);
+            } else if (resizeDirection == ResizeDirection.W || resizeDirection == ResizeDirection.NW || resizeDirection == ResizeDirection.SW) {
+                fw = Math.max(minW, dragStartFrameW - dx);
+                fx = dragStartFrameX + (dragStartFrameW - fw);
+            }
+
+            if (resizeDirection == ResizeDirection.S || resizeDirection == ResizeDirection.SE || resizeDirection == ResizeDirection.SW) {
+                fh = Math.max(minH, dragStartFrameH + dy);
+            } else if (resizeDirection == ResizeDirection.N || resizeDirection == ResizeDirection.NE || resizeDirection == ResizeDirection.NW) {
+                fh = Math.max(minH, dragStartFrameH - dy);
+                fy = dragStartFrameY + (dragStartFrameH - fh);
+            }
+
+            interactionFrame.setBounds(fx, fy, fw, fh);
+            x11.XMoveResizeWindow(display, interactionFrame.frameWindow(), fx, fy, fw, fh);
+            x11.XMoveResizeWindow(display, interactionFrame.clientWindow(),
+                    interactionFrame.clientX(), interactionFrame.clientY(),
+                    interactionFrame.clientWidth(), interactionFrame.clientHeight());
+            interactionFrame.render();
+            interactionFrame.blit(display, gc, screen);
+            x11.XFlush(display);
+            return;
+        }
+
+        // Pointer hovering over frame
+        FrameWindow frame = frameToClient.get(motion.window.longValue());
+        if (frame != null && interactionType == InteractionType.NONE) {
+            // Hover button highlight
+            Optional<WindowButton> hovered = frame.hitTestButton(motion.x, motion.y);
+            WindowButton h = hovered.orElse(null);
+            if (h != frame.hoveredButton()) {
+                frame.setHoveredButton(h);
+                frame.render();
+                frame.blit(display, gc, screen);
+            }
+
+            // Directional cursor
+            ResizeDirection dir = frame.hitTestBorder(motion.x, motion.y);
+            NativeLong targetCursor = getCursorForDirection(dir);
+            x11.XDefineCursor(display, frame.frameWindow(), targetCursor);
+            x11.XFlush(display);
+        }
+    }
+
+    private void handleButtonClick(FrameWindow frame, WindowButton button) {
+        long clientWin = frame.clientWindow().longValue();
+        switch (button) {
+            case CLOSE -> {
+                LOGGER.info(() -> "Close button clicked for window " + clientWin);
+                core.close(clientWin);
+            }
+            case MAXIMIZE -> {
+                LOGGER.info(() -> "Maximize button clicked for window " + clientWin);
+                toggleMaximize(frame);
+            }
+            case MINIMIZE -> {
+                LOGGER.info(() -> "Minimize button clicked for window " + clientWin);
+                minimizeWindow(frame);
+            }
+            case MENU -> {
+                LOGGER.info(() -> "Menu button clicked for window " + clientWin);
+                core.close(clientWin);
+            }
+        }
+    }
+
+    private void toggleMaximize(FrameWindow frame) {
+        if (!frame.isMaximized()) {
+            frame.setUnmaximizedBounds(new Rectangle(frame.frameX(), frame.frameY(), frame.frameWidth(), frame.frameHeight()));
+            frame.setBounds(0, 0, screenWidth, screenHeight);
+            frame.setMaximized(true);
+        } else {
+            Rectangle r = frame.unmaximizedBounds();
+            if (r == null) {
+                r = new Rectangle(50, 50, 600, 400);
+            }
+            frame.setBounds(r.x, r.y, r.width, r.height);
+            frame.setMaximized(false);
+        }
+        x11.XMoveResizeWindow(display, frame.frameWindow(), frame.frameX(), frame.frameY(), frame.frameWidth(), frame.frameHeight());
+        x11.XMoveResizeWindow(display, frame.clientWindow(),
+                frame.clientX(), frame.clientY(), frame.clientWidth(), frame.clientHeight());
+        frame.render();
+        frame.blit(display, gc, screen);
+        core.registry().updateGeometry(frame.clientWindow().longValue(),
+                new WindowGeometry(frame.frameX(), frame.frameY(), frame.frameWidth(), frame.frameHeight()));
+        x11.XFlush(display);
+    }
+
+    private void minimizeWindow(FrameWindow frame) {
+        frame.setMinimized(true);
+        x11.XUnmapWindow(display, frame.frameWindow());
+        long clientWin = frame.clientWindow().longValue();
+        if (activeWindow == clientWin) {
+            activeWindow = 0;
+            var remaining = core.registry().snapshot();
+            for (var rec : remaining) {
+                if (rec.id() != clientWin) {
+                    FrameWindow other = clientToFrame.get(rec.id());
+                    if (other != null && !other.isMinimized()) {
+                        focusClient(rec.id());
+                        break;
+                    }
+                }
+            }
+        }
+        x11.XFlush(display);
+    }
+
+    private void cleanupWindow(long win) {
+        FrameWindow frame = clientToFrame.remove(win);
+        if (frame != null) {
+            frameToClient.remove(frame.frameWindow().longValue());
+            x11.XDestroyWindow(display, frame.frameWindow());
+        }
+        core.unmanage(win);
+        if (activeWindow == win) {
+            activeWindow = 0;
+            var remaining = core.registry().snapshot();
+            if (!remaining.isEmpty()) {
+                focusClient(remaining.iterator().next().id());
+            }
+        }
+        updateClientList();
+        LOGGER.info(() -> "Cleaned up window: " + win);
+    }
+
     @Override
     public void close() {
         stop();
         if (display != null) {
+            if (cursorDefault != null) x11.XFreeCursor(display, cursorDefault);
+            if (cursorMove != null) x11.XFreeCursor(display, cursorMove);
+            if (cursorN != null) x11.XFreeCursor(display, cursorN);
+            if (cursorS != null) x11.XFreeCursor(display, cursorS);
+            if (cursorW != null) x11.XFreeCursor(display, cursorW);
+            if (cursorE != null) x11.XFreeCursor(display, cursorE);
+            if (cursorNW != null) x11.XFreeCursor(display, cursorNW);
+            if (cursorNE != null) x11.XFreeCursor(display, cursorNE);
+            if (cursorSW != null) x11.XFreeCursor(display, cursorSW);
+            if (cursorSE != null) x11.XFreeCursor(display, cursorSE);
+            if (gc != null) {
+                x11.XFreeGC(display, gc);
+            }
             if (checkWindow != 0) {
                 x11.XDestroyWindow(display, new NativeLong(checkWindow));
             }

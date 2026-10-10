@@ -2,33 +2,74 @@ package org.datazuul.dazeos.wm.x11;
 
 import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
+import java.util.function.Function;
 import org.datazuul.dazeos.wm.WindowGeometry;
 import org.datazuul.dazeos.wm.X11Adapter;
+import org.datazuul.dazeos.wm.decoration.FrameWindow;
 
 public final class NativeX11Adapter implements X11Adapter {
     private final LibX11 x11;
     private final Pointer display;
+    private final Function<Long, FrameWindow> frameLookup;
+    private final Pointer gc;
+    private final int screen;
 
     public NativeX11Adapter(LibX11 x11, Pointer display) {
+        this(x11, display, null, null, 0);
+    }
+
+    public NativeX11Adapter(
+        LibX11 x11,
+        Pointer display,
+        Function<Long, FrameWindow> frameLookup,
+        Pointer gc,
+        int screen
+    ) {
         this.x11 = x11;
         this.display = display;
+        this.frameLookup = frameLookup;
+        this.gc = gc;
+        this.screen = screen;
     }
 
     @Override
     public void configureWindow(long windowId, WindowGeometry geometry) {
-        x11.XMoveResizeWindow(display, new NativeLong(windowId), geometry.x(), geometry.y(), geometry.width(), geometry.height());
+        FrameWindow frame = (frameLookup != null) ? frameLookup.apply(windowId) : null;
+        if (frame != null) {
+            frame.setBounds(geometry.x(), geometry.y(), geometry.width(), geometry.height());
+            x11.XMoveResizeWindow(display, frame.frameWindow(), geometry.x(), geometry.y(), geometry.width(), geometry.height());
+            x11.XMoveResizeWindow(display, frame.clientWindow(), frame.clientX(), frame.clientY(), frame.clientWidth(), frame.clientHeight());
+            frame.render();
+            if (gc != null) {
+                frame.blit(display, gc, screen);
+            }
+        } else {
+            x11.XMoveResizeWindow(display, new NativeLong(windowId), geometry.x(), geometry.y(), geometry.width(), geometry.height());
+        }
         x11.XFlush(display);
     }
 
     @Override
     public void mapWindow(long windowId) {
-        x11.XMapWindow(display, new NativeLong(windowId));
+        FrameWindow frame = (frameLookup != null) ? frameLookup.apply(windowId) : null;
+        if (frame != null) {
+            x11.XMapWindow(display, frame.frameWindow());
+            x11.XMapWindow(display, frame.clientWindow());
+        } else {
+            x11.XMapWindow(display, new NativeLong(windowId));
+        }
         x11.XFlush(display);
     }
 
     @Override
     public void unmapWindow(long windowId) {
-        x11.XUnmapWindow(display, new NativeLong(windowId));
+        FrameWindow frame = (frameLookup != null) ? frameLookup.apply(windowId) : null;
+        if (frame != null) {
+            x11.XUnmapWindow(display, frame.frameWindow());
+            x11.XUnmapWindow(display, frame.clientWindow());
+        } else {
+            x11.XUnmapWindow(display, new NativeLong(windowId));
+        }
         x11.XFlush(display);
     }
 
@@ -56,7 +97,13 @@ public final class NativeX11Adapter implements X11Adapter {
 
     @Override
     public void raiseWindow(long windowId) {
-        x11.XRaiseWindow(display, new NativeLong(windowId));
+        FrameWindow frame = (frameLookup != null) ? frameLookup.apply(windowId) : null;
+        if (frame != null) {
+            x11.XRaiseWindow(display, frame.frameWindow());
+            x11.XRaiseWindow(display, frame.clientWindow());
+        } else {
+            x11.XRaiseWindow(display, new NativeLong(windowId));
+        }
         x11.XFlush(display);
     }
 
@@ -104,4 +151,3 @@ public final class NativeX11Adapter implements X11Adapter {
         return false;
     }
 }
-

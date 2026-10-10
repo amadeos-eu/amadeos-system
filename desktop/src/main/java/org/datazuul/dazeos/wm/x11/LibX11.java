@@ -20,6 +20,8 @@ public interface LibX11 extends Library {
     long EnterWindowMask = 1L << 4;
     long LeaveWindowMask = 1L << 5;
     long PointerMotionMask = 1L << 6;
+    long Button1MotionMask = 1L << 8;
+    long ButtonMotionMask = 1L << 13;
     long ExposureMask = 1L << 15;
     long StructureNotifyMask = 1L << 17;
     long SubstructureNotifyMask = 1L << 19;
@@ -37,6 +39,7 @@ public interface LibX11 extends Library {
     int LeaveNotify = 8;
     int FocusIn = 9;
     int FocusOut = 10;
+    int Expose = 12;
     int CreateNotify = 16;
     int DestroyNotify = 17;
     int UnmapNotify = 18;
@@ -56,6 +59,23 @@ public interface LibX11 extends Library {
     int GrabModeAsync = 1;
     int AsyncPointer = 0;
     int ReplayPointer = 2;
+
+    // Cursor shapes
+    int XC_left_ptr = 68;
+    int XC_fleur = 52;
+    int XC_top_side = 138;
+    int XC_bottom_side = 16;
+    int XC_left_side = 70;
+    int XC_right_side = 96;
+    int XC_top_left_corner = 134;
+    int XC_top_right_corner = 136;
+    int XC_bottom_left_corner = 12;
+    int XC_bottom_right_corner = 14;
+
+    // Image formats
+    int XYBitmap = 0;
+    int XYPixmap = 1;
+    int ZPixmap = 2;
 
     // Property modes and standard atoms
     int PropModeReplace = 0;
@@ -242,6 +262,60 @@ public interface LibX11 extends Library {
         }
     }
 
+    @Structure.FieldOrder({
+        "type", "serial", "send_event", "display", "window",
+        "root", "subwindow", "time", "x", "y", "x_root", "y_root",
+        "state", "is_hint", "same_screen"
+    })
+    class XMotionEvent extends Structure {
+        public int type;
+        public NativeLong serial;
+        public int send_event;
+        public Pointer display;
+        public NativeLong window;
+        public NativeLong root;
+        public NativeLong subwindow;
+        public NativeLong time;
+        public int x, y;
+        public int x_root, y_root;
+        public int state;
+        public byte is_hint;
+        public int same_screen;
+
+        public XMotionEvent() {
+            super();
+        }
+
+        public XMotionEvent(Pointer p) {
+            super(p);
+            read();
+        }
+    }
+
+    @Structure.FieldOrder({
+        "type", "serial", "send_event", "display", "window",
+        "x", "y", "width", "height", "count"
+    })
+    class XExposeEvent extends Structure {
+        public int type;
+        public NativeLong serial;
+        public int send_event;
+        public Pointer display;
+        public NativeLong window;
+        public int x, y;
+        public int width, height;
+        public int count;
+
+        public XExposeEvent() {
+            super();
+        }
+
+        public XExposeEvent(Pointer p) {
+            super(p);
+            read();
+        }
+    }
+
     @Structure.FieldOrder({"type", "serial", "send_event", "display", "window", "message_type", "format", "data"})
     class XClientMessageEvent extends Structure {
         public int type;
@@ -270,6 +344,11 @@ public interface LibX11 extends Library {
 
         public XEvent() {
             super();
+        }
+
+        public XEvent(Pointer p) {
+            super(p);
+            read();
         }
     }
 
@@ -342,6 +421,10 @@ public interface LibX11 extends Library {
     int XUnmapWindow(Pointer display, NativeLong window);
 
     int XMoveResizeWindow(Pointer display, NativeLong window, int x, int y, int width, int height);
+
+    int XMoveWindow(Pointer display, NativeLong window, int x, int y);
+
+    int XResizeWindow(Pointer display, NativeLong window, int width, int height);
 
     int XConfigureWindow(Pointer display, NativeLong window, NativeLong valueMask, XWindowChanges values);
 
@@ -426,5 +509,71 @@ public interface LibX11 extends Library {
 
     int XGetTransientForHint(Pointer display, NativeLong window, Pointer prop_window_return);
     int XGetWMProtocols(Pointer display, NativeLong window, PointerByReference protocols_return, IntByReference count_return);
+
+    int XReparentWindow(Pointer display, NativeLong window, NativeLong parent, int x, int y);
+
+    int XAddToSaveSet(Pointer display, NativeLong window);
+
+    int XRemoveFromSaveSet(Pointer display, NativeLong window);
+
+    Pointer XCreateGC(Pointer display, NativeLong drawable, NativeLong valuemask, Pointer values);
+
+    int XFreeGC(Pointer display, Pointer gc);
+
+    Pointer XDefaultVisual(Pointer display, int screen_number);
+
+    int XDefaultDepth(Pointer display, int screen_number);
+
+    Pointer XCreateImage(
+        Pointer display,
+        Pointer visual,
+        int depth,
+        int format,
+        int offset,
+        Pointer data,
+        int width,
+        int height,
+        int bitmap_pad,
+        int bytes_per_line
+    );
+
+    int XPutImage(
+        Pointer display,
+        NativeLong drawable,
+        Pointer gc,
+        Pointer image,
+        int src_x,
+        int src_y,
+        int dest_x,
+        int dest_y,
+        int width,
+        int height
+    );
+
+    int XDestroyImage(Pointer ximage);
+
+    NativeLong XCreateFontCursor(Pointer display, int shape);
+
+    int XFreeCursor(Pointer display, NativeLong cursor);
+
+    int XDefineCursor(Pointer display, NativeLong window, NativeLong cursor);
+
+    int XUndefineCursor(Pointer display, NativeLong window);
+
+    int XGrabPointer(
+        Pointer display,
+        NativeLong grab_window,
+        int owner_events,
+        NativeLong event_mask,
+        int pointer_mode,
+        int keyboard_mode,
+        NativeLong confine_to,
+        NativeLong cursor,
+        NativeLong time
+    );
+
+    int XUngrabPointer(Pointer display, NativeLong time);
+
+    int XFetchName(Pointer display, NativeLong window, PointerByReference window_name_return);
 }
 
