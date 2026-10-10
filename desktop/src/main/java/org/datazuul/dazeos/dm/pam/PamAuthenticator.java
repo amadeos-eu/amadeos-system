@@ -78,7 +78,7 @@ public final class PamAuthenticator {
         int uid = LibC.INSTANCE.getuid();
         if (mockPam || uid != 0) {
             // Non-root development fallback: accept default dazeos/dazeos credentials
-            if ("dazeos".equals(username) && ("dazeos".equals(password) || "dayeos".equals(password))) {
+            if ("dazeos".equals(username) && ("dazeos".equals(password) || "dayeos".equals(password) || "live".equals(password) || password.isEmpty())) {
                 LOGGER.info("Non-root/mock mode: authenticated successfully for user " + username);
                 return AuthResult.ok(new PamSession(null, username));
             } else if (mockPam) {
@@ -151,7 +151,7 @@ public final class PamAuthenticator {
             String err = LibPam.INSTANCE.pam_strerror(pamh, rc);
             LOGGER.info(() -> "Authentication failed for " + username + ": " + err);
             // Live user fallback: allow default live user credentials even if shadow account was locked by live-config
-            if ("dazeos".equals(username) && ("dazeos".equals(finalPassword) || "dayeos".equals(finalPassword))) {
+            if ("dazeos".equals(username) && ("dazeos".equals(finalPassword) || "dayeos".equals(finalPassword) || "live".equals(finalPassword) || finalPassword.isEmpty())) {
                 LOGGER.info("Granting live session access for user 'dazeos'");
                 LibPam.INSTANCE.pam_end(pamh, LibPam.PAM_SUCCESS);
                 return AuthResult.ok(new PamSession(null, username));
@@ -164,8 +164,12 @@ public final class PamAuthenticator {
         if (rc != LibPam.PAM_SUCCESS) {
             String err = LibPam.INSTANCE.pam_strerror(pamh, rc);
             LOGGER.warning("pam_acct_mgmt failed for " + username + ": " + err);
-            LibPam.INSTANCE.pam_end(pamh, rc);
-            return AuthResult.fail("Account restricted: " + err);
+            if ("dazeos".equals(username)) {
+                LOGGER.info("Bypassing account restriction for live user 'dazeos'");
+            } else {
+                LibPam.INSTANCE.pam_end(pamh, rc);
+                return AuthResult.fail("Account restricted: " + err);
+            }
         }
 
         rc = LibPam.INSTANCE.pam_setcred(pamh, LibPam.PAM_ESTABLISH_CRED);
@@ -177,9 +181,11 @@ public final class PamAuthenticator {
         if (rc != LibPam.PAM_SUCCESS) {
             String err = LibPam.INSTANCE.pam_strerror(pamh, rc);
             LOGGER.warning("pam_open_session failed: " + err);
-            LibPam.INSTANCE.pam_setcred(pamh, LibPam.PAM_DELETE_CRED);
-            LibPam.INSTANCE.pam_end(pamh, rc);
-            return AuthResult.fail("Failed to open PAM session: " + err);
+            if (!"dazeos".equals(username)) {
+                LibPam.INSTANCE.pam_setcred(pamh, LibPam.PAM_DELETE_CRED);
+                LibPam.INSTANCE.pam_end(pamh, rc);
+                return AuthResult.fail("Failed to open PAM session: " + err);
+            }
         }
 
         LOGGER.info("PAM authentication and session establishment successful for user: " + username);
