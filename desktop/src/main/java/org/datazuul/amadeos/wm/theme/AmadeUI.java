@@ -72,14 +72,14 @@ public final class AmadeUI {
         UIManager.put("Button.foreground", new ColorUIResource(text));
         UIManager.put("Button.select", new ColorUIResource(sunken));
         UIManager.put("Button.focus", new ColorUIResource(shadow));
-        UIManager.put("Button.border", new MotifBevelBorder(true, 2));
+        UIManager.put("Button.border", new MotifButtonBorder(2));
 
         // Toggle Buttons
         UIManager.put("ToggleButtonUI", AmadeToggleButtonUI.class.getName());
         UIManager.put("ToggleButton.background", new ColorUIResource(base));
         UIManager.put("ToggleButton.foreground", new ColorUIResource(text));
         UIManager.put("ToggleButton.select", new ColorUIResource(sunken));
-        UIManager.put("ToggleButton.border", new MotifBevelBorder(true, 2));
+        UIManager.put("ToggleButton.border", new MotifButtonBorder(2));
 
         // Menus
         UIManager.put("MenuBar.background", new ColorUIResource(base));
@@ -117,6 +117,32 @@ public final class AmadeUI {
     }
 
     /**
+     * Helper to paint standard 3D beveled borders using theme colors.
+     */
+    public static void paintBevel(Graphics g, int x, int y, int width, int height, boolean raised, int thickness) {
+        DesktopTheme t = ThemeManager.currentTheme();
+        Graphics2D g2 = (Graphics2D) g;
+
+        Color tl1 = raised ? t.highlight() : t.darkShadow();
+        Color tl2 = raised ? t.softHighlight() : t.shadow();
+        Color br1 = raised ? t.darkShadow() : t.highlight();
+        Color br2 = raised ? t.shadow() : t.softHighlight();
+
+        for (int i = 0; i < thickness; i++) {
+            Color tl = (i == 0) ? tl1 : tl2;
+            Color br = (i == 0) ? br1 : br2;
+
+            g2.setColor(tl);
+            g2.drawLine(x + i, y + i, x + width - 1 - i, y + i);
+            g2.drawLine(x + i, y + i, x + i, y + height - 1 - i);
+
+            g2.setColor(br);
+            g2.drawLine(x + i, y + height - 1 - i, x + width - 1 - i, y + height - 1 - i);
+            g2.drawLine(x + width - 1 - i, y + i, x + width - 1 - i, y + height - 1 - i);
+        }
+    }
+
+    /**
      * Motif 3D Bevel Border drawing 3D chiseled workstation borders.
      */
     public static class MotifBevelBorder extends AbstractBorder {
@@ -130,26 +156,51 @@ public final class AmadeUI {
 
         @Override
         public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {
-            DesktopTheme t = ThemeManager.currentTheme();
-            Graphics2D g2 = (Graphics2D) g;
+            paintBevel(g, x, y, width, height, raised, thickness);
+        }
 
-            Color tl1 = raised ? t.highlight() : t.darkShadow();
-            Color tl2 = raised ? t.softHighlight() : t.shadow();
-            Color br1 = raised ? t.darkShadow() : t.highlight();
-            Color br2 = raised ? t.shadow() : t.softHighlight();
-
-            for (int i = 0; i < thickness; i++) {
-                Color tl = (i == 0) ? tl1 : tl2;
-                Color br = (i == 0) ? br1 : br2;
-
-                g2.setColor(tl);
-                g2.drawLine(x + i, y + i, x + width - 1 - i, y + i);
-                g2.drawLine(x + i, y + i, x + i, y + height - 1 - i);
-
-                g2.setColor(br);
-                g2.drawLine(x + i, y + height - 1 - i, x + width - 1 - i, y + height - 1 - i);
-                g2.drawLine(x + width - 1 - i, y + i, x + width - 1 - i, y + height - 1 - i);
+        @Override
+        public Insets getBorderInsets(Component c) {
+            if (c instanceof javax.swing.JScrollPane) {
+                return new Insets(thickness, thickness, thickness, thickness);
             }
+            return new Insets(thickness + 3, thickness + 8, thickness + 3, thickness + 8);
+        }
+
+        @Override
+        public Insets getBorderInsets(Component c, Insets insets) {
+            Insets ins = getBorderInsets(c);
+            insets.top = ins.top;
+            insets.left = ins.left;
+            insets.bottom = ins.bottom;
+            insets.right = ins.right;
+            return insets;
+        }
+    }
+
+    /**
+     * Dynamic Motif 3D Button Border that reflects the pressed/selected state of the button
+     * without mutating component borders or triggering repaint/layout thrashing during paint().
+     */
+    public static class MotifButtonBorder extends AbstractBorder {
+        private final int thickness;
+
+        public MotifButtonBorder(int thickness) {
+            this.thickness = thickness;
+        }
+
+        @Override
+        public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {
+            boolean isSunken = false;
+            if (c instanceof AbstractButton b) {
+                ButtonModel model = b.getModel();
+                if (model.isArmed() && model.isPressed()) {
+                    isSunken = true;
+                } else if (model.isSelected()) {
+                    isSunken = true;
+                }
+            }
+            paintBevel(g, x, y, width, height, !isSunken, thickness);
         }
 
         @Override
@@ -187,7 +238,7 @@ public final class AmadeUI {
             DesktopTheme t = ThemeManager.currentTheme();
             b.setBackground(t.base());
             b.setForeground(t.textActive());
-            b.setBorder(new MotifBevelBorder(true, 2));
+            b.setBorder(new MotifButtonBorder(2));
             b.setFont(b.getFont().deriveFont(Font.BOLD, 12.0f));
         }
 
@@ -205,13 +256,10 @@ public final class AmadeUI {
             Color bg;
             if (isPressed) {
                 bg = t.sunkenBg();
-                b.setBorder(new MotifBevelBorder(false, 2));
             } else if (isHovered) {
                 bg = t.softHighlight();
-                b.setBorder(new MotifBevelBorder(true, 2));
             } else {
                 bg = t.base();
-                b.setBorder(new MotifBevelBorder(true, 2));
             }
 
             g2.setColor(bg);
@@ -249,7 +297,7 @@ public final class AmadeUI {
             DesktopTheme t = ThemeManager.currentTheme();
             b.setBackground(t.base());
             b.setForeground(t.textActive());
-            b.setBorder(new MotifBevelBorder(true, 2));
+            b.setBorder(new MotifButtonBorder(2));
         }
 
         @Override
@@ -265,29 +313,24 @@ public final class AmadeUI {
             boolean isHovered = model.isRollover();
 
             Color bg;
-            boolean raised;
             if (isPressed || isSelected) {
                 bg = t.sunkenBg();
-                raised = false;
             } else if (isHovered) {
                 bg = t.softHighlight();
-                raised = true;
             } else {
                 bg = t.base();
-                raised = true;
             }
 
-            b.setBorder(new MotifBevelBorder(raised, 2));
             g2.setColor(bg);
             g2.fillRect(0, 0, c.getWidth(), c.getHeight());
 
-            if (!raised) {
+            if (isPressed || isSelected) {
                 g2.translate(1, 1);
             }
 
             super.paint(g2, c);
 
-            if (!raised) {
+            if (isPressed || isSelected) {
                 g2.translate(-1, -1);
             }
         }
