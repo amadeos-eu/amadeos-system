@@ -56,3 +56,4 @@ public enum XdgCategory {
         return false;
     }
 }
+

@@ -165,3 +165,4 @@ class XdgDesktopEntryTest {
         assertTrue(p2.get().matchesCategory(XdgCategory.TERMINAL));
     }
 }
+

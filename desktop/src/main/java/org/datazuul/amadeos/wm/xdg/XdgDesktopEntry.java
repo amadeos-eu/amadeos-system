@@ -181,3 +181,4 @@ public record XdgDesktopEntry(
         return tokens;
     }
 }
+

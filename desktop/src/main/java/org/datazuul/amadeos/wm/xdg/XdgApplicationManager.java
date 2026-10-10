@@ -111,3 +111,4 @@ public final class XdgApplicationManager {
         return list.isEmpty() ? Optional.empty() : Optional.of(list.get(0));
     }
 }
+
