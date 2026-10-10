@@ -49,6 +49,7 @@ public interface LibX11 extends Library {
     int ClientMessage = 33;
 
     // Pointer and Button constants
+    int AnyButton = 0;
     int Button1 = 1;
     long AnyModifier = 1L << 15;
     int GrabModeSync = 0;
@@ -424,5 +425,6 @@ public interface LibX11 extends Library {
     int XKillClient(Pointer display, NativeLong resource);
 
     int XGetTransientForHint(Pointer display, NativeLong window, Pointer prop_window_return);
+    int XGetWMProtocols(Pointer display, NativeLong window, PointerByReference protocols_return, IntByReference count_return);
 }
 

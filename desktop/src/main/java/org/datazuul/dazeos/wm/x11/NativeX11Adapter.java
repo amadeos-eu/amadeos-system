@@ -35,6 +35,22 @@ public final class NativeX11Adapter implements X11Adapter {
     @Override
     public void focusWindow(long windowId) {
         x11.XSetInputFocus(display, new NativeLong(windowId), LibX11.RevertToPointerRoot, new NativeLong(LibX11.CurrentTime));
+
+        NativeLong wmProtocols = x11.XInternAtom(display, "WM_PROTOCOLS", 0);
+        NativeLong wmTakeFocus = x11.XInternAtom(display, "WM_TAKE_FOCUS", 0);
+
+        if (hasProtocol(windowId, wmTakeFocus)) {
+            LibX11.XClientMessageEvent msg = new LibX11.XClientMessageEvent();
+            msg.type = LibX11.ClientMessage;
+            msg.window = new NativeLong(windowId);
+            msg.message_type = wmProtocols;
+            msg.format = 32;
+            msg.data[0] = wmTakeFocus;
+            msg.data[1] = new NativeLong(LibX11.CurrentTime);
+            msg.write();
+
+            x11.XSendEvent(display, new NativeLong(windowId), 0, new NativeLong(0), msg.getPointer());
+        }
         x11.XFlush(display);
     }
 
@@ -49,17 +65,43 @@ public final class NativeX11Adapter implements X11Adapter {
         NativeLong wmProtocols = x11.XInternAtom(display, "WM_PROTOCOLS", 0);
         NativeLong wmDeleteWindow = x11.XInternAtom(display, "WM_DELETE_WINDOW", 0);
 
-        LibX11.XClientMessageEvent msg = new LibX11.XClientMessageEvent();
-        msg.type = LibX11.ClientMessage;
-        msg.window = new NativeLong(windowId);
-        msg.message_type = wmProtocols;
-        msg.format = 32;
-        msg.data[0] = wmDeleteWindow;
-        msg.data[1] = new NativeLong(LibX11.CurrentTime);
-        msg.write();
+        if (hasProtocol(windowId, wmDeleteWindow)) {
+            LibX11.XClientMessageEvent msg = new LibX11.XClientMessageEvent();
+            msg.type = LibX11.ClientMessage;
+            msg.window = new NativeLong(windowId);
+            msg.message_type = wmProtocols;
+            msg.format = 32;
+            msg.data[0] = wmDeleteWindow;
+            msg.data[1] = new NativeLong(LibX11.CurrentTime);
+            msg.write();
 
-        x11.XSendEvent(display, new NativeLong(windowId), 0, new NativeLong(0), msg.getPointer());
+            x11.XSendEvent(display, new NativeLong(windowId), 0, new NativeLong(0), msg.getPointer());
+        } else {
+            x11.XKillClient(display, new NativeLong(windowId));
+        }
         x11.XFlush(display);
+    }
+
+    public boolean hasProtocol(long windowId, NativeLong protocolAtom) {
+        com.sun.jna.ptr.PointerByReference protocolsReturn = new com.sun.jna.ptr.PointerByReference();
+        com.sun.jna.ptr.IntByReference countReturn = new com.sun.jna.ptr.IntByReference();
+        if (x11.XGetWMProtocols(display, new NativeLong(windowId), protocolsReturn, countReturn) != 0) {
+            int count = countReturn.getValue();
+            Pointer ptr = protocolsReturn.getValue();
+            if (ptr != null && count > 0) {
+                try {
+                    for (int i = 0; i < count; i++) {
+                        NativeLong atom = ptr.getNativeLong((long) i * NativeLong.SIZE);
+                        if (atom != null && atom.longValue() == protocolAtom.longValue()) {
+                            return true;
+                        }
+                    }
+                } finally {
+                    x11.XFree(ptr);
+                }
+            }
+        }
+        return false;
     }
 }
 

@@ -189,11 +189,29 @@ public final class X11WindowManagerService implements AutoCloseable {
         x11.XFlush(display);
     }
 
+    private long activeWindow = 0;
+
     public void setActiveWindow(long win) {
         Memory mem = new Memory(NativeLong.SIZE);
         mem.setNativeLong(0, new NativeLong(win));
         x11.XChangeProperty(display, new NativeLong(rootWindow), netActiveWindow, xaWindowAtom, 32, LibX11.PropModeReplace, mem, 1);
         x11.XFlush(display);
+    }
+
+    public void focusClient(long win) {
+        if (win == 0 || core.registry().find(win).isEmpty()) {
+            return;
+        }
+        if (activeWindow != 0 && activeWindow != win && core.registry().find(activeWindow).isPresent()) {
+            // Re-grab button on the window losing focus so subsequent clicks will refocus it
+            grabWindowButtons(activeWindow);
+        }
+        activeWindow = win;
+        // Ungrab button on the active window so all clicks and text selection go directly to client without grab interference
+        ungrabWindowButtons(win);
+        core.focus(win);
+        core.raise(win);
+        setActiveWindow(win);
     }
 
     private void grabWindowButtons(long win) {
@@ -208,6 +226,15 @@ public final class X11WindowManagerService implements AutoCloseable {
             LibX11.GrabModeAsync,
             new NativeLong(0),
             new NativeLong(0)
+        );
+    }
+
+    private void ungrabWindowButtons(long win) {
+        x11.XUngrabButton(
+            display,
+            LibX11.AnyButton,
+            new NativeLong(LibX11.AnyModifier),
+            new NativeLong(win)
         );
     }
 
@@ -238,6 +265,10 @@ public final class X11WindowManagerService implements AutoCloseable {
             x11.XFree(childrenReturn.getValue());
             core.arrange(screenWidth, screenHeight);
             updateClientList();
+            var managed = core.registry().snapshot();
+            if (!managed.isEmpty()) {
+                focusClient(managed.iterator().next().id());
+            }
         }
     }
 
@@ -318,9 +349,7 @@ public final class X11WindowManagerService implements AutoCloseable {
                 }
 
                 grabWindowButtons(win);
-                core.focus(win);
-                core.raise(win);
-                setActiveWindow(win);
+                focusClient(win);
                 updateClientList();
                 long finalTransientFor = transientFor;
                 LOGGER.info(() -> "Managed new client window: " + win + " geometry=" + initialGeom
@@ -330,12 +359,10 @@ public final class X11WindowManagerService implements AutoCloseable {
                 LibX11.XButtonEvent btnEvent = new LibX11.XButtonEvent(event.getPointer());
                 long win = btnEvent.window.longValue();
                 if (core.registry().find(win).isPresent()) {
-                    core.focus(win);
-                    core.raise(win);
-                    setActiveWindow(win);
+                    focusClient(win);
                     LOGGER.fine(() -> "ButtonPress: focused and raised window " + win);
                 }
-                x11.XAllowEvents(display, LibX11.ReplayPointer, new NativeLong(LibX11.CurrentTime));
+                x11.XAllowEvents(display, LibX11.ReplayPointer, btnEvent.time != null ? btnEvent.time : new NativeLong(LibX11.CurrentTime));
                 x11.XFlush(display);
             }
             case LibX11.ClientMessage -> {
@@ -345,9 +372,7 @@ public final class X11WindowManagerService implements AutoCloseable {
                     core.close(win);
                     LOGGER.info(() -> "ClientMessage _NET_CLOSE_WINDOW handled for " + win);
                 } else if (cmsg.message_type != null && cmsg.message_type.equals(netActiveWindow)) {
-                    core.focus(win);
-                    core.raise(win);
-                    setActiveWindow(win);
+                    focusClient(win);
                     LOGGER.info(() -> "ClientMessage _NET_ACTIVE_WINDOW handled for " + win);
                 }
             }
@@ -369,6 +394,13 @@ public final class X11WindowManagerService implements AutoCloseable {
                 LibX11.XDestroyWindowEvent dest = new LibX11.XDestroyWindowEvent(event.getPointer());
                 long win = dest.window.longValue();
                 core.unmanage(win);
+                if (activeWindow == win) {
+                    activeWindow = 0;
+                    var remaining = core.registry().snapshot();
+                    if (!remaining.isEmpty()) {
+                        focusClient(remaining.iterator().next().id());
+                    }
+                }
                 updateClientList();
                 LOGGER.info(() -> "Unmanaged destroyed window: " + win);
             }
@@ -376,6 +408,13 @@ public final class X11WindowManagerService implements AutoCloseable {
                 LibX11.XUnmapEvent unmap = new LibX11.XUnmapEvent(event.getPointer());
                 long win = unmap.window.longValue();
                 core.unmanage(win);
+                if (activeWindow == win) {
+                    activeWindow = 0;
+                    var remaining = core.registry().snapshot();
+                    if (!remaining.isEmpty()) {
+                        focusClient(remaining.iterator().next().id());
+                    }
+                }
                 updateClientList();
                 LOGGER.info(() -> "Unmanaged unmapped window: " + win);
             }

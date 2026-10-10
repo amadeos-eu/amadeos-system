@@ -53,6 +53,7 @@ class X11WindowManagerIntegrationTest {
                 assertTrue(windowId != 0);
 
                 // Test focus and raise operations
+                wm.focusClient(windowId);
                 wm.core().focus(windowId);
                 wm.core().raise(windowId);
 
