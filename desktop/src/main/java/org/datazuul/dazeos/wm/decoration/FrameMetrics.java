@@ -112,7 +112,7 @@ public final class FrameMetrics {
         }
 
         int cornerLeft = borderWidth + buttonSize;
-        int cornerRight = frameWidth - borderWidth - (3 * buttonSize);
+        int cornerRight = frameWidth - borderWidth - buttonSize;
         int cornerTop = titleBarHeight;
         int cornerBottom = frameHeight - titleBarHeight;
 

@@ -63,11 +63,11 @@ public final class MotifDecorationTheme implements DecorationTheme {
         // 3. Draw authentic Motif corner tabs (segmented 3D joint lines aligned with button sides)
         drawCornerJoints(g, width, height, bw, tbh);
 
-        // 4. Draw Titlebar inset (sunken 3D channel)
+        // 4. Draw Titlebar (raised 3D surface on the same level as the buttons)
         Rectangle tb = metrics.getTitleBarBounds(width);
         g.setColor(active ? TITLE_BG_ACTIVE : TITLE_BG_INACTIVE);
         g.fillRect(tb.x, tb.y, tb.width, tb.height);
-        draw3DBevel(g, tb.x, tb.y, tb.width, tb.height, false, 2);
+        draw3DBevel(g, tb.x, tb.y, tb.width, tb.height, true, 2);
 
         // 5. Title Text (centered inside sunken title channel)
         g.setFont(TITLE_FONT);
@@ -220,12 +220,13 @@ public final class MotifDecorationTheme implements DecorationTheme {
 
     private void drawCornerJoints(Graphics2D g, int width, int height, int bw, int tbh) {
         int cornerLeft = metrics.borderWidth() + metrics.buttonSize();
-        int cornerRight = width - metrics.borderWidth() - (3 * metrics.buttonSize());
+        // Right notch aligns with the most right button (one button width)
+        int cornerRight = width - metrics.borderWidth() - metrics.buttonSize();
 
         // Vertical 3D notch joints on top border:
         // Top-left notch aligns with right edge of MENU button:
         drawNotchLine(g, cornerLeft - 1, 0, cornerLeft - 1, bw - 1, true);
-        // Top-right notch aligns with left edge of MINIMIZE button:
+        // Top-right notch aligns with left edge of the most right button:
         drawNotchLine(g, cornerRight - 1, 0, cornerRight - 1, bw - 1, true);
 
         // Vertical 3D notch joints on bottom border:
