@@ -50,5 +50,18 @@ class PamAuthenticatorTest {
             System.clearProperty("dazeos.mock.pam");
         }
     }
+
+    @Test
+    void testMockPamAcceptsQwertzSwap() {
+        System.setProperty("dazeos.mock.pam", "true");
+        try {
+            PamAuthenticator auth = new PamAuthenticator();
+            PamAuthenticator.AuthResult res = auth.authenticate("dazeos", "dayeos");
+            assertTrue(res.success());
+            assertNotNull(res.session());
+        } finally {
+            System.clearProperty("dazeos.mock.pam");
+        }
+    }
 }
 

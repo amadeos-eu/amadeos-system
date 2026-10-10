@@ -133,10 +133,11 @@ public final class DazeLoginGreeter extends JFrame {
 
         buildCardContent(loginCard, theme);
 
-        // Auto-focus password field when opened
+        // Auto-focus password field and apply German layout when opened
         addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
             public void windowOpened(java.awt.event.WindowEvent e) {
+                applyKeyboardLayout("de");
                 passField.requestFocusInWindow();
             }
         });
@@ -169,7 +170,7 @@ public final class DazeLoginGreeter extends JFrame {
             }
         };
         card.setBackground(theme.base());
-        card.setPreferredSize(new Dimension(460, 310));
+        card.setPreferredSize(new Dimension(480, 350));
         card.setBorder(BorderFactory.createEmptyBorder(12, 16, 14, 16));
         return card;
     }
@@ -227,8 +228,30 @@ public final class DazeLoginGreeter extends JFrame {
         gbc.gridx = 1; gbc.gridy = 2; gbc.weightx = 0.7;
         formPanel.add(sessionCombo, gbc);
 
+        // Keyboard Layout row
+        gbc.gridx = 0; gbc.gridy = 3; gbc.weightx = 0.3;
+        JLabel kbLabel = new JLabel("Keyboard:", SwingConstants.RIGHT);
+        kbLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 12));
+        kbLabel.setForeground(theme.textActive());
+        formPanel.add(kbLabel, gbc);
+
+        gbc.gridx = 1; gbc.gridy = 3; gbc.weightx = 0.7;
+        JComboBox<String> keyboardCombo = new JComboBox<>(new String[]{
+                "German (DE - QWERTZ)",
+                "English (US - QWERTY)"
+        });
+        keyboardCombo.addActionListener(e -> {
+            String selected = (String) keyboardCombo.getSelectedItem();
+            if (selected != null && selected.startsWith("German")) {
+                applyKeyboardLayout("de");
+            } else {
+                applyKeyboardLayout("us");
+            }
+        });
+        formPanel.add(keyboardCombo, gbc);
+
         // Recessed status message box
-        gbc.gridx = 0; gbc.gridy = 3; gbc.gridwidth = 2;
+        gbc.gridx = 0; gbc.gridy = 4; gbc.gridwidth = 2;
         gbc.insets = new Insets(10, 4, 4, 4);
         JPanel statusPlate = new JPanel(new BorderLayout()) {
             @Override
@@ -336,5 +359,18 @@ public final class DazeLoginGreeter extends JFrame {
         if (confirm == JOptionPane.YES_OPTION && powerActionCallback != null) {
             powerActionCallback.accept(action);
         }
+    }
+
+    private void applyKeyboardLayout(String layout) {
+        new Thread(() -> {
+            try {
+                if ("de".equals(layout)) {
+                    new ProcessBuilder("setxkbmap", "-layout", "de,us", "-option", "grp:alt_shift_toggle").start();
+                } else {
+                    new ProcessBuilder("setxkbmap", "-layout", "us,de", "-option", "grp:alt_shift_toggle").start();
+                }
+            } catch (Exception ignored) {
+            }
+        }, "DazeOS-Setxkbmap").start();
     }
 }
