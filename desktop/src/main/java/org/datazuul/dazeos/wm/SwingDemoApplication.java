@@ -28,28 +28,36 @@ public final class SwingDemoApplication {
 
     private static void showDemo() {
         JFrame mainFrame = new JFrame("DazeOS Desktop - Control Panel");
-        mainFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        mainFrame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+        mainFrame.addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent e) {
+                confirmAndExit(mainFrame);
+            }
+        });
         mainFrame.setLayout(new BorderLayout(10, 10));
 
         JPanel headerPanel = new JPanel(new GridLayout(2, 1, 4, 4));
-        headerPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 0, 10));
-        JLabel titleLabel = new JLabel("DazeOS Java Window Manager (M4)", JLabel.CENTER);
+        headerPanel.setBorder(BorderFactory.createEmptyBorder(10, 12, 0, 12));
+        JLabel titleLabel = new JLabel("DazeOS Desktop Session (M5)", JLabel.CENTER);
         titleLabel.setFont(titleLabel.getFont().deriveFont(16.0f));
-        JLabel statusLabel = new JLabel("Click below to test real multi-window management and dialog centering.", JLabel.CENTER);
+        JLabel statusLabel = new JLabel("Supervised Java Window Manager with ICCCM, EWMH & Session Controls", JLabel.CENTER);
         headerPanel.add(titleLabel);
         headerPanel.add(statusLabel);
         mainFrame.add(headerPanel, BorderLayout.NORTH);
 
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
+        JPanel centerPanel = new JPanel(new GridLayout(2, 1, 8, 8));
+        centerPanel.setBorder(BorderFactory.createEmptyBorder(8, 14, 8, 14));
 
-        JButton newWindowBtn = new JButton("Open New Window");
+        JPanel row1 = new JPanel(new GridLayout(1, 3, 10, 0));
+        JButton newWindowBtn = new JButton("Open Document Window");
         newWindowBtn.addActionListener(e -> spawnDocumentWindow());
 
         JButton dialogBtn = new JButton("Open Modal Dialog");
         dialogBtn.addActionListener(e -> {
             JOptionPane.showMessageDialog(
                     mainFrame,
-                    "This is a transient dialog managed by DazeOS.\nNotice how it centers over the parent window!",
+                    "This is a transient dialog managed by DazeOS.\nNotice how it centers automatically over the parent window!",
                     "DazeOS Dialog",
                     JOptionPane.INFORMATION_MESSAGE);
         });
@@ -64,19 +72,101 @@ public final class SwingDemoApplication {
             }
         });
 
-        buttonPanel.add(newWindowBtn);
-        buttonPanel.add(dialogBtn);
-        buttonPanel.add(terminalBtn);
-        mainFrame.add(buttonPanel, BorderLayout.CENTER);
+        row1.add(newWindowBtn);
+        row1.add(dialogBtn);
+        row1.add(terminalBtn);
+        centerPanel.add(row1);
 
-        JLabel footerLabel = new JLabel("DazeOS Live System | Non-reparenting Java WM with ICCCM & EWMH", JLabel.CENTER);
-        footerLabel.setBorder(BorderFactory.createEmptyBorder(0, 10, 10, 10));
+        JPanel row2 = new JPanel(new GridLayout(1, 2, 10, 0));
+        JButton logsBtn = new JButton("View Session Logs");
+        logsBtn.addActionListener(e -> showLogViewerDialog(mainFrame));
+
+        JButton logoutBtn = new JButton("End Desktop Session");
+        logoutBtn.addActionListener(e -> confirmAndExit(mainFrame));
+
+        row2.add(logsBtn);
+        row2.add(logoutBtn);
+        centerPanel.add(row2);
+
+        mainFrame.add(centerPanel, BorderLayout.CENTER);
+
+        JLabel footerLabel = new JLabel("DazeOS Live System | OpenJDK 21 | Xorg Native Floating Window Manager", JLabel.CENTER);
+        footerLabel.setBorder(BorderFactory.createEmptyBorder(0, 10, 12, 10));
         mainFrame.add(footerLabel, BorderLayout.SOUTH);
 
-        mainFrame.setPreferredSize(new Dimension(540, 180));
+        mainFrame.setPreferredSize(new Dimension(680, 260));
+        mainFrame.setMinimumSize(new Dimension(600, 240));
         mainFrame.pack();
         mainFrame.setLocationByPlatform(true);
         mainFrame.setVisible(true);
+    }
+
+    private static void confirmAndExit(JFrame parent) {
+        int choice = JOptionPane.showConfirmDialog(
+                parent,
+                "Are you sure you want to exit the DazeOS desktop session?",
+                "Confirm Session Exit",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE);
+        if (choice == JOptionPane.YES_OPTION) {
+            System.exit(0);
+        }
+    }
+
+    private static void showLogViewerDialog(JFrame parent) {
+        JDialog dialog = new JDialog(parent, "DazeOS Session Diagnostics & Logs", false);
+        dialog.setLayout(new BorderLayout(8, 8));
+
+        String homeDir = System.getProperty("user.home", "/tmp");
+        java.io.File sessionLog = new java.io.File(homeDir, ".dazeos-session.log");
+        java.io.File wmLog = new java.io.File(homeDir, ".dazeos-wm.log");
+
+        javax.swing.JTabbedPane tabbedPane = new javax.swing.JTabbedPane();
+
+        JTextArea sessionArea = createLogTextArea(sessionLog);
+        tabbedPane.addTab("Session Log (~/.dazeos-session.log)", new JScrollPane(sessionArea));
+
+        JTextArea wmArea = createLogTextArea(wmLog);
+        tabbedPane.addTab("WM Daemon Log (~/.dazeos-wm.log)", new JScrollPane(wmArea));
+
+        dialog.add(tabbedPane, BorderLayout.CENTER);
+
+        JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton refreshBtn = new JButton("Reload Logs");
+        refreshBtn.addActionListener(e -> {
+            sessionArea.setText(readLogContent(sessionLog));
+            wmArea.setText(readLogContent(wmLog));
+        });
+        JButton closeBtn = new JButton("Close");
+        closeBtn.addActionListener(e -> dialog.dispose());
+
+        bottomPanel.add(refreshBtn);
+        bottomPanel.add(closeBtn);
+        dialog.add(bottomPanel, BorderLayout.SOUTH);
+
+        dialog.setPreferredSize(new Dimension(640, 400));
+        dialog.pack();
+        dialog.setLocationRelativeTo(parent);
+        dialog.setVisible(true);
+    }
+
+    private static JTextArea createLogTextArea(java.io.File file) {
+        JTextArea area = new JTextArea(readLogContent(file));
+        area.setEditable(false);
+        area.setFont(new java.awt.Font(java.awt.Font.MONOSPACED, java.awt.Font.PLAIN, 12));
+        area.setCaretPosition(area.getDocument().getLength());
+        return area;
+    }
+
+    private static String readLogContent(java.io.File file) {
+        if (!file.exists()) {
+            return "(Log file " + file.getAbsolutePath() + " does not exist yet.)";
+        }
+        try {
+            return java.nio.file.Files.readString(file.toPath());
+        } catch (Exception e) {
+            return "Error reading " + file.getAbsolutePath() + ": " + e.getMessage();
+        }
     }
 
     private static void spawnDocumentWindow() {
