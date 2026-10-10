@@ -120,7 +120,7 @@ public final class WallpaperManager {
                 if (name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg")) {
                     out.add(new WallpaperItem(f.getName(), f.getAbsolutePath(), false));
                 }
-            } else if (f.isDirectory() && !f.isHidden() && "dazeos".equalsIgnoreCase(f.getName())) {
+            } else if (f.isDirectory() && !f.isHidden() && ("amadeos".equalsIgnoreCase(f.getName()) || "dazeos".equalsIgnoreCase(f.getName()) || "backgrounds".equalsIgnoreCase(dir.getName()))) {
                 scanDirectoryForWallpapers(f, out);
             }
         }

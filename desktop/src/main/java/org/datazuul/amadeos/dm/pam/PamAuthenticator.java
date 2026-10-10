@@ -189,7 +189,7 @@ public final class PamAuthenticator {
         if (rc != LibPam.PAM_SUCCESS) {
             String err = LibPam.INSTANCE.pam_strerror(pamh, rc);
             LOGGER.warning("pam_open_session failed: " + err);
-            if (!"dazeos".equals(username)) {
+            if (!"amadeos".equals(username) && !"dazeos".equals(username)) {
                 LibPam.INSTANCE.pam_setcred(pamh, LibPam.PAM_DELETE_CRED);
                 LibPam.INSTANCE.pam_end(pamh, rc);
                 return AuthResult.fail("Failed to open PAM session: " + err);

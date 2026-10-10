@@ -161,7 +161,10 @@ public final class ThemeManager {
     private static void loadPersistedTheme() {
         try {
             String userHome = System.getProperty("user.home", "/tmp");
-            Path conf = Path.of(userHome, ".config", "dazeos", "theme.conf");
+            Path conf = Path.of(userHome, ".config", "amadeos", "theme.conf");
+            if (!Files.exists(conf)) {
+                conf = Path.of(userHome, ".config", "dazeos", "theme.conf");
+            }
             if (Files.exists(conf)) {
                 String id = Files.readString(conf, StandardCharsets.UTF_8).trim();
                 if (THEMES.containsKey(id)) {
@@ -174,7 +177,7 @@ public final class ThemeManager {
     private static void persistTheme(String themeId) {
         try {
             String userHome = System.getProperty("user.home", "/tmp");
-            Path dir = Path.of(userHome, ".config", "dazeos");
+            Path dir = Path.of(userHome, ".config", "amadeos");
             Files.createDirectories(dir);
             Files.writeString(dir.resolve("theme.conf"), themeId, StandardCharsets.UTF_8);
         } catch (Exception ignored) {}

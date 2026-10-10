@@ -7,7 +7,7 @@ cd "$ROOT_DIR"
 if ! command -v Xephyr >/dev/null 2>&1; then
     echo "=================================================================" >&2
     echo "Xephyr is not installed." >&2
-    echo "To test DazeOS Login Greeter instantly, install it with:" >&2
+    echo "To test amadeOS Login Greeter instantly, install it with:" >&2
     echo "  sudo apt-get install -y xserver-xephyr" >&2
     echo "=================================================================" >&2
     exit 1
