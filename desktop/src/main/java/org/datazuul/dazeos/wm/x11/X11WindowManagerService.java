@@ -291,6 +291,10 @@ public final class X11WindowManagerService implements AutoCloseable {
         if (dockWindows.contains(win)) {
             return true;
         }
+        String title = fetchWindowTitle(win);
+        if (title != null && (title.contains("Front Panel") || title.contains("Desktop Panel") || title.contains("DazeOS CDE"))) {
+            return true;
+        }
         PointerByReference actualTypeRet = new PointerByReference();
         IntByReference actualFormatRet = new IntByReference();
         com.sun.jna.ptr.NativeLongByReference nitemsRet = new com.sun.jna.ptr.NativeLongByReference();
@@ -560,6 +564,12 @@ public final class X11WindowManagerService implements AutoCloseable {
     }
 
     public FrameWindow decorateAndReparent(long clientWin, WindowGeometry geom) {
+        if (isDockWindow(clientWin)) {
+            dockWindows.add(clientWin);
+            x11.XMapWindow(display, new NativeLong(clientWin));
+            x11.XRaiseWindow(display, new NativeLong(clientWin));
+            return null;
+        }
         if (clientToFrame.containsKey(clientWin)) {
             return clientToFrame.get(clientWin);
         }

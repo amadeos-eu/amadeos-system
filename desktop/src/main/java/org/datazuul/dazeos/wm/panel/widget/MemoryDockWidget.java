@@ -77,3 +77,4 @@ public final class MemoryDockWidget extends AbstractDockWidget {
         progressBar.setForeground(new Color(0x33, 0xAA, 0x77)); // Activity green
     }
 }
+

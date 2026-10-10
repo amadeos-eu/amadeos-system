@@ -10,3 +10,4 @@ public interface DockWidget {
     default void start() {}
     default void stop() {}
 }
+

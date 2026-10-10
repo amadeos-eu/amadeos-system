@@ -170,3 +170,4 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
         updateAllButtonAppearances();
     }
 }
+

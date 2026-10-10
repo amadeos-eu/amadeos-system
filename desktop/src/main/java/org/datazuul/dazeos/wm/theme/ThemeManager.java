@@ -180,3 +180,4 @@ public final class ThemeManager {
         } catch (Exception ignored) {}
     }
 }
+

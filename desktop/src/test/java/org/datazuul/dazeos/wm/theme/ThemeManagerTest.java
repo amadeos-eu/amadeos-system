@@ -62,6 +62,33 @@ class ThemeManagerTest {
     }
 
     @Test
+    void freedesktopBaseDirectoriesIncludeStandardXdgPaths() {
+        var dirs = IconManager.getIconBaseDirectories();
+        assertFalse(dirs.isEmpty());
+        assertTrue(dirs.stream().anyMatch(d -> d.getPath().contains("icons")));
+    }
+
+    @Test
+    void availableIconThemesDiscoversInstalledThemes() {
+        var themes = IconManager.availableIconThemes();
+        assertFalse(themes.isEmpty());
+        assertTrue(themes.stream().anyMatch(t -> "classic".equals(t.id())));
+    }
+
+    @Test
+    void iconManagerResolvesStandardFreedesktopNamesDirectly() {
+        Icon termIcon = IconManager.getIcon("utilities-terminal", 32);
+        assertNotNull(termIcon);
+        assertEquals(32, termIcon.getIconWidth());
+        assertEquals(32, termIcon.getIconHeight());
+
+        Icon fmIcon = IconManager.getIcon("system-file-manager", 32);
+        assertNotNull(fmIcon);
+        assertEquals(32, fmIcon.getIconWidth());
+        assertEquals(32, fmIcon.getIconHeight());
+    }
+
+    @Test
     void desktopThemeDerivesCohesive3DPalette() {
         DesktopTheme custom = DesktopTheme.fromBase("custom", "Custom Teal", new Color(0x30, 0x70, 0x90));
         assertNotNull(custom.highlight());
@@ -73,3 +100,4 @@ class ThemeManagerTest {
         assertNotNull(custom.textInactive());
     }
 }
+

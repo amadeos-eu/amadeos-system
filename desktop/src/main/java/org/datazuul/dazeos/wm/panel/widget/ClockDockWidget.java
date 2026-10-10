@@ -70,3 +70,4 @@ public final class ClockDockWidget extends AbstractDockWidget {
         dateLabel.setForeground(theme.textActive());
     }
 }
+

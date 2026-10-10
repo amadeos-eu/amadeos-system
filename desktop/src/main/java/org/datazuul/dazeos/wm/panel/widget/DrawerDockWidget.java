@@ -101,3 +101,4 @@ public final class DrawerDockWidget extends AbstractDockWidget {
         }
     }
 }
+

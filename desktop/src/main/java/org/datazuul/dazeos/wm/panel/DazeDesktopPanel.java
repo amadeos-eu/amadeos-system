@@ -49,6 +49,19 @@ public final class DazeDesktopPanel extends JFrame {
     private static final int DOCK_WIDTH = 750;
 
     private static final AtomicInteger DOC_COUNTER = new AtomicInteger(0);
+    private static java.nio.channels.FileLock panelLock = null;
+
+    private static boolean acquireSingleInstanceLock() {
+        try {
+            String home = System.getProperty("user.home", "/tmp");
+            File lockFile = new File(home, ".dazeos-panel.lock");
+            java.io.RandomAccessFile raf = new java.io.RandomAccessFile(lockFile, "rw");
+            panelLock = raf.getChannel().tryLock();
+            return panelLock != null;
+        } catch (Exception e) {
+            return true;
+        }
+    }
 
     private final X11EwmhHelper helper;
     private final List<DockWidget> widgets = new ArrayList<>();
@@ -58,6 +71,11 @@ public final class DazeDesktopPanel extends JFrame {
     private final Timer pollTimer;
 
     public static void main(String[] args) {
+        if (!acquireSingleInstanceLock()) {
+            LOGGER.warning("Another instance of DazeDesktopPanel is already running. Exiting.");
+            return;
+        }
+
         String displayName = args.length > 0 ? args[0] : null;
         X11EwmhHelper ewmhHelper;
         try {
@@ -71,8 +89,9 @@ public final class DazeDesktopPanel extends JFrame {
         SwingUtilities.invokeLater(() -> {
             try {
                 DazeDesktopPanel panel = new DazeDesktopPanel(ewmhHelper);
-                panel.setVisible(true);
+                panel.addNotify();
                 panel.registerAsDock();
+                panel.setVisible(true);
             } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE, "Error initializing desktop panel: " + ex.getMessage(), ex);
                 System.exit(1);
