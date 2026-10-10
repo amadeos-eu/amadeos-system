@@ -103,8 +103,10 @@ public final class DazeDisplayManager {
     }
 
     private void superviseSession(String username, Process sessionProc, PamAuthenticator.PamSession pamSession) {
+        long startTime = System.currentTimeMillis();
+        int exitCode = -1;
         try {
-            int exitCode = sessionProc.waitFor();
+            exitCode = sessionProc.waitFor();
             LOGGER.info("User session for " + username + " exited with code " + exitCode);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -114,6 +116,21 @@ public final class DazeDisplayManager {
 
             // Check if user requested system power actions via session control dialog
             checkSessionActionFile(username);
+
+            long duration = System.currentTimeMillis() - startTime;
+            if (duration < 2000 || exitCode != 0) {
+                LOGGER.warning("Session ended quickly (" + duration + "ms) with exit code " + exitCode);
+                File runnerLog = new File("/var/log/dazeos-session-runner.log");
+                if (runnerLog.exists()) {
+                    try {
+                        String logTail = Files.readString(runnerLog.toPath());
+                        if (!logTail.isBlank()) {
+                            LOGGER.warning("Session runner log:\n" + logTail);
+                        }
+                    } catch (Exception ignored) {
+                    }
+                }
+            }
 
             // Re-arm the login greeter
             SwingUtilities.invokeLater(() -> {

@@ -68,24 +68,48 @@ public final class SessionLauncher {
         }
 
         if (currentUid == 0) {
-            // Running as root: drop privileges to user using runuser or su
+            // Running as root: drop privileges to user using runuser or su, preserving environment
             File runuserBin = new File("/usr/sbin/runuser");
             if (runuserBin.canExecute()) {
                 cmd.add("/usr/sbin/runuser");
+                cmd.add("-m"); // Preserve environment variables (DISPLAY, HOME, USER, etc.)
                 cmd.add("-u");
                 cmd.add(username);
                 cmd.add("--");
                 cmd.add(sessionCmd);
+                cmd.add(display);
             } else {
                 cmd.add("su");
-                cmd.add("-");
+                cmd.add("-p"); // Preserve environment
                 cmd.add(username);
                 cmd.add("-c");
-                cmd.add(sessionCmd);
+                cmd.add(sessionCmd + " " + display);
             }
         } else {
             // Running as non-root (local development / testing)
             cmd.add(sessionCmd);
+            cmd.add(display);
+        }
+
+        // Clean up any stale root-owned log or lock files in user's home directory
+        try {
+            new File(homeDir, ".dazeos-session.log").delete();
+            new File(homeDir, ".dazeos-wm.log").delete();
+            new File(homeDir, ".dazeos-panel.lock").delete();
+            new File(homeDir, ".dazeos-wm.pid").delete();
+        } catch (Exception ignored) {
+        }
+
+        // Ensure user home directory exists and is owned by the user
+        if (currentUid == 0 && new File(homeDir).isDirectory()) {
+            try {
+                new ProcessBuilder("chown", "-R", username + ":" + username, homeDir)
+                        .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                        .redirectError(ProcessBuilder.Redirect.DISCARD)
+                        .start()
+                        .waitFor(2, java.util.concurrent.TimeUnit.SECONDS);
+            } catch (Exception ignored) {
+            }
         }
 
         ProcessBuilder pb = new ProcessBuilder(cmd);
@@ -107,9 +131,9 @@ public final class SessionLauncher {
         }
 
         pb.redirectErrorStream(true);
-        File sessionLog = new File(homeDir, ".dazeos-session.log");
+        File runnerLog = new File("/var/log/dazeos-session-runner.log");
         try {
-            pb.redirectOutput(ProcessBuilder.Redirect.appendTo(sessionLog));
+            pb.redirectOutput(ProcessBuilder.Redirect.appendTo(runnerLog));
         } catch (Exception e) {
             pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
         }
