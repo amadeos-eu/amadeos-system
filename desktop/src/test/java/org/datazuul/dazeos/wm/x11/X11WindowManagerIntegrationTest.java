@@ -289,5 +289,42 @@ class X11WindowManagerIntegrationTest {
             }
         }
     }
+
+    @Test
+    void testOpeningNewWindowDoesNotMoveExistingMovedWindows() throws Exception {
+        try (X11WindowManagerService wm = X11WindowManagerService.open(display)) {
+            Process client1 = new ProcessBuilder("xmessage", "-display", display, "-buttons", "OK:0", "Win1").start();
+            try {
+                Thread.sleep(500);
+                wm.processPendingEvents();
+
+                assertFalse(wm.core().registry().snapshot().isEmpty());
+                long win1Id = wm.core().registry().snapshot().iterator().next().id();
+                FrameWindow frame1 = wm.getFrameForClient(win1Id);
+                assertNotNull(frame1);
+
+                // User moves window 1 to center of screen (e.g. 350, 250)
+                frame1.setBounds(350, 250, frame1.frameWidth(), frame1.frameHeight());
+                wm.core().registry().updateGeometry(win1Id, new WindowGeometry(350, 250, frame1.frameWidth(), frame1.frameHeight()));
+                assertEquals(350, frame1.frameX());
+                assertEquals(250, frame1.frameY());
+
+                // Now launch window 2 (like user launching xterm)
+                Process client2 = new ProcessBuilder("xmessage", "-display", display, "-buttons", "OK:0", "Win2").start();
+                try {
+                    Thread.sleep(500);
+                    wm.processPendingEvents();
+
+                    // CRITICAL: Window 1 must STAY at (350, 250) and NOT be reset back to (20, 20)!
+                    assertEquals(350, frame1.frameX(), "Existing moved window must not be reset to cascade position");
+                    assertEquals(250, frame1.frameY(), "Existing moved window must not be reset to cascade position");
+                } finally {
+                    client2.destroyForcibly();
+                }
+            } finally {
+                client1.destroyForcibly();
+            }
+        }
+    }
 }
 

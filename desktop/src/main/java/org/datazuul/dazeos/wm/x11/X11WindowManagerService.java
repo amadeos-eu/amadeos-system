@@ -502,12 +502,12 @@ public final class X11WindowManagerService implements AutoCloseable {
                                 ? new WindowGeometry(frame.frameX(), frame.frameY(), frame.frameWidth(), frame.frameHeight())
                                 : geom;
                         core.manage(child, managedGeom);
+                        core.adapter().configureWindow(child, managedGeom);
                         grabWindowButtons(child);
                     }
                 }
             }
             x11.XFree(childrenReturn.getValue());
-            core.arrange(screenWidth, screenHeight);
             updateClientList();
             var managed = core.registry().snapshot();
             if (!managed.isEmpty()) {
@@ -589,9 +589,35 @@ public final class X11WindowManagerService implements AutoCloseable {
                     frameY = parentGeom.y() + (parentGeom.height() - frameH) / 2;
                     frameX = Math.max(10, Math.min(frameX, screenWidth - frameW - 10));
                     frameY = Math.max(10, Math.min(frameY, screenHeight - frameH - 10));
+                } else if (x > 0 || y > 0) {
+                    frameX = Math.max(10, Math.min(x, screenWidth - frameW - 10));
+                    frameY = Math.max(10, Math.min(y, screenHeight - frameH - 10));
                 } else {
-                    frameX = Math.max(0, x);
-                    frameY = Math.max(0, y);
+                    // Smart floating cascade offset from active window (or last managed window)
+                    var activeRecord = (activeWindow != 0) ? core.registry().find(activeWindow) : Optional.<WindowRecord>empty();
+                    if (activeRecord.isPresent()) {
+                        WindowGeometry ag = activeRecord.get().geometry();
+                        frameX = ag.x() + 30;
+                        frameY = ag.y() + 30;
+                        if (frameX + frameW > screenWidth - 20 || frameY + frameH > screenHeight - 20) {
+                            frameX = 40;
+                            frameY = 40;
+                        }
+                    } else {
+                        var all = new java.util.ArrayList<>(core.registry().snapshot());
+                        if (!all.isEmpty()) {
+                            var last = all.get(all.size() - 1).geometry();
+                            frameX = last.x() + 30;
+                            frameY = last.y() + 30;
+                            if (frameX + frameW > screenWidth - 20 || frameY + frameH > screenHeight - 20) {
+                                frameX = 40;
+                                frameY = 40;
+                            }
+                        } else {
+                            frameX = 50;
+                            frameY = 50;
+                        }
+                    }
                 }
                 WindowGeometry initialGeom = new WindowGeometry(frameX, frameY, clientW, clientH);
 
@@ -601,11 +627,7 @@ public final class X11WindowManagerService implements AutoCloseable {
                         : initialGeom;
 
                 core.manage(win, managedGeom);
-                if (parentRecord.isPresent()) {
-                    core.adapter().configureWindow(win, managedGeom);
-                } else {
-                    core.arrange(screenWidth, screenHeight);
-                }
+                core.adapter().configureWindow(win, managedGeom);
 
                 grabWindowButtons(win);
                 focusClient(win);
