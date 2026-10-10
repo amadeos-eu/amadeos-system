@@ -19,6 +19,7 @@ import org.datazuul.dazeos.wm.WindowManagerCore;
 import org.datazuul.dazeos.wm.WindowRecord;
 import org.datazuul.dazeos.wm.WindowRegistry;
 import org.datazuul.dazeos.wm.decoration.DecorationTheme;
+import org.datazuul.dazeos.wm.decoration.DesktopIconTile;
 import org.datazuul.dazeos.wm.decoration.FrameMetrics;
 import org.datazuul.dazeos.wm.decoration.FrameWindow;
 import org.datazuul.dazeos.wm.decoration.MotifDecorationTheme;
@@ -85,6 +86,11 @@ public final class X11WindowManagerService implements AutoCloseable {
 
     private final java.util.Set<Long> dockWindows = new java.util.HashSet<>();
     private int dockMarginBottom = 0;
+
+    // CDE Desktop Minimized Icon Tiles (top-left, vertically stacked with 0px spacing)
+    private final java.util.List<DesktopIconTile> iconTiles = new java.util.ArrayList<>();
+    private final Map<Long, DesktopIconTile> tileWinToTile = new HashMap<>();
+    private final Map<Long, DesktopIconTile> clientToTile = new HashMap<>();
 
     private static volatile boolean anotherWmDetected = false;
 
@@ -403,6 +409,7 @@ public final class X11WindowManagerService implements AutoCloseable {
 
         FrameWindow targetFrame = clientToFrame.get(win);
         if (targetFrame != null && targetFrame.isMinimized()) {
+            removeAndReflowIconTile(win);
             targetFrame.setMinimized(false);
             x11.XMapWindow(display, targetFrame.frameWindow());
             x11.XDeleteProperty(display, new NativeLong(win), netWmState);
@@ -777,6 +784,13 @@ public final class X11WindowManagerService implements AutoCloseable {
                 LibX11.XButtonEvent btnEvent = new LibX11.XButtonEvent(event.getPointer());
                 long eventWin = btnEvent.window.longValue();
 
+                DesktopIconTile clickedTile = tileWinToTile.get(eventWin);
+                if (clickedTile != null) {
+                    LOGGER.info(() -> "Desktop icon tile clicked for window " + clickedTile.clientWin());
+                    focusClient(clickedTile.clientWin());
+                    return;
+                }
+
                 FrameWindow frameByFrame = frameToClient.get(eventWin);
                 if (frameByFrame != null) {
                     handleFrameButtonPress(frameByFrame, btnEvent);
@@ -801,6 +815,12 @@ public final class X11WindowManagerService implements AutoCloseable {
             case LibX11.Expose -> {
                 LibX11.XExposeEvent exp = new LibX11.XExposeEvent(event.getPointer());
                 if (exp.count == 0) {
+                    DesktopIconTile expTile = tileWinToTile.get(exp.window.longValue());
+                    if (expTile != null) {
+                        expTile.blit(x11, display, gc, screen);
+                        x11.XFlush(display);
+                        return;
+                    }
                     FrameWindow frame = frameToClient.get(exp.window.longValue());
                     if (frame != null) {
                         frame.render();
@@ -829,6 +849,12 @@ public final class X11WindowManagerService implements AutoCloseable {
                         frame.setTitle(newTitle);
                         frame.render();
                         frame.blit(display, gc, screen);
+                        DesktopIconTile tile = clientToTile.get(win);
+                        if (tile != null) {
+                            tile.setTitle(newTitle);
+                            tile.render();
+                            tile.blit(x11, display, gc, screen);
+                        }
                         x11.XFlush(display);
                     }
                 }
@@ -1213,6 +1239,9 @@ public final class X11WindowManagerService implements AutoCloseable {
         x11.XUnmapWindow(display, frame.frameWindow());
         long clientWin = frame.clientWindow().longValue();
 
+        // Spawn/show desktop icon tile at top-left corner
+        createAndShowIconTile(clientWin, frame.title());
+
         // Set _NET_WM_STATE = _NET_WM_STATE_HIDDEN
         Memory stateMem = new Memory(NativeLong.SIZE);
         stateMem.setNativeLong(0, netWmStateHidden);
@@ -1250,8 +1279,67 @@ public final class X11WindowManagerService implements AutoCloseable {
         focusClient(frame.clientWindow().longValue());
     }
 
+    public java.util.List<DesktopIconTile> iconTiles() {
+        return java.util.Collections.unmodifiableList(iconTiles);
+    }
+
+    private void createAndShowIconTile(long clientWin, String title) {
+        if (clientToTile.containsKey(clientWin)) {
+            return;
+        }
+        int index = iconTiles.size();
+        int tileX = 0;
+        int tileY = index * DesktopIconTile.TILE_HEIGHT;
+
+        long mask = LibX11.ExposureMask | LibX11.ButtonPressMask | LibX11.ButtonReleaseMask;
+        NativeLong tileWin = x11.XCreateSimpleWindow(
+                display, new NativeLong(rootWindow),
+                tileX, tileY, DesktopIconTile.TILE_WIDTH, DesktopIconTile.TILE_HEIGHT,
+                0, new NativeLong(0), new NativeLong(0));
+
+        if (tileWin == null || tileWin.longValue() == 0) {
+            LOGGER.warning("Failed to create desktop icon tile window for client " + clientWin);
+            return;
+        }
+
+        x11.XSelectInput(display, tileWin, new NativeLong(mask));
+
+        DesktopIconTile tile = new DesktopIconTile(clientWin, tileWin, index, title);
+        tile.render();
+
+        iconTiles.add(tile);
+        tileWinToTile.put(tileWin.longValue(), tile);
+        clientToTile.put(clientWin, tile);
+
+        x11.XMapWindow(display, tileWin);
+        x11.XRaiseWindow(display, tileWin);
+        tile.blit(x11, display, gc, screen);
+        x11.XFlush(display);
+        LOGGER.info(() -> "Spawned desktop icon tile for window " + clientWin + " at y=" + tileY);
+    }
+
+    private void removeAndReflowIconTile(long clientWin) {
+        DesktopIconTile removed = clientToTile.remove(clientWin);
+        if (removed == null) {
+            return;
+        }
+        tileWinToTile.remove(removed.tileWin().longValue());
+        iconTiles.remove(removed);
+        removed.destroy(x11, display);
+
+        // Reflow remaining tiles: vertically under each other with 0px space between
+        for (int i = 0; i < iconTiles.size(); i++) {
+            DesktopIconTile tile = iconTiles.get(i);
+            tile.setIndex(i);
+            x11.XMoveWindow(display, tile.tileWin(), 0, tile.y());
+        }
+        x11.XFlush(display);
+        LOGGER.info(() -> "Removed and reflowed desktop icon tiles (remaining: " + iconTiles.size() + ")");
+    }
+
     private void cleanupWindow(long win) {
         dockWindows.remove(win);
+        removeAndReflowIconTile(win);
         FrameWindow frame = clientToFrame.remove(win);
         if (frame != null) {
             frameToClient.remove(frame.frameWindow().longValue());
@@ -1273,6 +1361,13 @@ public final class X11WindowManagerService implements AutoCloseable {
     public void close() {
         stop();
         if (display != null) {
+            for (DesktopIconTile tile : new java.util.ArrayList<>(iconTiles)) {
+                tile.destroy(x11, display);
+            }
+            iconTiles.clear();
+            tileWinToTile.clear();
+            clientToTile.clear();
+
             if (cursorDefault != null) x11.XFreeCursor(display, cursorDefault);
             if (cursorMove != null) x11.XFreeCursor(display, cursorMove);
             if (cursorN != null) x11.XFreeCursor(display, cursorN);

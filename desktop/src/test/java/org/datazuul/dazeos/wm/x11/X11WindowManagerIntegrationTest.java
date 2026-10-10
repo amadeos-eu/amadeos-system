@@ -453,5 +453,76 @@ class X11WindowManagerIntegrationTest {
             }
         }
     }
+
+    @Test
+    void testDesktopIconTilesStackVerticallyAtTopLeftAndReflowOnRestore() throws Exception {
+        try (X11WindowManagerService wm = X11WindowManagerService.open(display)) {
+            Process client1 = new ProcessBuilder("xmessage", "-display", display, "-buttons", "OK:0", "App 1").start();
+            Process client2 = new ProcessBuilder("xmessage", "-display", display, "-buttons", "OK:0", "App 2").start();
+            try {
+                Thread.sleep(600);
+                wm.processPendingEvents();
+
+                assertEquals(2, wm.core().registry().snapshot().size());
+
+                java.util.Iterator<org.datazuul.dazeos.wm.WindowRecord> it = wm.core().registry().snapshot().iterator();
+                long win1 = it.next().id();
+                long win2 = it.next().id();
+
+                FrameWindow frame1 = wm.getFrameForClient(win1);
+                FrameWindow frame2 = wm.getFrameForClient(win2);
+                assertNotNull(frame1);
+                assertNotNull(frame2);
+
+                // 1. Minimize Window 1 -> creates icon tile at (0, 0)
+                wm.minimizeWindow(frame1);
+                assertEquals(1, wm.iconTiles().size());
+                org.datazuul.dazeos.wm.decoration.DesktopIconTile tile0 = wm.iconTiles().get(0);
+                assertEquals(0, tile0.x());
+                assertEquals(0, tile0.y());
+                assertEquals(win1, tile0.clientWin());
+
+                // 2. Minimize Window 2 -> creates icon tile directly below at (0, 68) with 0px gap
+                wm.minimizeWindow(frame2);
+                assertEquals(2, wm.iconTiles().size());
+                org.datazuul.dazeos.wm.decoration.DesktopIconTile tile1 = wm.iconTiles().get(1);
+                assertEquals(0, tile1.x());
+                assertEquals(68, tile1.y(), "Second tile must be vertically stacked with 0px gap");
+                assertEquals(win2, tile1.clientWin());
+
+                // 3. Click on tile 0 to restore Window 1
+                LibX11.XEvent clickEv = new LibX11.XEvent();
+                LibX11.XButtonEvent btn = new LibX11.XButtonEvent(clickEv.getPointer());
+                btn.type = LibX11.ButtonPress;
+                btn.window = tile0.tileWin();
+                btn.button = LibX11.Button1;
+                btn.write();
+                clickEv.type = LibX11.ButtonPress;
+                wm.handleEvent(clickEv);
+
+                // Window 1 must be restored
+                assertFalse(frame1.isMinimized(), "Window 1 must be restored upon tile click");
+
+                // Remaining tile (Window 2) must reflow to (0, 0)
+                assertEquals(1, wm.iconTiles().size());
+                org.datazuul.dazeos.wm.decoration.DesktopIconTile remainingTile = wm.iconTiles().get(0);
+                assertEquals(win2, remainingTile.clientWin());
+                assertEquals(0, remainingTile.x());
+                assertEquals(0, remainingTile.y(), "Remaining tile must reflow to y=0 at top-left");
+
+                // 4. Click remaining tile to restore Window 2
+                btn.window = remainingTile.tileWin();
+                btn.write();
+                wm.handleEvent(clickEv);
+
+                assertFalse(frame2.isMinimized(), "Window 2 must be restored upon tile click");
+                assertTrue(wm.iconTiles().isEmpty(), "All icon tiles should be gone after restoration");
+            } finally {
+                client1.destroyForcibly();
+                client2.destroyForcibly();
+            }
+        }
+    }
 }
+
 
