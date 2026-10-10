@@ -204,6 +204,9 @@ public final class DazeDesktopPanel extends JFrame {
                 "diagnostics", "Session Diagnostics", "diagnostics",
                 e -> showLogViewerDialog(this),
                 List.of(
+                        new DrawerTool("Desktop & Wallpaper Settings...", "window", e -> {
+                            new org.datazuul.dazeos.wm.settings.DazeSettingsApplication().setVisible(true);
+                        }),
                         new DrawerTool("View Session Diagnostics", "diagnostics", e -> showLogViewerDialog(this)),
                         new DrawerTool("Hardware & System Info", "terminal", e -> launchProcess("xterm", "-e", "sh", "-c", "uname -a; free -h; lscpu | head -n 15; exec sh"))
                 )

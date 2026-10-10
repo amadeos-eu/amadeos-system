@@ -27,6 +27,7 @@ import org.datazuul.dazeos.wm.decoration.ResizeDirection;
 import org.datazuul.dazeos.wm.decoration.WindowButton;
 import org.datazuul.dazeos.wm.theme.DesktopTheme;
 import org.datazuul.dazeos.wm.theme.ThemeManager;
+import org.datazuul.dazeos.wm.theme.WallpaperManager;
 
 public final class X11WindowManagerService implements AutoCloseable {
     private static final Logger LOGGER = Logger.getLogger(X11WindowManagerService.class.getName());
@@ -238,6 +239,14 @@ public final class X11WindowManagerService implements AutoCloseable {
         initEwmh();
 
         ThemeManager.addListener(this::applyThemeGlobally);
+
+        try {
+            int depth = x11.XDefaultDepth(display, screen);
+            Pointer visual = x11.XDefaultVisual(display, screen);
+            WallpaperManager.applyToRootWindow(x11, display, rootWindow, screenWidth, screenHeight, depth, visual);
+        } catch (Exception e) {
+            LOGGER.fine("Wallpaper init deferred: " + e.getMessage());
+        }
     }
 
     public WindowManagerCore core() {

@@ -616,6 +616,16 @@ public interface LibX11 extends Library {
 
     int XDestroyImage(Pointer ximage);
 
+    NativeLong XCreatePixmap(Pointer display, NativeLong drawable, int width, int height, int depth);
+
+    int XFreePixmap(Pointer display, NativeLong pixmap);
+
+    int XSetWindowBackgroundPixmap(Pointer display, NativeLong window, NativeLong pixmap);
+
+    int XSetWindowBackground(Pointer display, NativeLong window, NativeLong pixel);
+
+    int XClearWindow(Pointer display, NativeLong window);
+
     NativeLong XCreateFontCursor(Pointer display, int shape);
 
     int XFreeCursor(Pointer display, NativeLong cursor);

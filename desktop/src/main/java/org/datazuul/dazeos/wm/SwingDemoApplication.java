@@ -128,13 +128,19 @@ public final class SwingDemoApplication {
         rowTheme.add(themeCombo, BorderLayout.CENTER);
         centerPanel.add(rowTheme);
 
-        JPanel row2 = new JPanel(new GridLayout(1, 2, 10, 0));
+        JPanel row2 = new JPanel(new GridLayout(1, 3, 10, 0));
+        JButton settingsBtn = new JButton("Desktop Settings...");
+        settingsBtn.addActionListener(e -> {
+            new org.datazuul.dazeos.wm.settings.DazeSettingsApplication().setVisible(true);
+        });
+
         JButton logsBtn = new JButton("View Session Logs");
         logsBtn.addActionListener(e -> showLogViewerDialog(mainFrame));
 
-        JButton sessionBtn = new JButton("Session & Power Controls...");
+        JButton sessionBtn = new JButton("Session & Power...");
         sessionBtn.addActionListener(e -> showSessionPowerDialog(mainFrame));
 
+        row2.add(settingsBtn);
         row2.add(logsBtn);
         row2.add(sessionBtn);
         centerPanel.add(row2);

@@ -15,6 +15,8 @@ public final class DazeOsLauncher {
             // Desktop session: start the Desktop Panel dock and initial Control Panel
             org.datazuul.dazeos.wm.panel.DazeDesktopPanel.main(subArgs);
             SwingDemoApplication.main(subArgs);
+        } else if ("settings".equalsIgnoreCase(mode) || "config".equalsIgnoreCase(mode)) {
+            org.datazuul.dazeos.wm.settings.DazeSettingsApplication.main(subArgs);
         } else if ("demo".equalsIgnoreCase(mode)) {
             // Control Panel application only
             SwingDemoApplication.main(subArgs);
