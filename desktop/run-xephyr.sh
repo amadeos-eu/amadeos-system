@@ -21,17 +21,17 @@ for d in $(seq 1 10); do
     fi
 done
 
-echo "[run-xephyr] Building latest DazeOS JAR..."
+echo "[run-xephyr] Building latest amadeOS JAR..."
 ./gradlew jar
 
-JAR="$ROOT_DIR/build/libs/dazeos-0.1.0-SNAPSHOT.jar"
+JAR="$ROOT_DIR/build/libs/amadeos-0.1.0-SNAPSHOT.jar"
 if [ ! -f "$JAR" ]; then
     echo "[run-xephyr] Error: JAR not found at $JAR" >&2
     exit 1
 fi
 
 echo "[run-xephyr] Starting Xephyr nested X server on $DISPLAY_NUM (1024x768)..."
-Xephyr "$DISPLAY_NUM" -ac -screen 1024x768 -resizeable -title "DazeOS Desktop (Xephyr)" &
+Xephyr "$DISPLAY_NUM" -ac -screen 1024x768 -resizeable -title "amadeOS Desktop (Xephyr)" &
 XEPHYR_PID=$!
 
 cleanup() {
@@ -49,15 +49,15 @@ for i in $(seq 1 30); do
     sleep 0.1
 done
 
-echo "[run-xephyr] Starting DazeOS Window Manager on $DISPLAY_NUM..."
+echo "[run-xephyr] Starting amadeOS Window Manager on $DISPLAY_NUM..."
 DISPLAY="$DISPLAY_NUM" java --enable-native-access=ALL-UNNAMED -jar "$JAR" wm &
 WM_PID=$!
 sleep 0.5
 
-echo "[run-xephyr] Starting DazeOS Desktop Panel Dock on $DISPLAY_NUM..."
+echo "[run-xephyr] Starting amadeOS Desktop Panel Dock on $DISPLAY_NUM..."
 DISPLAY="$DISPLAY_NUM" java --enable-native-access=ALL-UNNAMED -jar "$JAR" panel &
 PANEL_PID=$!
 
-echo "[run-xephyr] DazeOS is running! Close the Xephyr window to exit."
+echo "[run-xephyr] amadeOS is running! Close the Xephyr window to exit."
 wait $XEPHYR_PID
 

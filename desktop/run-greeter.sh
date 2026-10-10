@@ -21,17 +21,17 @@ for d in $(seq 1 10); do
     fi
 done
 
-echo "[run-greeter] Building latest DazeOS JAR..."
+echo "[run-greeter] Building latest amadeOS JAR..."
 ./gradlew jar
 
-JAR="$ROOT_DIR/build/libs/dazeos-0.1.0-SNAPSHOT.jar"
+JAR="$ROOT_DIR/build/libs/amadeos-0.1.0-SNAPSHOT.jar"
 if [ ! -f "$JAR" ]; then
     echo "[run-greeter] Error: JAR not found at $JAR" >&2
     exit 1
 fi
 
 echo "[run-greeter] Starting Xephyr nested X server on $DISPLAY_NUM (1024x768)..."
-Xephyr "$DISPLAY_NUM" -ac -screen 1024x768 -resizeable -title "DazeOS Login Greeter (Xephyr)" &
+Xephyr "$DISPLAY_NUM" -ac -screen 1024x768 -resizeable -title "amadeOS Login Greeter (Xephyr)" &
 XEPHYR_PID=$!
 
 cleanup() {
@@ -49,9 +49,9 @@ for i in $(seq 1 30); do
     sleep 0.1
 done
 
-echo "[run-greeter] Starting DazeOS Display Manager & Login Greeter on $DISPLAY_NUM..."
-echo "[run-greeter] Credentials: User 'dazeos', Password 'dazeos'"
-DAZEOS_MOCK_PAM=1 DISPLAY="$DISPLAY_NUM" java --enable-native-access=ALL-UNNAMED -jar "$JAR" dm "$DISPLAY_NUM" &
+echo "[run-greeter] Starting amadeOS Display Manager & Login Greeter on $DISPLAY_NUM..."
+echo "[run-greeter] Credentials: User 'amadeos', Password 'amadeos'"
+AMADEOS_MOCK_PAM=1 DISPLAY="$DISPLAY_NUM" java --enable-native-access=ALL-UNNAMED -jar "$JAR" dm "$DISPLAY_NUM" &
 DM_PID=$!
 
 echo "[run-greeter] Greeter is running! Close the Xephyr window to exit."

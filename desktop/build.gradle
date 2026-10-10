@@ -3,7 +3,7 @@ plugins {
     id 'application'
 }
 
-group = 'org.datazuul.dazeos'
+group = 'org.datazuul.amadeos'
 version = '0.1.0-SNAPSHOT'
 
 java {
@@ -28,7 +28,7 @@ tasks.named('test') {
 }
 
 application {
-    mainClass = 'org.datazuul.dazeos.wm.DazeOsLauncher'
+    mainClass = 'org.datazuul.amadeos.wm.AmadeOsLauncher'
 }
 
 tasks.named('jar') {
