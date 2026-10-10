@@ -32,14 +32,14 @@ public final class SwingDemoApplication {
         mainFrame.addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
             public void windowClosing(java.awt.event.WindowEvent e) {
-                confirmAndExit(mainFrame);
+                showSessionPowerDialog(mainFrame);
             }
         });
         mainFrame.setLayout(new BorderLayout(10, 10));
 
         JPanel headerPanel = new JPanel(new GridLayout(2, 1, 4, 4));
         headerPanel.setBorder(BorderFactory.createEmptyBorder(10, 12, 0, 12));
-        JLabel titleLabel = new JLabel("DazeOS Desktop Session (M5)", JLabel.CENTER);
+        JLabel titleLabel = new JLabel("DazeOS Desktop Session (M6)", JLabel.CENTER);
         titleLabel.setFont(titleLabel.getFont().deriveFont(16.0f));
         JLabel statusLabel = new JLabel("Supervised Java Window Manager with ICCCM, EWMH & Session Controls", JLabel.CENTER);
         headerPanel.add(titleLabel);
@@ -81,11 +81,11 @@ public final class SwingDemoApplication {
         JButton logsBtn = new JButton("View Session Logs");
         logsBtn.addActionListener(e -> showLogViewerDialog(mainFrame));
 
-        JButton logoutBtn = new JButton("End Desktop Session");
-        logoutBtn.addActionListener(e -> confirmAndExit(mainFrame));
+        JButton sessionBtn = new JButton("Session & Power Controls...");
+        sessionBtn.addActionListener(e -> showSessionPowerDialog(mainFrame));
 
         row2.add(logsBtn);
-        row2.add(logoutBtn);
+        row2.add(sessionBtn);
         centerPanel.add(row2);
 
         mainFrame.add(centerPanel, BorderLayout.CENTER);
@@ -101,16 +101,83 @@ public final class SwingDemoApplication {
         mainFrame.setVisible(true);
     }
 
-    private static void confirmAndExit(JFrame parent) {
-        int choice = JOptionPane.showConfirmDialog(
-                parent,
-                "Are you sure you want to exit the DazeOS desktop session?",
-                "Confirm Session Exit",
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.QUESTION_MESSAGE);
-        if (choice == JOptionPane.YES_OPTION) {
-            System.exit(0);
+    private static void showSessionPowerDialog(JFrame parent) {
+        JDialog dialog = new JDialog(parent, "DazeOS Session & Power Control", true);
+        dialog.setLayout(new BorderLayout(12, 12));
+
+        JPanel header = new JPanel(new GridLayout(2, 1, 4, 4));
+        header.setBorder(BorderFactory.createEmptyBorder(12, 16, 0, 16));
+        JLabel title = new JLabel("DazeOS Desktop Session (M6)", JLabel.CENTER);
+        title.setFont(title.getFont().deriveFont(15.0f));
+        JLabel subtitle = new JLabel("Select an action to end or control your session:", JLabel.CENTER);
+        header.add(title);
+        header.add(subtitle);
+        dialog.add(header, BorderLayout.NORTH);
+
+        JPanel grid = new JPanel(new GridLayout(2, 2, 12, 12));
+        grid.setBorder(BorderFactory.createEmptyBorder(8, 16, 8, 16));
+
+        JButton logoutBtn = new JButton("<html><center><b>Log Out</b><br><small>Restart desktop session</small></center></html>");
+        logoutBtn.addActionListener(e -> requestSessionAction("restart"));
+
+        JButton shellBtn = new JButton("<html><center><b>Exit to Shell</b><br><small>Drop to tty1 console</small></center></html>");
+        shellBtn.addActionListener(e -> requestSessionAction("shell"));
+
+        JButton shutdownBtn = new JButton("<html><center><b>Shut Down</b><br><small>Power off computer</small></center></html>");
+        shutdownBtn.addActionListener(e -> {
+            int confirm = JOptionPane.showConfirmDialog(
+                    dialog,
+                    "Are you sure you want to shut down the computer?",
+                    "Confirm Power Off",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.WARNING_MESSAGE);
+            if (confirm == JOptionPane.YES_OPTION) {
+                requestSessionAction("poweroff");
+            }
+        });
+
+        JButton rebootBtn = new JButton("<html><center><b>Reboot</b><br><small>Restart computer</small></center></html>");
+        rebootBtn.addActionListener(e -> {
+            int confirm = JOptionPane.showConfirmDialog(
+                    dialog,
+                    "Are you sure you want to restart the computer?",
+                    "Confirm Reboot",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.QUESTION_MESSAGE);
+            if (confirm == JOptionPane.YES_OPTION) {
+                requestSessionAction("reboot");
+            }
+        });
+
+        grid.add(logoutBtn);
+        grid.add(shellBtn);
+        grid.add(shutdownBtn);
+        grid.add(rebootBtn);
+        dialog.add(grid, BorderLayout.CENTER);
+
+        JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        footer.setBorder(BorderFactory.createEmptyBorder(0, 16, 12, 16));
+        JButton cancelBtn = new JButton("Cancel");
+        cancelBtn.addActionListener(e -> dialog.dispose());
+        footer.add(cancelBtn);
+        dialog.add(footer, BorderLayout.SOUTH);
+
+        dialog.setPreferredSize(new Dimension(520, 260));
+        dialog.pack();
+        dialog.setLocationRelativeTo(parent);
+        dialog.setVisible(true);
+    }
+
+    private static void requestSessionAction(String action) {
+        try {
+            String home = System.getProperty("user.home", "/tmp");
+            java.nio.file.Files.writeString(
+                    java.nio.file.Path.of(home, ".dazeos-session-action"),
+                    action,
+                    java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception ignored) {
         }
+        System.exit(0);
     }
 
     private static void showLogViewerDialog(JFrame parent) {
