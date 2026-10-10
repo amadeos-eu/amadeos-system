@@ -205,12 +205,37 @@ public final class IconManager {
     }
 
     private static Icon loadOrGenerateIcon(String iconTheme, String key, int size) {
+        if (key != null && (key.startsWith("/") || key.startsWith("."))) {
+            File directFile = new File(key);
+            if (directFile.isFile()) {
+                try {
+                    BufferedImage pi = ImageIO.read(directFile);
+                    if (pi != null) return scaleIcon(pi, size);
+                } catch (Exception ignored) {}
+            }
+            File directPng = new File(key + ".png");
+            if (directPng.isFile()) {
+                try {
+                    BufferedImage pi = ImageIO.read(directPng);
+                    if (pi != null) return scaleIcon(pi, size);
+                } catch (Exception ignored) {}
+            }
+        }
+
+        String normalizedKey = key;
+        if (normalizedKey != null && (normalizedKey.endsWith(".png") || normalizedKey.endsWith(".xpm") || normalizedKey.endsWith(".svg"))) {
+            normalizedKey = normalizedKey.substring(0, normalizedKey.lastIndexOf('.'));
+        }
+
         List<String> candidates = new ArrayList<>();
-        List<String> fdoNames = FREEDESKTOP_NAMES.get(key.toLowerCase());
+        List<String> fdoNames = FREEDESKTOP_NAMES.get(key != null ? key.toLowerCase() : "");
         if (fdoNames != null) {
             candidates.addAll(fdoNames);
         }
-        if (!candidates.contains(key)) {
+        if (normalizedKey != null && !candidates.contains(normalizedKey)) {
+            candidates.add(normalizedKey);
+        }
+        if (key != null && !candidates.contains(key)) {
             candidates.add(key);
         }
 
@@ -230,6 +255,13 @@ public final class IconManager {
                 if (file.isFile()) {
                     try {
                         BufferedImage pi = ImageIO.read(file);
+                        if (pi != null) return scaleIcon(pi, size);
+                    } catch (Exception ignored) {}
+                }
+                File fileXpm = new File(pixmapsDir, cand + ".xpm");
+                if (fileXpm.isFile()) {
+                    try {
+                        BufferedImage pi = ImageIO.read(fileXpm);
                         if (pi != null) return scaleIcon(pi, size);
                     } catch (Exception ignored) {}
                 }

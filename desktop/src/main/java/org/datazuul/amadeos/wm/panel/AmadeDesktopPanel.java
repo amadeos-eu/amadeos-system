@@ -41,6 +41,9 @@ import org.datazuul.amadeos.wm.panel.widget.MemoryDockWidget;
 import org.datazuul.amadeos.wm.panel.widget.WorkspaceSwitcherDockWidget;
 import org.datazuul.amadeos.wm.theme.DesktopTheme;
 import org.datazuul.amadeos.wm.theme.ThemeManager;
+import org.datazuul.amadeos.wm.xdg.XdgApplicationManager;
+import org.datazuul.amadeos.wm.xdg.XdgCategory;
+import org.datazuul.amadeos.wm.xdg.XdgDesktopEntry;
 
 public final class AmadeDesktopPanel extends JFrame {
     private static final Logger LOGGER = Logger.getLogger(AmadeDesktopPanel.class.getName());
@@ -144,8 +147,9 @@ public final class AmadeDesktopPanel extends JFrame {
         leftSlots = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
         leftSlots.setBackground(initialTheme.base());
 
-        DrawerDockWidget fmDrawer = new DrawerDockWidget(
+        DrawerDockWidget fmDrawer = createCategoryDrawer(
                 "file-manager", "File Manager", "file-manager",
+                XdgCategory.FILE_MANAGER,
                 e -> spawnFileManager(),
                 List.of(
                         new DrawerTool("Home Directory (~)", "file-manager", e -> launchProcess("xterm", "-e", "sh", "-c", "cd $HOME && ls -la && exec sh")),
@@ -155,8 +159,9 @@ public final class AmadeDesktopPanel extends JFrame {
         widgets.add(fmDrawer);
         leftSlots.add(fmDrawer.component());
 
-        DrawerDockWidget editorDrawer = new DrawerDockWidget(
+        DrawerDockWidget editorDrawer = createCategoryDrawer(
                 "editor", "Text Editor", "text-editor",
+                XdgCategory.TEXT_EDITOR,
                 e -> spawnDocumentWindow(),
                 List.of(
                         new DrawerTool("New Document Window", "text-editor", e -> spawnDocumentWindow()),
@@ -166,8 +171,9 @@ public final class AmadeDesktopPanel extends JFrame {
         widgets.add(editorDrawer);
         leftSlots.add(editorDrawer.component());
 
-        DrawerDockWidget termDrawer = new DrawerDockWidget(
+        DrawerDockWidget termDrawer = createCategoryDrawer(
                 "terminal", "Terminal (xterm)", "terminal",
+                XdgCategory.TERMINAL,
                 e -> launchProcess("xterm"),
                 List.of(
                         new DrawerTool("Launch xterm", "terminal", e -> launchProcess("xterm")),
@@ -200,15 +206,20 @@ public final class AmadeDesktopPanel extends JFrame {
         widgets.add(memoryWidget);
         rightSlots.add(memoryWidget.component());
 
-        DrawerDockWidget diagDrawer = new DrawerDockWidget(
-                "diagnostics", "Session Diagnostics", "diagnostics",
+        DrawerDockWidget diagDrawer = createCategoryDrawer(
+                "diagnostics", "Session Diagnostics & System", "diagnostics",
+                XdgCategory.MONITOR,
                 e -> showLogViewerDialog(this),
                 List.of(
                         new DrawerTool("Desktop & Wallpaper Settings...", "window", e -> {
                             new org.datazuul.amadeos.wm.settings.AmadeSettingsApplication().setVisible(true);
                         }),
                         new DrawerTool("View Session Diagnostics", "diagnostics", e -> showLogViewerDialog(this)),
-                        new DrawerTool("Hardware & System Info", "terminal", e -> launchProcess("xterm", "-e", "sh", "-c", "uname -a; free -h; lscpu | head -n 15; exec sh"))
+                        new DrawerTool("Hardware & System Info", "terminal", e -> launchProcess("xterm", "-e", "sh", "-c", "uname -a; free -h; lscpu | head -n 15; exec sh")),
+                        new DrawerTool("Reload Applications Cache", "window", e -> {
+                            XdgApplicationManager.getInstance().reload();
+                            JOptionPane.showMessageDialog(this, "Application cache reloaded. " + XdgApplicationManager.getInstance().getAllApplications().size() + " applications found.", "amadeOS Applications", JOptionPane.INFORMATION_MESSAGE);
+                        })
                 )
         );
         widgets.add(diagDrawer);
@@ -298,6 +309,54 @@ public final class AmadeDesktopPanel extends JFrame {
             LOGGER.log(Level.WARNING, "Native.getWindowID failed: " + e.getMessage());
             return 0;
         }
+    }
+
+    private DrawerDockWidget createCategoryDrawer(
+            String id,
+            String title,
+            String iconKey,
+            XdgCategory category,
+            java.awt.event.ActionListener fallbackPrimaryAction,
+            List<DrawerTool> defaultTools) {
+
+        List<XdgDesktopEntry> apps = XdgApplicationManager.getInstance().getApplicationsByCategory(category);
+        List<DrawerTool> tools = new ArrayList<>();
+
+        // 1. Add discovered XDG applications for this category
+        for (XdgDesktopEntry app : apps) {
+            tools.add(new DrawerTool(app.name(), app.icon(), e -> {
+                try {
+                    app.launch();
+                } catch (Exception ex) {
+                    LOGGER.warning("Failed to launch XDG app " + app.name() + ": " + ex.getMessage());
+                    JOptionPane.showMessageDialog(this, "Failed to launch " + app.name() + ": " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }));
+        }
+
+        // 2. Add default/auxiliary tools
+        if (defaultTools != null) {
+            tools.addAll(defaultTools);
+        }
+
+        // 3. Primary action: if an external XDG application is installed for this category, launch it;
+        // otherwise, use the fallback primary action!
+        java.awt.event.ActionListener primaryAction;
+        if (!apps.isEmpty()) {
+            XdgDesktopEntry primaryApp = apps.get(0);
+            primaryAction = e -> {
+                try {
+                    primaryApp.launch();
+                } catch (Exception ex) {
+                    LOGGER.warning("Failed to launch primary app " + primaryApp.name() + ": " + ex.getMessage());
+                    JOptionPane.showMessageDialog(this, "Failed to launch " + primaryApp.name() + ": " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            };
+        } else {
+            primaryAction = fallbackPrimaryAction;
+        }
+
+        return new DrawerDockWidget(id, title, iconKey, primaryAction, tools);
     }
 
     private void launchProcess(String... cmd) {
