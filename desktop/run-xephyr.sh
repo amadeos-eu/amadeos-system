@@ -36,7 +36,7 @@ XEPHYR_PID=$!
 
 cleanup() {
     echo "[run-xephyr] Shutting down session..."
-    kill ${DEMO_PID:-} ${PANEL_PID:-} ${WM_PID:-} $XEPHYR_PID 2>/dev/null || true
+    kill ${PANEL_PID:-} ${WM_PID:-} $XEPHYR_PID 2>/dev/null || true
     wait $XEPHYR_PID 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
@@ -57,11 +57,6 @@ sleep 0.5
 echo "[run-xephyr] Starting DazeOS Desktop Panel Dock on $DISPLAY_NUM..."
 DISPLAY="$DISPLAY_NUM" java --enable-native-access=ALL-UNNAMED -jar "$JAR" panel &
 PANEL_PID=$!
-sleep 0.3
-
-echo "[run-xephyr] Starting DazeOS Demo Application on $DISPLAY_NUM..."
-DISPLAY="$DISPLAY_NUM" java --enable-native-access=ALL-UNNAMED -jar "$JAR" demo &
-DEMO_PID=$!
 
 echo "[run-xephyr] DazeOS is running! Close the Xephyr window to exit."
 wait $XEPHYR_PID
