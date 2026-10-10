@@ -8,5 +8,9 @@ public interface X11Adapter {
     void unmapWindow(long windowId);
 
     void focusWindow(long windowId);
+ 
+    void raiseWindow(long windowId);
+
+    void closeWindow(long windowId);
 }
 

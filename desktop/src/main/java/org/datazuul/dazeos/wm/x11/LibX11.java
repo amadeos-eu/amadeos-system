@@ -46,6 +46,22 @@ public interface LibX11 extends Library {
     int ConfigureNotify = 22;
     int ConfigureRequest = 23;
     int PropertyNotify = 28;
+    int ClientMessage = 33;
+
+    // Pointer and Button constants
+    int Button1 = 1;
+    long AnyModifier = 1L << 15;
+    int GrabModeSync = 0;
+    int GrabModeAsync = 1;
+    int AsyncPointer = 0;
+    int ReplayPointer = 2;
+
+    // Property modes and standard atoms
+    int PropModeReplace = 0;
+    long XA_ATOM = 4L;
+    long XA_CARDINAL = 6L;
+    long XA_STRING = 31L;
+    long XA_WINDOW = 33L;
 
     // RevertTo focus
     int RevertToNone = 0;
@@ -195,6 +211,57 @@ public interface LibX11 extends Library {
         }
     }
 
+    @Structure.FieldOrder({
+        "type", "serial", "send_event", "display", "window",
+        "root", "subwindow", "time", "x", "y", "x_root", "y_root",
+        "state", "button", "same_screen"
+    })
+    class XButtonEvent extends Structure {
+        public int type;
+        public NativeLong serial;
+        public int send_event;
+        public Pointer display;
+        public NativeLong window;
+        public NativeLong root;
+        public NativeLong subwindow;
+        public NativeLong time;
+        public int x, y;
+        public int x_root, y_root;
+        public int state;
+        public int button;
+        public int same_screen;
+
+        public XButtonEvent() {
+            super();
+        }
+
+        public XButtonEvent(Pointer p) {
+            super(p);
+            read();
+        }
+    }
+
+    @Structure.FieldOrder({"type", "serial", "send_event", "display", "window", "message_type", "format", "data"})
+    class XClientMessageEvent extends Structure {
+        public int type;
+        public NativeLong serial;
+        public int send_event;
+        public Pointer display;
+        public NativeLong window;
+        public NativeLong message_type;
+        public int format;
+        public NativeLong[] data = new NativeLong[5];
+
+        public XClientMessageEvent() {
+            super();
+        }
+
+        public XClientMessageEvent(Pointer p) {
+            super(p);
+            read();
+        }
+    }
+
     @Structure.FieldOrder({"type", "pad"})
     class XEvent extends Structure {
         public int type;
@@ -301,5 +368,61 @@ public interface LibX11 extends Library {
     );
 
     int XFree(Pointer data);
+
+    int XRaiseWindow(Pointer display, NativeLong window);
+
+    int XLowerWindow(Pointer display, NativeLong window);
+
+    int XGrabButton(
+        Pointer display,
+        int button,
+        NativeLong modifiers,
+        NativeLong grab_window,
+        int owner_events,
+        NativeLong event_mask,
+        int pointer_mode,
+        int keyboard_mode,
+        NativeLong confine_to,
+        NativeLong cursor
+    );
+
+    int XUngrabButton(Pointer display, int button, NativeLong modifiers, NativeLong grab_window);
+
+    int XAllowEvents(Pointer display, int event_mode, NativeLong time);
+
+    NativeLong XInternAtom(Pointer display, String atom_name, int only_if_exists);
+
+    int XChangeProperty(
+        Pointer display,
+        NativeLong window,
+        NativeLong property,
+        NativeLong type,
+        int format,
+        int mode,
+        Pointer data,
+        int nelements
+    );
+
+    int XDeleteProperty(Pointer display, NativeLong window, NativeLong property);
+
+    int XSendEvent(Pointer display, NativeLong window, int propagate, NativeLong event_mask, Pointer event_send);
+
+    NativeLong XCreateSimpleWindow(
+        Pointer display,
+        NativeLong parent,
+        int x,
+        int y,
+        int width,
+        int height,
+        int border_width,
+        NativeLong border,
+        NativeLong background
+    );
+
+    int XDestroyWindow(Pointer display, NativeLong window);
+
+    int XKillClient(Pointer display, NativeLong resource);
+
+    int XGetTransientForHint(Pointer display, NativeLong window, Pointer prop_window_return);
 }
 

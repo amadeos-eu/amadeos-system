@@ -39,8 +39,26 @@ public final class WindowManagerCore {
         x11.focusWindow(windowId);
     }
 
+    public void raise(long windowId) {
+        if (registry.find(windowId).isEmpty()) {
+            throw new IllegalArgumentException("Window is not managed: " + windowId);
+        }
+        x11.raiseWindow(windowId);
+    }
+
+    public void close(long windowId) {
+        if (registry.find(windowId).isEmpty()) {
+            throw new IllegalArgumentException("Window is not managed: " + windowId);
+        }
+        x11.closeWindow(windowId);
+    }
+
     public WindowRegistry registry() {
         return registry;
+    }
+
+    public X11Adapter adapter() {
+        return x11;
     }
 }
 

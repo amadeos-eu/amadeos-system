@@ -39,6 +39,7 @@ class X11WindowManagerIntegrationTest {
             assertEquals(800, wm.screenWidth());
             assertEquals(600, wm.screenHeight());
             assertTrue(wm.rootWindow() != 0);
+            assertTrue(wm.checkWindow() != 0, "EWMH check window must be created");
 
             // Launch a real X client
             Process client = new ProcessBuilder("xmessage", "-display", display, "-buttons", "OK:0", "Test Window").start();
@@ -50,6 +51,15 @@ class X11WindowManagerIntegrationTest {
 
                 long windowId = wm.core().registry().snapshot().iterator().next().id();
                 assertTrue(windowId != 0);
+
+                // Test focus and raise operations
+                wm.core().focus(windowId);
+                wm.core().raise(windowId);
+
+                // Test closeWindow via ICCCM WM_DELETE_WINDOW protocol
+                wm.core().close(windowId);
+                Thread.sleep(200);
+                wm.processPendingEvents();
             } finally {
                 client.destroyForcibly();
             }

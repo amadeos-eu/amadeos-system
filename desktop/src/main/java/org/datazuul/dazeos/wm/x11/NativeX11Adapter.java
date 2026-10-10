@@ -37,5 +37,29 @@ public final class NativeX11Adapter implements X11Adapter {
         x11.XSetInputFocus(display, new NativeLong(windowId), LibX11.RevertToPointerRoot, new NativeLong(LibX11.CurrentTime));
         x11.XFlush(display);
     }
+
+    @Override
+    public void raiseWindow(long windowId) {
+        x11.XRaiseWindow(display, new NativeLong(windowId));
+        x11.XFlush(display);
+    }
+
+    @Override
+    public void closeWindow(long windowId) {
+        NativeLong wmProtocols = x11.XInternAtom(display, "WM_PROTOCOLS", 0);
+        NativeLong wmDeleteWindow = x11.XInternAtom(display, "WM_DELETE_WINDOW", 0);
+
+        LibX11.XClientMessageEvent msg = new LibX11.XClientMessageEvent();
+        msg.type = LibX11.ClientMessage;
+        msg.window = new NativeLong(windowId);
+        msg.message_type = wmProtocols;
+        msg.format = 32;
+        msg.data[0] = wmDeleteWindow;
+        msg.data[1] = new NativeLong(LibX11.CurrentTime);
+        msg.write();
+
+        x11.XSendEvent(display, new NativeLong(windowId), 0, new NativeLong(0), msg.getPointer());
+        x11.XFlush(display);
+    }
 }
 
