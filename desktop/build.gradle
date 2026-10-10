@@ -16,6 +16,7 @@ repositories {
 }
 
 dependencies {
+    implementation 'net.java.dev.jna:jna:5.14.0'
     testImplementation platform('org.junit:junit-bom:5.10.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
@@ -26,12 +27,16 @@ tasks.named('test') {
 }
 
 application {
-    mainClass = 'org.datazuul.dazeos.wm.SwingDemoApplication'
+    mainClass = 'org.datazuul.dazeos.wm.DazeOsLauncher'
 }
 
 tasks.named('jar') {
     manifest {
         attributes('Main-Class': application.mainClass.get())
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
     }
 }
 
