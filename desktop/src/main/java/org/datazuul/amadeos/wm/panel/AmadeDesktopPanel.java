@@ -122,7 +122,7 @@ public final class AmadeDesktopPanel extends JFrame {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
-                CdePanelChrome.paintFrame(g, getWidth(), getHeight());
+                CdePanelChrome.paintFrame(g, getWidth(), getHeight(), ThemeManager.currentTheme());
             }
 
             @Override

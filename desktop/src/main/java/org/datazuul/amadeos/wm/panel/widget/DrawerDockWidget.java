@@ -196,78 +196,12 @@ public final class DrawerDockWidget extends AbstractDockWidget {
 
             DesktopTheme t = currentTheme;
 
-            // Raised flat drawer tab (gray), highlight left edge / shadow right edge
-            Color tabBg = isPressed || isDrawerOpen ? t.darkShadow() : (isHovered ? t.shadow() : CdePanelChrome.FRAME_BG);
-            CdePanelChrome.paintTab(g2, 0, 0, w, h, tabBg);
+            // Raised flat drawer tab, highlight left edge / shadow right edge using active theme colors
+            Color tabBg = isPressed || isDrawerOpen ? t.panelFrameShadow() : (isHovered ? t.shadow() : t.panelFrameBg());
+            CdePanelChrome.paintTab(g2, 0, 0, w, h, tabBg, t);
 
-            // Draw authentic 3D CDE drawer triangle (12x7px)
-            int triW = 12;
-            int triH = 7;
-            int cx = usableW / 2;
-            int cy = h / 2;
-
-            if (isPressed) {
-                cx += 1;
-                cy += 1;
-            }
-
-            // Triangle orientation: points UP when closed, points DOWN when drawer is open
-            if (!isDrawerOpen) {
-                int topX = cx;
-                int topY = cy - triH / 2;
-                int blX = cx - triW / 2;
-                int blY = cy + triH / 2;
-                int brX = cx + triW / 2;
-                int brY = cy + triH / 2;
-
-                // Triangle fill
-                int[] xPoints = { topX, blX, brX };
-                int[] yPoints = { topY, blY, brY };
-                g2.setColor(isPressed ? t.darkShadow() : (isHovered ? t.base() : t.sunkenBg()));
-                g2.fillPolygon(xPoints, yPoints, 3);
-
-                // Carved 3D beveled edges:
-                // Left slope: Dark shadow (light blocks from top-left)
-                // Right slope and bottom base: Highlight
-                Color leftEdge = isPressed ? t.highlight() : t.darkShadow();
-                Color rightEdge = isPressed ? t.darkShadow() : t.highlight();
-                Color bottomEdge = isPressed ? t.darkShadow() : t.highlight();
-
-                g2.setColor(leftEdge);
-                g2.drawLine(topX, topY, blX, blY);
-
-                g2.setColor(rightEdge);
-                g2.drawLine(topX, topY, brX, brY);
-
-                g2.setColor(bottomEdge);
-                g2.drawLine(blX, blY, brX, brY);
-            } else {
-                // Pointing DOWN (drawer is open)
-                int botX = cx;
-                int botY = cy + triH / 2;
-                int tlX = cx - triW / 2;
-                int tlY = cy - triH / 2;
-                int trX = cx + triW / 2;
-                int trY = cy - triH / 2;
-
-                int[] xPoints = { tlX, trX, botX };
-                int[] yPoints = { tlY, trY, botY };
-                g2.setColor(isPressed ? t.darkShadow() : (isHovered ? t.base() : t.sunkenBg()));
-                g2.fillPolygon(xPoints, yPoints, 3);
-
-                Color topEdge = isPressed ? t.highlight() : t.darkShadow();
-                Color leftEdge = isPressed ? t.highlight() : t.darkShadow();
-                Color rightEdge = isPressed ? t.darkShadow() : t.highlight();
-
-                g2.setColor(topEdge);
-                g2.drawLine(tlX, tlY, trX, trY);
-
-                g2.setColor(leftEdge);
-                g2.drawLine(tlX, tlY, botX, botY);
-
-                g2.setColor(rightEdge);
-                g2.drawLine(trX, trY, botX, botY);
-            }
+            // Draw authentic 11x6 CDE drawer triangle
+            CdePanelChrome.paintDrawerTriangle(g2, w, h, isDrawerOpen, isPressed, t);
 
             g2.dispose();
         }

@@ -190,58 +190,83 @@ public final class ClockDockWidget extends AbstractDockWidget {
     }
 
     private void paintAnalogClock(Graphics2D g2, int usableW, int h, int topOffset, DesktopTheme t) {
-        int cx = usableW / 2; // 26
-        int cy = topOffset + (h - topOffset) / 2; // 17 + 28 = 45
+        int clockX = (usableW - 40) / 2; // 8 in 56px slot
+        int clockY = topOffset + (h - topOffset - 40) / 2; // 25 in 75px slot
 
-        // 1. Outer chiseled etched groove (40x40 octagon, r=20, c=5)
-        // Authentic 2-pixel carved groove: darkShadow + highlight all around
-        drawChiseledOctagonGroove(g2, cx, cy, 20, 5, t);
+        Graphics2D g = (Graphics2D) g2.create();
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
 
-        // 2. Dial face plate: octagon with r=16, c=5, filled with authentic #A8988F dial color
-        Polygon dialPlate = createOctagon(cx, cy, 16, 5);
-        g2.setColor(DIAL_BG);
-        g2.fillPolygon(dialPlate);
+        Color shadow = t.darkShadow();
+        Color highlight = t.highlight();
 
-        // Etched 1px rim around the dial plate
-        drawSunkenOctagonBorder(g2, cx, cy, 16, 5, t.shadow(), t.softHighlight());
+        // 1. Outer 40x40 2-pixel chiseled groove with 3px corner chamfers
+        // Outer line: top/left shadow, bottom/right highlight
+        g.setColor(shadow);
+        g.drawLine(clockX + 3, clockY, clockX + 36, clockY);
+        g.drawLine(clockX + 3, clockY, clockX, clockY + 3);
+        g.drawLine(clockX, clockY + 3, clockX, clockY + 36);
+        g.drawLine(clockX + 39, clockY + 3, clockX + 36, clockY);
 
-        // 3. 12 hour ticks touching dial plate perimeter (radius 16)
-        // Drawn with dark shadow edge for razor-sharp visibility
-        int tickR = 16;
-        for (int i = 0; i < 12; i++) {
-            double angle = Math.toRadians(i * 30.0);
-            double tx = cx + tickR * Math.sin(angle);
-            double ty = cy - tickR * Math.cos(angle);
-            int rx = (int) Math.round(tx);
-            int ry = (int) Math.round(ty);
+        g.setColor(highlight);
+        g.drawLine(clockX, clockY + 36, clockX + 3, clockY + 39);
+        g.drawLine(clockX + 3, clockY + 39, clockX + 36, clockY + 39);
+        g.drawLine(clockX + 36, clockY + 39, clockX + 39, clockY + 36);
+        g.drawLine(clockX + 39, clockY + 36, clockX + 39, clockY + 3);
 
-            if (i % 3 == 0) {
-                // Diamond tick mark at 12, 3, 6, 9 with dark shadow
-                Polygon shadowDiamond = new Polygon(
-                        new int[]{rx + 1, rx + 2, rx + 1, rx},
-                        new int[]{ry, ry + 1, ry + 2, ry + 1},
-                        4
-                );
-                g2.setColor(t.darkShadow());
-                g2.fillPolygon(shadowDiamond);
+        // Inner 1px line: top/left highlight, bottom/right shadow
+        g.setColor(highlight);
+        g.drawLine(clockX + 3, clockY + 1, clockX + 36, clockY + 1);
+        g.drawLine(clockX + 3, clockY + 1, clockX + 1, clockY + 3);
+        g.drawLine(clockX + 1, clockY + 3, clockX + 1, clockY + 36);
+        g.drawLine(clockX + 38, clockY + 3, clockX + 36, clockY + 1);
 
-                Polygon diamond = new Polygon(
-                        new int[]{rx, rx + 1, rx, rx - 1},
-                        new int[]{ry - 1, ry, ry + 1, ry},
-                        4
-                );
-                g2.setColor(Color.WHITE);
-                g2.fillPolygon(diamond);
-            } else {
-                // 1px dot tick at other hours with dark shadow
-                g2.setColor(t.darkShadow());
-                g2.fillRect(rx + 1, ry + 1, 1, 1);
-                g2.setColor(Color.WHITE);
-                g2.fillRect(rx, ry, 1, 1);
-            }
-        }
+        g.setColor(shadow);
+        g.drawLine(clockX + 1, clockY + 36, clockX + 3, clockY + 38);
+        g.drawLine(clockX + 3, clockY + 38, clockX + 36, clockY + 38);
+        g.drawLine(clockX + 36, clockY + 38, clockX + 38, clockY + 36);
+        g.drawLine(clockX + 38, clockY + 36, clockX + 38, clockY + 3);
 
-        // 4. Hands emanating from EXACT center (cx, cy)
+        // 2. Symmetrical 30x30 Octagon dial face plate
+        Polygon dialPlate = new Polygon(
+                new int[]{
+                        clockX + 11, clockX + 28, clockX + 34, clockX + 34,
+                        clockX + 28, clockX + 11, clockX + 5, clockX + 5
+                },
+                new int[]{
+                        clockY + 5, clockY + 5, clockY + 11, clockY + 28,
+                        clockY + 34, clockY + 34, clockY + 28, clockY + 11
+                },
+                8
+        );
+        g.setColor(DIAL_BG);
+        g.fillPolygon(dialPlate);
+
+        // 3. Crisp white tick marks
+        g.setColor(Color.WHITE);
+        // 12 o'clock cross (3x3)
+        g.fillRect(clockX + 19, clockY + 3, 3, 1);
+        g.fillRect(clockX + 20, clockY + 2, 1, 3);
+        // 6 o'clock cross (3x3)
+        g.fillRect(clockX + 19, clockY + 37, 3, 1);
+        g.fillRect(clockX + 20, clockY + 36, 1, 3);
+        // 9 o'clock cross (3x3)
+        g.fillRect(clockX + 2, clockY + 20, 3, 1);
+        g.fillRect(clockX + 3, clockY + 19, 1, 3);
+        // 3 o'clock cross (3x3)
+        g.fillRect(clockX + 35, clockY + 20, 3, 1);
+        g.fillRect(clockX + 36, clockY + 19, 1, 3);
+
+        // 8 hour dots (1px white each)
+        g.fillRect(clockX + 28, clockY + 4, 1, 1);
+        g.fillRect(clockX + 35, clockY + 11, 1, 1);
+        g.fillRect(clockX + 35, clockY + 29, 1, 1);
+        g.fillRect(clockX + 28, clockY + 36, 1, 1);
+        g.fillRect(clockX + 11, clockY + 36, 1, 1);
+        g.fillRect(clockX + 4, clockY + 29, 1, 1);
+        g.fillRect(clockX + 4, clockY + 11, 1, 1);
+        g.fillRect(clockX + 11, clockY + 4, 1, 1);
+
+        // 4. Clock Hands (emanating from exact center cx=clockX+20, cy=clockY+20)
         LocalTime now = LocalTime.now();
         double second = now.getSecond();
         double minute = now.getMinute() + second / 60.0;
@@ -250,35 +275,23 @@ public final class ClockDockWidget extends AbstractDockWidget {
         double hourAngle = Math.toRadians(hour * 30.0);
         double minAngle = Math.toRadians(minute * 6.0);
 
-        Stroke origStroke = g2.getStroke();
+        int cx = clockX + 20;
+        int cy = clockY + 20;
 
-        // Hour hand (length 8.5px)
-        double hx = cx + 8.5 * Math.sin(hourAngle);
-        double hy = cy - 8.5 * Math.cos(hourAngle);
+        // Hour hand (length 7px, width 2px)
+        int hx = (int) Math.round(cx + 7.0 * Math.sin(hourAngle));
+        int hy = (int) Math.round(cy - 7.0 * Math.cos(hourAngle));
 
-        // Minute hand (length 12.5px)
-        double mx = cx + 12.5 * Math.sin(minAngle);
-        double my = cy - 12.5 * Math.cos(minAngle);
+        // Minute hand (length 11px, width 2px)
+        int mx = (int) Math.round(cx + 11.0 * Math.sin(minAngle));
+        int my = (int) Math.round(cy - 11.0 * Math.cos(minAngle));
 
-        // 1px offset dark shadow under hands for crisp contrast
-        g2.setColor(new Color(0, 0, 0, 140));
-        g2.setStroke(new BasicStroke(2.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g2.drawLine(cx + 1, cy + 1, (int) Math.round(hx) + 1, (int) Math.round(hy) + 1);
-        g2.drawLine(cx + 1, cy + 1, (int) Math.round(mx) + 1, (int) Math.round(my) + 1);
+        g.setColor(HAND_COLOR);
+        g.setStroke(new BasicStroke(2.0f, BasicStroke.CAP_SQUARE, BasicStroke.JOIN_MITER));
+        g.drawLine(cx, cy, hx, hy);
+        g.drawLine(cx, cy, mx, my);
 
-        // Slate-cyan hands
-        g2.setColor(HAND_COLOR);
-        g2.setStroke(new BasicStroke(2.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g2.drawLine(cx, cy, (int) Math.round(hx), (int) Math.round(hy));
-        g2.setStroke(new BasicStroke(2.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g2.drawLine(cx, cy, (int) Math.round(mx), (int) Math.round(my));
-
-        // Center pivot cap at exact center (cx, cy)
-        g2.fillOval(cx - 2, cy - 2, 5, 5);
-        g2.setColor(t.darkShadow());
-        g2.fillOval(cx - 1, cy - 1, 3, 3);
-
-        g2.setStroke(origStroke);
+        g.dispose();
     }
 
     private void paintDigitalClock(Graphics2D g2, int usableW, int h, int topOffset, DesktopTheme t) {
@@ -303,75 +316,6 @@ public final class ClockDockWidget extends AbstractDockWidget {
         int dateX = Math.max(0, (usableW - fmDate.stringWidth(dateStr)) / 2);
         int dateY = cy + 13;
         g2.drawString(dateStr, dateX, dateY);
-    }
-
-    private Polygon createOctagon(int cx, int cy, int r, int c) {
-        int x0 = cx - r, x1 = x0 + c, x2 = x0 + r * 2 - c, x3 = x0 + r * 2;
-        int y0 = cy - r, y1 = y0 + c, y2 = y0 + r * 2 - c, y3 = y0 + r * 2;
-        return new Polygon(
-                new int[]{x1, x2, x3, x3, x2, x1, x0, x0},
-                new int[]{y0, y0, y1, y2, y3, y3, y2, y1},
-                8
-        );
-    }
-
-    private void drawChiseledOctagonGroove(Graphics2D g2, int cx, int cy, int r, int c, DesktopTheme t) {
-        int d = r * 2;
-        int x0 = cx - r, y0 = cy - r;
-        int x1 = x0 + c, y1 = y0 + c;
-        int x2 = x0 + d - c, y2 = y0 + d - c;
-        int x3 = x0 + d, y3 = y0 + d;
-
-        // Outer line: top/left darkShadow, bottom/right highlight
-        g2.setColor(t.darkShadow());
-        g2.drawLine(x0, y2, x0, y1);
-        g2.drawLine(x0, y1, x1, y0);
-        g2.drawLine(x1, y0, x2, y0);
-        g2.drawLine(x2, y0, x3, y1);
-
-        g2.setColor(t.highlight());
-        g2.drawLine(x3, y1, x3, y2);
-        g2.drawLine(x3, y2, x2, y3);
-        g2.drawLine(x2, y3, x1, y3);
-        g2.drawLine(x1, y3, x0, y2);
-
-        // Inner 1px line: top/left softHighlight, bottom/right shadow
-        int d_i = d - 2;
-        int x0_i = x0 + 1, y0_i = y0 + 1;
-        int x1_i = x0_i + c, y1_i = y0_i + c;
-        int x2_i = x0_i + d_i - c, y2_i = y0_i + d_i - c;
-        int x3_i = x0_i + d_i, y3_i = y0_i + d_i;
-
-        g2.setColor(t.softHighlight());
-        g2.drawLine(x0_i, y2_i, x0_i, y1_i);
-        g2.drawLine(x0_i, y1_i, x1_i, y0_i);
-        g2.drawLine(x1_i, y0_i, x2_i, y0_i);
-        g2.drawLine(x2_i, y0_i, x3_i, y1_i);
-
-        g2.setColor(t.shadow());
-        g2.drawLine(x3_i, y1_i, x3_i, y2_i);
-        g2.drawLine(x3_i, y2_i, x2_i, y3_i);
-        g2.drawLine(x2_i, y3_i, x1_i, y3_i);
-        g2.drawLine(x1_i, y3_i, x0_i, y2_i);
-    }
-
-    private void drawSunkenOctagonBorder(Graphics2D g2, int cx, int cy, int r, int c, Color dark, Color light) {
-        int x0 = cx - r, x1 = x0 + c, x2 = x0 + r * 2 - c, x3 = x0 + r * 2;
-        int y0 = cy - r, y1 = y0 + c, y2 = y0 + r * 2 - c, y3 = y0 + r * 2;
-
-        // Top & Left (shadow)
-        g2.setColor(dark);
-        g2.drawLine(x0, y2, x0, y1);
-        g2.drawLine(x0, y1, x1, y0);
-        g2.drawLine(x1, y0, x2, y0);
-        g2.drawLine(x0, y2, x1, y3);
-
-        // Bottom & Right (highlight)
-        g2.setColor(light);
-        g2.drawLine(x2, y0, x3, y1);
-        g2.drawLine(x3, y1, x3, y2);
-        g2.drawLine(x3, y2, x2, y3);
-        g2.drawLine(x1, y3, x2, y3);
     }
 
     private void loadPersistedStyle() {

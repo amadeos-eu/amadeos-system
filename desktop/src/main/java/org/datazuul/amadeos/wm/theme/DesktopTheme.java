@@ -17,10 +17,22 @@ public final class DesktopTheme {
     private final Color textActive;
     private final Color textInactive;
     private final String iconTheme;
+    private final Color panelFrameBg;
+    private final Color panelFrameHighlight;
+    private final Color panelFrameShadow;
 
     public DesktopTheme(String id, String name, Color base, Color highlight, Color softHighlight,
                         Color shadow, Color darkShadow, Color sunkenBg, Color activeTitleBg,
                         Color inactiveTitleBg, Color textActive, Color textInactive, String iconTheme) {
+        this(id, name, base, highlight, softHighlight, shadow, darkShadow, sunkenBg,
+                activeTitleBg, inactiveTitleBg, textActive, textInactive, iconTheme,
+                null, null, null);
+    }
+
+    public DesktopTheme(String id, String name, Color base, Color highlight, Color softHighlight,
+                        Color shadow, Color darkShadow, Color sunkenBg, Color activeTitleBg,
+                        Color inactiveTitleBg, Color textActive, Color textInactive, String iconTheme,
+                        Color panelFrameBg, Color panelFrameHighlight, Color panelFrameShadow) {
         this.id = Objects.requireNonNull(id, "id");
         this.name = Objects.requireNonNull(name, "name");
         this.base = Objects.requireNonNull(base, "base");
@@ -34,6 +46,9 @@ public final class DesktopTheme {
         this.textActive = textActive != null ? textActive : (isDark(base) ? Color.WHITE : Color.BLACK);
         this.textInactive = textInactive != null ? textInactive : (isDark(base) ? new Color(0xAA, 0xAA, 0xAA) : new Color(0x70, 0x70, 0x70));
         this.iconTheme = iconTheme != null ? iconTheme : "classic";
+        this.panelFrameBg = panelFrameBg != null ? panelFrameBg : derivePanelFrameBg(base, shadow);
+        this.panelFrameHighlight = panelFrameHighlight != null ? panelFrameHighlight : derivePanelFrameHighlight(this.panelFrameBg);
+        this.panelFrameShadow = panelFrameShadow != null ? panelFrameShadow : derivePanelFrameShadow(this.panelFrameBg);
     }
 
     public static DesktopTheme fromBase(String id, String name, Color base) {
@@ -53,7 +68,10 @@ public final class DesktopTheme {
             new Color(0xBF, 0xB6, 0xAF),
             Color.BLACK,
             new Color(0x75, 0x6E, 0x68),
-            "classic"
+            "classic",
+            new Color(0x99, 0x99, 0x99), // Authentic CDE neutral gray frame
+            new Color(0xD1, 0xD1, 0xD2),
+            new Color(0x4E, 0x4E, 0x4E)
     );
 
     public static final DesktopTheme CDE_BROCADE = new DesktopTheme(
@@ -68,7 +86,10 @@ public final class DesktopTheme {
             new Color(0x5C, 0x73, 0x8A),
             Color.WHITE,
             new Color(0xCA, 0xD6, 0xE2),
-            "classic"
+            "classic",
+            new Color(0x4E, 0x5F, 0x70), // Darker slate-blue frame
+            new Color(0x76, 0x8C, 0xA1),
+            new Color(0x27, 0x33, 0x3D)
     );
 
     public static final DesktopTheme CDE_DESERT = new DesktopTheme(
@@ -83,7 +104,10 @@ public final class DesktopTheme {
             new Color(0xA8, 0x8D, 0x65),
             Color.BLACK,
             new Color(0x59, 0x44, 0x2C),
-            "classic"
+            "classic",
+            new Color(0x8A, 0x70, 0x4D), // Amber shadow frame
+            new Color(0xB8, 0x9C, 0x73),
+            new Color(0x4A, 0x3B, 0x26)
     );
 
     public static final DesktopTheme CLASSIC_GRAY = new DesktopTheme(
@@ -98,7 +122,10 @@ public final class DesktopTheme {
             new Color(0xAF, 0xAF, 0xAF),
             Color.BLACK,
             new Color(0x60, 0x60, 0x60),
-            "classic"
+            "classic",
+            new Color(0x99, 0x99, 0x99),
+            new Color(0xD1, 0xD1, 0xD2),
+            new Color(0x4E, 0x4E, 0x4E)
     );
 
     public static final DesktopTheme DARK_SLATE = new DesktopTheme(
@@ -113,7 +140,10 @@ public final class DesktopTheme {
             new Color(0x30, 0x35, 0x3F),
             new Color(0xE6, 0xE9, 0xF0),
             new Color(0x8E, 0x95, 0xA5),
-            "classic"
+            "classic",
+            new Color(0x24, 0x28, 0x30), // Dark charcoal frame
+            new Color(0x47, 0x4E, 0x5D),
+            new Color(0x13, 0x15, 0x1A)
     );
 
     public String id() { return id; }
@@ -129,6 +159,9 @@ public final class DesktopTheme {
     public Color textActive() { return textActive; }
     public Color textInactive() { return textInactive; }
     public String iconTheme() { return iconTheme; }
+    public Color panelFrameBg() { return panelFrameBg; }
+    public Color panelFrameHighlight() { return panelFrameHighlight; }
+    public Color panelFrameShadow() { return panelFrameShadow; }
 
     public static boolean isDark(Color c) {
         double luminance = (0.299 * c.getRed() + 0.587 * c.getGreen() + 0.114 * c.getBlue()) / 255.0;
@@ -178,5 +211,27 @@ public final class DesktopTheme {
                 (int) (c.getBlue() * 0.92)
         );
     }
-}
 
+    private static Color derivePanelFrameBg(Color base, Color shadow) {
+        if (isDark(base)) {
+            return new Color((int) (base.getRed() * 0.75), (int) (base.getGreen() * 0.75), (int) (base.getBlue() * 0.75));
+        }
+        return new Color(0x99, 0x99, 0x99);
+    }
+
+    private static Color derivePanelFrameHighlight(Color frameBg) {
+        return new Color(
+                Math.min(255, (int) (frameBg.getRed() + (255 - frameBg.getRed()) * 0.55)),
+                Math.min(255, (int) (frameBg.getGreen() + (255 - frameBg.getGreen()) * 0.55)),
+                Math.min(255, (int) (frameBg.getBlue() + (255 - frameBg.getBlue()) * 0.55))
+        );
+    }
+
+    private static Color derivePanelFrameShadow(Color frameBg) {
+        return new Color(
+                (int) (frameBg.getRed() * 0.51),
+                (int) (frameBg.getGreen() * 0.51),
+                (int) (frameBg.getBlue() * 0.51)
+        );
+    }
+}
