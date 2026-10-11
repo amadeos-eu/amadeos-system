@@ -177,9 +177,13 @@ public final class AmadeDesktopPanel extends JFrame {
         rootPanel.setBorder(BorderFactory.createEmptyBorder(4, 20, 4, 20));
         setContentPane(rootPanel);
 
-        // 1. LEFT SLOTS: File Manager, Text Editor, Terminal
+        // 1. LEFT SLOTS: Clock, File Manager, Text Editor, Terminal
         leftSlots = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         leftSlots.setBackground(initialTheme.base());
+
+        ClockDockWidget clockWidget = new ClockDockWidget();
+        widgets.add(clockWidget);
+        leftSlots.add(clockWidget.component());
 
         DrawerDockWidget fmDrawer = createCategoryDrawer(
                 "file-manager", "File Manager", "file-manager",
@@ -229,13 +233,9 @@ public final class AmadeDesktopPanel extends JFrame {
         widgets.add(switcher);
         rootPanel.add(switcher.component(), BorderLayout.CENTER);
 
-        // 3. RIGHT SLOTS: Clock, Memory Meter, Tools, Trash/Power
+        // 3. RIGHT SLOTS: Memory Meter, Tools, Trash/Power
         rightSlots = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         rightSlots.setBackground(initialTheme.base());
-
-        ClockDockWidget clockWidget = new ClockDockWidget();
-        widgets.add(clockWidget);
-        rightSlots.add(clockWidget.component());
 
         MemoryDockWidget memoryWidget = new MemoryDockWidget();
         widgets.add(memoryWidget);
