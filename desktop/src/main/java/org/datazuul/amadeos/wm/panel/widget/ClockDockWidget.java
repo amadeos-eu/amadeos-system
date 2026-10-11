@@ -46,7 +46,7 @@ public final class ClockDockWidget extends AbstractDockWidget {
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("MMM dd");
     private static final DateTimeFormatter TOOLTIP_FMT = DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy HH:mm:ss");
 
-    private static final Color HAND_COLOR = new Color(0x9A, 0xC8, 0xD6);
+    private static final Color HAND_COLOR = new Color(0xB8, 0xDE, 0xEC);
     private static final Color TICK_COLOR = Color.WHITE;
 
     private final JPanel panel;
@@ -192,22 +192,30 @@ public final class ClockDockWidget extends AbstractDockWidget {
         int cx = usableW / 2; // 26
         int cy = h / 2;        // 27
 
-        int dialR = 19;
-        int c = 4; // corner chamfer for octagon
-
-        // Octagonal dial plate
-        Polygon outerOct = createOctagon(cx, cy, dialR, c);
-        g2.setColor(t.sunkenBg());
-        g2.fillPolygon(outerOct);
-
-        // 3D Etched sunken border
+        // 1. Outer chiseled border (41x41 octagon with 4px chamfer)
+        // Only a chiseled border line; the inner band remains on the same level & color as panel base
+        int dialR = 20;
+        int c = 4;
         drawSunkenOctagonBorder(g2, cx, cy, dialR, c, t.darkShadow(), t.highlight());
 
-        // Inner soft bevel for rich CDE 3D relief
-        drawSunkenOctagonBorder(g2, cx, cy, dialR - 1, c, t.shadow(), t.softHighlight());
+        // 2. Inner clock circle with darker background for maximum hand contrast
+        int innerR = 15;
+        Color innerBg = new Color(
+                (t.shadow().getRed() + t.darkShadow().getRed()) / 2,
+                (t.shadow().getGreen() + t.darkShadow().getGreen()) / 2,
+                (t.shadow().getBlue() + t.darkShadow().getBlue()) / 2
+        );
+        g2.setColor(innerBg);
+        g2.fillOval(cx - innerR, cy - innerR, innerR * 2, innerR * 2);
 
-        // 12 hour ticks
-        int tickR = 14;
+        // Chiseled 1px rim around inner circle
+        g2.setColor(t.darkShadow());
+        g2.drawArc(cx - innerR, cy - innerR, innerR * 2, innerR * 2, 45, 180);
+        g2.setColor(t.softHighlight());
+        g2.drawArc(cx - innerR, cy - innerR, innerR * 2, innerR * 2, 225, 180);
+
+        // 3. 12 hour ticks in the outer band on the panel surface (radius 17)
+        int tickR = 17;
         for (int i = 0; i < 12; i++) {
             double angle = Math.toRadians(i * 30.0);
             double tx = cx + tickR * Math.sin(angle);
@@ -231,7 +239,7 @@ public final class ClockDockWidget extends AbstractDockWidget {
             }
         }
 
-        // Hands
+        // 4. Hands with dark drop shadow for crisp readability
         LocalTime now = LocalTime.now();
         double second = now.getSecond();
         double minute = now.getMinute() + second / 60.0;
@@ -242,16 +250,24 @@ public final class ClockDockWidget extends AbstractDockWidget {
 
         Stroke origStroke = g2.getStroke();
 
-        // Hour hand (length 9px, width 2.2f)
-        double hx = cx + 9.0 * Math.sin(hourAngle);
-        double hy = cy - 9.0 * Math.cos(hourAngle);
+        // Hour hand (length 8.5px)
+        double hx = cx + 8.5 * Math.sin(hourAngle);
+        double hy = cy - 8.5 * Math.cos(hourAngle);
+
+        // Minute hand (length 12.5px)
+        double mx = cx + 12.5 * Math.sin(minAngle);
+        double my = cy - 12.5 * Math.cos(minAngle);
+
+        // 1px offset dark shadow under hands for crisp contrast
+        g2.setColor(new Color(0, 0, 0, 140));
+        g2.setStroke(new BasicStroke(2.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g2.drawLine(cx + 1, cy + 1, (int) Math.round(hx) + 1, (int) Math.round(hy) + 1);
+        g2.drawLine(cx + 1, cy + 1, (int) Math.round(mx) + 1, (int) Math.round(my) + 1);
+
+        // Bright slate-cyan hands
         g2.setColor(HAND_COLOR);
         g2.setStroke(new BasicStroke(2.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         g2.drawLine(cx, cy, (int) Math.round(hx), (int) Math.round(hy));
-
-        // Minute hand (length 13px, width 2.0f)
-        double mx = cx + 13.0 * Math.sin(minAngle);
-        double my = cy - 13.0 * Math.cos(minAngle);
         g2.setStroke(new BasicStroke(2.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         g2.drawLine(cx, cy, (int) Math.round(mx), (int) Math.round(my));
 
