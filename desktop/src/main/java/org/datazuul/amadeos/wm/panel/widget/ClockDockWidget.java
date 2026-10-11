@@ -84,35 +84,32 @@ public final class ClockDockWidget extends AbstractDockWidget {
                 int h = getHeight();
                 int usableW = w - 2;
 
-                // 1. Top drawer notch tab (15px high, darker gray background, empty notch without triangle)
+                // 1. Top drawer notch tab (15px high, darker gray background, flat notch without triangle)
                 int tabH = 15;
                 g2.setColor(DRAWER_TAB_BG);
                 g2.fillRect(0, 0, usableW, tabH);
 
-                // Tab 3D borders
-                g2.setColor(t.highlight());
+                // Sunken top edge (flat, lower level)
+                g2.setColor(t.darkShadow());
                 g2.drawLine(0, 0, usableW - 1, 0);
-                g2.drawLine(0, 0, 0, tabH - 1);
-                g2.setColor(t.darkShadow());
-                g2.drawLine(0, tabH - 1, usableW - 1, tabH - 1);
 
-                // 2. Horizontal groove between drawer tab and clock launcher area
+                // 2. Clear horizontal groove between drawer notch and clock launcher area
                 g2.setColor(t.darkShadow());
-                g2.drawLine(0, tabH, usableW - 1, tabH);
+                g2.drawLine(0, tabH, w - 1, tabH);
                 g2.setColor(t.highlight());
-                g2.drawLine(0, tabH + 1, usableW - 1, tabH + 1);
+                g2.drawLine(0, tabH + 1, w - 1, tabH + 1);
 
-                // 3. Right modular bay divider groove
+                // 3. Right modular tab divider groove (ONLY in top tab area)
                 g2.setColor(t.darkShadow());
-                g2.drawLine(w - 2, 0, w - 2, h - 1);
+                g2.drawLine(w - 2, 0, w - 2, tabH - 1);
                 g2.setColor(t.highlight());
-                g2.drawLine(w - 1, 0, w - 1, h - 1);
+                g2.drawLine(w - 1, 0, w - 1, tabH - 1);
 
-                // 4. Render clock launcher area (y = 17 to h - 1)
+                // 4. Render clock launcher area (y = 17 to h - 1, seamless base without vertical dividers)
                 if (style == ClockStyle.ANALOG) {
-                    paintAnalogClock(g2, usableW, h, tabH + 2, t);
+                    paintAnalogClock(g2, w, h, tabH + 2, t);
                 } else {
-                    paintDigitalClock(g2, usableW, h, tabH + 2, t);
+                    paintDigitalClock(g2, w, h, tabH + 2, t);
                 }
 
                 g2.dispose();

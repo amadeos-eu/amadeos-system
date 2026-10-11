@@ -154,29 +154,33 @@ public final class AmadeDesktopPanel extends JFrame {
                     g2.setColor(gripBg);
                     g2.fillRect(gx - 1, 3, 13, getHeight() - 6);
 
-                    // Small top collapse toggle box
+                    // Sunken bevel border around grip plate (flat/lower level)
                     g2.setColor(t.darkShadow());
-                    g2.drawRect(gx, topY, 11, 9);
+                    g2.drawLine(gx - 1, 2, gx + 11, 2);
+                    g2.drawLine(gx - 1, 2, gx - 1, getHeight() - 4);
                     g2.setColor(t.highlight());
-                    g2.drawLine(gx + 1, topY + 1, gx + 10, topY + 1);
-                    g2.drawLine(gx + 1, topY + 1, gx + 1, topY + 8);
-                    // Minus/collapse dash inside
+                    g2.drawLine(gx - 1, getHeight() - 4, gx + 11, getHeight() - 4);
+                    g2.drawLine(gx + 11, 2, gx + 11, getHeight() - 4);
+
+                    // Small top collapse toggle box (flat rectangle)
                     g2.setColor(t.darkShadow());
-                    g2.drawLine(gx + 3, topY + 5, gx + 8, topY + 5);
+                    g2.drawRect(gx, topY, 10, 8);
+                    // Minus/collapse dash inside
+                    g2.drawLine(gx + 3, topY + 4, gx + 7, topY + 4);
 
                     // Vertical divider separating the grip handle from the slots
-                    int divX = (gx == leftX) ? gx + 13 : gx - 2;
+                    int divX = (gx == leftX) ? gx + 14 : gx - 3;
                     g2.setColor(t.darkShadow());
                     g2.drawLine(divX, 2, divX, getHeight() - 3);
                     g2.setColor(t.highlight());
                     g2.drawLine(divX + 1, 2, divX + 1, getHeight() - 3);
 
                     // Horizontal textured grip ribs
-                    for (int ry = topY + 14; ry < botY - 2; ry += 3) {
+                    for (int ry = topY + 13; ry < botY - 1; ry += 3) {
                         g2.setColor(t.darkShadow());
-                        g2.drawLine(gx + 1, ry, gx + 10, ry);
+                        g2.drawLine(gx + 1, ry, gx + 9, ry);
                         g2.setColor(t.highlight());
-                        g2.drawLine(gx + 1, ry + 1, gx + 10, ry + 1);
+                        g2.drawLine(gx + 1, ry + 1, gx + 9, ry + 1);
                     }
                 }
             }
