@@ -10,14 +10,17 @@ public enum XdgCategory {
     FILE_MANAGER("FileManager", "File Management", "file-manager", Set.of("filemanager", "filetools")),
     TEXT_EDITOR("TextEditor", "Text Editors", "text-editor", Set.of("texteditor", "wordprocessor")),
     TERMINAL("TerminalEmulator", "Terminals", "terminal", Set.of("terminalemulator", "terminal")),
+    MAIL("Email", "Electronic Mail", "mail", Set.of("email", "mail", "contactmanagement", "news")),
+    PRINTING("Printing", "Printers", "printer", Set.of("printing", "hardwareprinting", "printer", "cups")),
+    HELP("Help", "Help & Information", "help", Set.of("documentation", "help", "systemhelp")),
     MONITOR("Monitor", "System & Monitor", "diagnostics", Set.of("monitor", "system", "hardwaresettings", "systemmonitor")),
-    SETTINGS("Settings", "Settings & Tools", "window", Set.of("settings", "desktopsettings", "preferences", "packagemanager")),
-    UTILITY("Utility", "Accessories", "window", Set.of("utility", "accessories")),
+    SETTINGS("Settings", "Settings & Tools", "style", Set.of("settings", "desktopsettings", "preferences", "packagemanager")),
+    UTILITY("Utility", "Accessories", "app-manager", Set.of("utility", "accessories")),
     DEVELOPMENT("Development", "Development", "terminal", Set.of("development", "ide", "debugger")),
     GRAPHICS("Graphics", "Graphics", "window", Set.of("graphics", "viewer", "rastergraphics", "2dgraphics")),
-    NETWORK("Network", "Internet & Network", "window", Set.of("network", "webbrowser", "email", "chat")),
+    NETWORK("Network", "Internet & Network", "window", Set.of("network", "webbrowser", "chat")),
     AUDIO_VIDEO("AudioVideo", "Sound & Video", "window", Set.of("audiovideo", "audio", "video", "player", "recorder")),
-    OTHER("Other", "Applications", "window", Set.of());
+    OTHER("Other", "Applications", "app-manager", Set.of());
 
     private final String key;
     private final String displayName;

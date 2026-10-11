@@ -68,5 +68,17 @@ class DrawerDockWidgetTest {
 
         assertEquals(CdePanelChrome.SLOT_WIDTH, widget.component().getPreferredSize().width);
     }
+
+    @Test
+    void testFlatNotchTabWithoutDrawer() {
+        DrawerDockWidget widget = new DrawerDockWidget("style", "Style Manager", "style", e -> {}, List.of(), false);
+
+        assertFalse(widget.hasDrawer(), "Widget should not have a drawer");
+        assertFalse(widget.tabBtn.isFocusable(), "Tab button should not be focusable");
+        assertEquals(null, widget.tabBtn.getToolTipText(), "Tab button should not have tooltip");
+
+        widget.tabBtn.doClick();
+        assertFalse(widget.drawerPopup.isVisible(), "Popup should never open on flat notch tabs");
+    }
 }
 

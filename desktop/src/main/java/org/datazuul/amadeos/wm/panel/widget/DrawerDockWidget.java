@@ -39,20 +39,30 @@ public final class DrawerDockWidget extends AbstractDockWidget {
     private final String tooltip;
     private final List<DrawerTool> tools;
     final JPopupMenu drawerPopup;
+    private final boolean hasDrawer;
     private final boolean hasRightDivider;
     private boolean isDrawerOpen = false;
     private long popupClosedTime = 0;
     private boolean wasOpenWhenPressed = false;
 
-    public DrawerDockWidget(String id, String tooltip, String iconKey, ActionListener primaryAction, List<DrawerTool> tools) {
-        this(id, tooltip, iconKey, primaryAction, tools, true);
+    public DrawerDockWidget(String id, String tooltip, String iconKey, ActionListener primaryAction) {
+        this(id, tooltip, iconKey, primaryAction, List.of(), false, true);
     }
 
-    public DrawerDockWidget(String id, String tooltip, String iconKey, ActionListener primaryAction, List<DrawerTool> tools, boolean hasRightDivider) {
+    public DrawerDockWidget(String id, String tooltip, String iconKey, ActionListener primaryAction, List<DrawerTool> tools) {
+        this(id, tooltip, iconKey, primaryAction, tools, tools != null && !tools.isEmpty(), true);
+    }
+
+    public DrawerDockWidget(String id, String tooltip, String iconKey, ActionListener primaryAction, List<DrawerTool> tools, boolean hasDrawer) {
+        this(id, tooltip, iconKey, primaryAction, tools, hasDrawer, true);
+    }
+
+    public DrawerDockWidget(String id, String tooltip, String iconKey, ActionListener primaryAction, List<DrawerTool> tools, boolean hasDrawer, boolean hasRightDivider) {
         super(id);
         this.tooltip = tooltip;
         this.iconKey = iconKey;
         this.tools = (tools != null) ? tools : List.of();
+        this.hasDrawer = hasDrawer;
         this.hasRightDivider = hasRightDivider;
 
         // 1. Modular CDE slot bay with etched groove lines
@@ -114,6 +124,7 @@ public final class DrawerDockWidget extends AbstractDockWidget {
         tabBtn.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
+                if (!hasDrawer) return;
                 // When clicking the tab while popup is open, Swing closes the popup
                 // just before delivering mousePressed to tabBtn. If closed within 350ms,
                 // record that the popup was already open so the release action won't re-open it.
@@ -122,7 +133,7 @@ public final class DrawerDockWidget extends AbstractDockWidget {
         });
 
         tabBtn.addActionListener(e -> {
-            if (this.tools.isEmpty()) return;
+            if (!hasDrawer || this.tools.isEmpty()) return;
             if (wasOpenWhenPressed || (System.currentTimeMillis() - popupClosedTime < 350)) {
                 wasOpenWhenPressed = false;
                 if (drawerPopup.isVisible()) {
@@ -145,6 +156,10 @@ public final class DrawerDockWidget extends AbstractDockWidget {
         slotPanel.add(mainBtn, BorderLayout.CENTER);
 
         updateThemeStyles(currentTheme);
+    }
+
+    public boolean hasDrawer() {
+        return hasDrawer;
     }
 
     @Override
@@ -173,13 +188,18 @@ public final class DrawerDockWidget extends AbstractDockWidget {
     final class DrawerTabButton extends JButton {
         DrawerTabButton() {
             setFocusPainted(false);
-            setRolloverEnabled(true);
+            setRolloverEnabled(hasDrawer);
             setBorderPainted(false);
             setContentAreaFilled(false);
             setOpaque(false);
             setMargin(new Insets(0, 0, 0, 0));
             setPreferredSize(new Dimension(CdePanelChrome.SLOT_WIDTH, CdePanelChrome.TAB_HEIGHT));
-            setToolTipText("Open " + tooltip + " Drawer");
+            if (hasDrawer) {
+                setToolTipText("Open " + tooltip + " Drawer");
+            } else {
+                setToolTipText(null);
+                setFocusable(false);
+            }
         }
 
         @Override
@@ -188,20 +208,24 @@ public final class DrawerDockWidget extends AbstractDockWidget {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
             int w = getWidth();
-            int usableW = w;
             int h = getHeight();
-            ButtonModel model = getModel();
-            boolean isPressed = model.isArmed() && model.isPressed();
-            boolean isHovered = model.isRollover();
-
             DesktopTheme t = currentTheme;
 
-            // Raised flat drawer tab, highlight left edge / shadow right edge using active theme colors
-            Color tabBg = isPressed || isDrawerOpen ? t.panelFrameShadow() : (isHovered ? t.shadow() : t.panelFrameBg());
-            CdePanelChrome.paintTab(g2, 0, 0, w, h, tabBg, t);
+            if (hasDrawer) {
+                ButtonModel model = getModel();
+                boolean isPressed = model.isArmed() && model.isPressed();
+                boolean isHovered = model.isRollover();
 
-            // Draw authentic 11x6 CDE drawer triangle
-            CdePanelChrome.paintDrawerTriangle(g2, w, h, isDrawerOpen, isPressed, t);
+                // Raised flat drawer tab, highlight left edge / shadow right edge using active theme colors
+                Color tabBg = isPressed || isDrawerOpen ? t.panelFrameShadow() : (isHovered ? t.shadow() : t.panelFrameBg());
+                CdePanelChrome.paintTab(g2, 0, 0, w, h, tabBg, t);
+
+                // Draw authentic 11x6 CDE drawer triangle
+                CdePanelChrome.paintDrawerTriangle(g2, w, h, isDrawerOpen, isPressed, t);
+            } else {
+                // Static raised flat notch tab (no triangle)
+                CdePanelChrome.paintTab(g2, 0, 0, w, h, t.panelFrameBg(), t);
+            }
 
             g2.dispose();
         }

@@ -49,16 +49,24 @@ public final class IconManager {
     private static final Map<String, Icon> ICON_CACHE = new ConcurrentHashMap<>();
     private static final Map<String, IconThemeInfo> THEME_INFO_CACHE = new ConcurrentHashMap<>();
 
-    private static final Map<String, List<String>> FREEDESKTOP_NAMES = Map.of(
-            "terminal", List.of("utilities-terminal", "terminal", "xterm", "gnome-terminal", "konsole"),
-            "file-manager", List.of("system-file-manager", "file-manager", "user-home", "folder", "nautilus", "thunar"),
-            "text-editor", List.of("accessories-text-editor", "text-editor", "text-x-generic", "document-edit", "gedit", "kate"),
-            "lock", List.of("system-lock-screen", "changes-prevent", "dialog-password", "security-high", "lock"),
-            "power", List.of("system-shutdown", "system-log-out", "system-reboot", "application-exit", "power"),
-            "trash", List.of("user-trash", "user-trash-empty", "user-trash-full", "trash-empty", "trashcan_empty", "trash"),
-            "diagnostics", List.of("utilities-system-monitor", "preferences-system", "system-help", "dialog-information", "diagnostics"),
-            "window", List.of("window-new", "applications-other", "preferences-desktop", "preferences-desktop-theme")
-    );
+    private static final Map<String, List<String>> FREEDESKTOP_NAMES;
+    static {
+        Map<String, List<String>> map = new LinkedHashMap<>();
+        map.put("terminal", List.of("utilities-terminal", "terminal", "xterm", "gnome-terminal", "konsole"));
+        map.put("file-manager", List.of("system-file-manager", "file-manager", "user-home", "folder", "nautilus", "thunar"));
+        map.put("text-editor", List.of("accessories-text-editor", "text-editor", "text-x-generic", "document-edit", "gedit", "kate"));
+        map.put("mail", List.of("Mail", "mail", "internet-mail", "evolution", "thunderbird", "kmail", "email"));
+        map.put("printer", List.of("printer", "document-print", "printmgr", "cups", "stock_printers", "gnome-dev-printer"));
+        map.put("style", List.of("style", "preferences-desktop-theme", "preferences-desktop", "preferences-system"));
+        map.put("app-manager", List.of("system-application-manager", "application", "applications-other", "gnome-applications", "application-menu"));
+        map.put("help", List.of("help-browser", "system-help", "gnome-help", "khelpcenter", "help", "stock_help"));
+        map.put("lock", List.of("system-lock-screen", "changes-prevent", "dialog-password", "security-high", "lock"));
+        map.put("power", List.of("system-shutdown", "system-log-out", "system-reboot", "application-exit", "power"));
+        map.put("trash", List.of("user-trash", "trashcan_empty", "user-trash-empty", "user-trash-full", "trash-empty", "trash"));
+        map.put("diagnostics", List.of("utilities-system-monitor", "preferences-system", "system-help", "dialog-information", "diagnostics"));
+        map.put("window", List.of("window-new", "applications-other", "preferences-desktop", "preferences-desktop-theme"));
+        FREEDESKTOP_NAMES = Collections.unmodifiableMap(map);
+    }
 
     private static final String[] CONTEXT_DIRS = {
             "apps", "actions", "places", "status", "categories", "devices", "mimetypes", "emblems"
@@ -346,57 +354,75 @@ public final class IconManager {
         String sizeStr = String.valueOf(size);
         String sizeXStr = size + "x" + size;
 
-        // 1. Check directories specified in index.theme
+        List<String> sortedDirs = new ArrayList<>();
         if (info != null && !info.directories().isEmpty()) {
-            // First pass: directories matching requested size
-            for (String sub : info.directories()) {
-                if (sub.contains(sizeStr) || sub.contains(sizeXStr)) {
-                    BufferedImage img = searchSubDirForCandidates(new File(themeDir, sub), candidates);
-                    if (img != null) return img;
-                }
-            }
-            // Second pass: directories sorted by closeness to requested size (e.g. 32, 24, 48, 16)
-            List<String> sortedDirs = new ArrayList<>(info.directories());
+            sortedDirs.addAll(info.directories());
             sortedDirs.sort((a, b) -> {
                 int sa = extractSize(a);
                 int sb = extractSize(b);
-                return Integer.compare(Math.abs(sa - size), Math.abs(sb - size));
+                int distA = Math.abs(sa - size);
+                int distB = Math.abs(sb - size);
+                if (distA != distB) {
+                    return Integer.compare(distA, distB);
+                }
+                // Prefer 'apps' over 'actions' or 'categories' for the same size
+                boolean aApp = a.contains("apps");
+                boolean bApp = b.contains("apps");
+                if (aApp && !bApp) return -1;
+                if (!aApp && bApp) return 1;
+                return 0;
             });
+        }
+
+        // Freedesktop specification: search for candidate[0] across directories, then candidate[1], etc.
+        for (String cand : candidates) {
+            // 1. Check directories specified in index.theme
             for (String sub : sortedDirs) {
-                BufferedImage img = searchSubDirForCandidates(new File(themeDir, sub), candidates);
+                BufferedImage img = searchFileInDir(new File(themeDir, sub), cand);
                 if (img != null) return img;
             }
-        }
 
-        // 2. Check standard Freedesktop layout: <theme>/<size>x<size>/<context>/<candidate>.png
-        for (String ctx : CONTEXT_DIRS) {
-            File d1 = new File(themeDir, sizeXStr + "/" + ctx);
-            BufferedImage img = searchSubDirForCandidates(d1, candidates);
+            // 2. Check standard Freedesktop layout: <theme>/<size>x<size>/<context>/<candidate>.png
+            for (String ctx : CONTEXT_DIRS) {
+                BufferedImage img = searchFileInDir(new File(themeDir, sizeXStr + "/" + ctx), cand);
+                if (img != null) return img;
+
+                img = searchFileInDir(new File(themeDir, ctx + "/" + sizeStr), cand);
+                if (img != null) return img;
+            }
+
+            // 3. Check flat icons subdirectory: <theme>/icons/<candidate>.png
+            File flatIcons = new File(themeDir, "icons");
+            BufferedImage img = searchFileInDir(flatIcons, cand);
             if (img != null) return img;
 
-            File d2 = new File(themeDir, ctx + "/" + sizeStr);
-            img = searchSubDirForCandidates(d2, candidates);
+            // 4. Check root theme folder: <theme>/<candidate>.png
+            img = searchFileInDir(themeDir, cand);
             if (img != null) return img;
         }
 
-        // 3. Check flat icons subdirectory: <theme>/icons/<candidate>.png
-        File flatIcons = new File(themeDir, "icons");
-        BufferedImage img = searchSubDirForCandidates(flatIcons, candidates);
-        if (img != null) return img;
-
-        // 4. Check root theme folder: <theme>/<candidate>.png
-        return searchSubDirForCandidates(themeDir, candidates);
+        return null;
     }
 
-    private static BufferedImage searchSubDirForCandidates(File dir, List<String> candidates) {
+    private static BufferedImage searchFileInDir(File dir, String cand) {
         if (!dir.isDirectory()) return null;
-        for (String cand : candidates) {
-            File f = new File(dir, cand + ".png");
-            if (f.isFile()) {
-                try {
-                    BufferedImage img = ImageIO.read(f);
-                    if (img != null) return img;
-                } catch (Exception ignored) {}
+        File f = new File(dir, cand + ".png");
+        if (f.isFile()) {
+            try {
+                BufferedImage img = ImageIO.read(f);
+                if (img != null) return img;
+            } catch (Exception ignored) {}
+        }
+        File[] files = dir.listFiles();
+        if (files != null) {
+            String target = cand + ".png";
+            for (File file : files) {
+                if (file.getName().equalsIgnoreCase(target)) {
+                    try {
+                        BufferedImage img = ImageIO.read(file);
+                        if (img != null) return img;
+                    } catch (Exception ignored) {}
+                }
             }
         }
         return null;
@@ -522,6 +548,106 @@ public final class IconManager {
                 g.drawLine(12, 9, 12, 19);
                 g.drawLine(15, 9, 15, 19);
             }
+            case "mail", "email" -> {
+                // In-tray with mail envelope
+                g.setColor(new Color(0xB0, 0xB0, 0xB0));
+                g.fillRect(4, 13, 16, 8);
+                g.setColor(new Color(0x60, 0x60, 0x60));
+                g.drawRect(4, 13, 16, 8);
+                // Mail envelope in tray
+                g.setColor(Color.WHITE);
+                g.fillRect(6, 6, 12, 9);
+                g.setColor(new Color(0x40, 0x40, 0x40));
+                g.drawRect(6, 6, 12, 9);
+                // Envelope flap
+                g.setColor(new Color(0x80, 0x80, 0x80));
+                g.drawLine(6, 6, 12, 11);
+                g.drawLine(18, 6, 12, 11);
+                // In-tray front lip notch
+                g.setColor(new Color(0x90, 0x90, 0x90));
+                g.fillRect(8, 13, 8, 3);
+            }
+            case "printer", "print" -> {
+                // Beige desktop printer
+                g.setColor(new Color(0xDD, 0xDC, 0xD6));
+                g.fillRect(4, 9, 16, 9);
+                g.setColor(new Color(0x40, 0x40, 0x40));
+                g.drawRect(4, 9, 16, 9);
+                // Paper feed tray at top
+                g.setColor(Color.WHITE);
+                g.fillRect(7, 4, 10, 6);
+                g.setColor(new Color(0x60, 0x60, 0x60));
+                g.drawRect(7, 4, 10, 6);
+                // Paper output slot
+                g.setColor(new Color(0x20, 0x20, 0x20));
+                g.fillRect(6, 15, 12, 2);
+                // Output paper
+                g.setColor(Color.WHITE);
+                g.fillRect(8, 16, 8, 4);
+                g.setColor(new Color(0x50, 0x50, 0x50));
+                g.drawRect(8, 16, 8, 4);
+                // Status LED
+                g.setColor(new Color(0x20, 0xC0, 0x40));
+                g.fillRect(17, 11, 2, 2);
+            }
+            case "style", "preferences" -> {
+                // Color palette & brush
+                g.setColor(new Color(0xE8, 0xD0, 0xA8));
+                g.fillOval(3, 4, 18, 16);
+                g.setColor(new Color(0x70, 0x50, 0x30));
+                g.drawOval(3, 4, 18, 16);
+                // Paint dots
+                g.setColor(new Color(0xE0, 0x20, 0x20));
+                g.fillOval(6, 7, 3, 3);
+                g.setColor(new Color(0x20, 0x50, 0xE0));
+                g.fillOval(11, 5, 3, 3);
+                g.setColor(new Color(0xE0, 0xC0, 0x20));
+                g.fillOval(15, 8, 3, 3);
+                g.setColor(new Color(0x20, 0xA0, 0x30));
+                g.fillOval(8, 12, 3, 3);
+                // Palette thumb hole
+                g.setColor(new Color(0x40, 0x40, 0x40));
+                g.fillOval(14, 13, 3, 4);
+            }
+            case "app-manager", "applications" -> {
+                // Pencil-holder box with ruler and pencil
+                g.setColor(new Color(0xB8, 0xB8, 0xB8));
+                g.fillRect(5, 10, 14, 11);
+                g.setColor(new Color(0x50, 0x50, 0x50));
+                g.drawRect(5, 10, 14, 11);
+                // Ruler
+                g.setColor(new Color(0xE0, 0xD0, 0x80));
+                g.fillRect(7, 3, 3, 8);
+                g.setColor(Color.BLACK);
+                g.drawRect(7, 3, 3, 8);
+                g.drawLine(7, 5, 8, 5);
+                g.drawLine(7, 7, 8, 7);
+                g.drawLine(7, 9, 8, 9);
+                // Pencil
+                g.setColor(new Color(0xE0, 0x40, 0x40));
+                g.fillRect(14, 2, 3, 9);
+                g.setColor(Color.BLACK);
+                g.drawRect(14, 2, 3, 9);
+                // Calculator / card
+                g.setColor(new Color(0x40, 0x60, 0x80));
+                g.fillRect(11, 5, 3, 6);
+            }
+            case "help", "system-help" -> {
+                // Books on shelf with ?
+                g.setColor(new Color(0x30, 0x60, 0x90));
+                g.fillRect(4, 5, 4, 15);
+                g.setColor(new Color(0x80, 0x30, 0x30));
+                g.fillRect(9, 3, 5, 17);
+                g.setColor(new Color(0x30, 0x70, 0x50));
+                g.fillRect(15, 6, 4, 14);
+                g.setColor(new Color(0x20, 0x20, 0x20));
+                g.drawRect(4, 5, 4, 15);
+                g.drawRect(9, 3, 5, 17);
+                g.drawRect(15, 6, 4, 14);
+                // White ? on middle book
+                g.setColor(Color.WHITE);
+                g.drawString("?", 10, 15);
+            }
             case "diagnostics", "tools" -> {
                 // Red toolbox
                 g.setColor(new Color(0xB8, 0x38, 0x28));
@@ -556,7 +682,10 @@ public final class IconManager {
         if (!dir.exists()) {
             dir.mkdirs();
         }
-        String[] keys = {"file-manager", "text-editor", "terminal", "lock", "power", "trash", "diagnostics", "window"};
+        String[] keys = {
+                "file-manager", "text-editor", "terminal", "lock", "power", "trash",
+                "diagnostics", "window", "mail", "printer", "style", "app-manager", "help"
+        };
         for (String key : keys) {
             File target = new File(dir, key + ".png");
             if (!target.exists()) {

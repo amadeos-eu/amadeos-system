@@ -25,6 +25,7 @@ import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
+import javax.swing.JEditorPane;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -42,9 +43,9 @@ import org.datazuul.amadeos.wm.panel.widget.ClockDockWidget;
 import org.datazuul.amadeos.wm.panel.widget.DockWidget;
 import org.datazuul.amadeos.wm.panel.widget.DrawerDockWidget;
 import org.datazuul.amadeos.wm.panel.widget.DrawerDockWidget.DrawerTool;
-import org.datazuul.amadeos.wm.panel.widget.MemoryDockWidget;
 import org.datazuul.amadeos.wm.panel.widget.WorkspaceSwitcherDockWidget;
 import org.datazuul.amadeos.wm.theme.DesktopTheme;
+import org.datazuul.amadeos.wm.theme.IconManager;
 import org.datazuul.amadeos.wm.theme.ThemeManager;
 import org.datazuul.amadeos.wm.xdg.XdgApplicationManager;
 import org.datazuul.amadeos.wm.xdg.XdgCategory;
@@ -54,7 +55,7 @@ public final class AmadeDesktopPanel extends JFrame {
     private static final Logger LOGGER = Logger.getLogger(AmadeDesktopPanel.class.getName());
 
     public static final int DOCK_HEIGHT = 85;
-    private static final int DOCK_WIDTH = 740;
+    public static final int DOCK_WIDTH = 850;
 
     private static final AtomicInteger DOC_COUNTER = new AtomicInteger(0);
     private static java.nio.channels.FileLock panelLock = null;
@@ -148,17 +149,21 @@ public final class AmadeDesktopPanel extends JFrame {
         setContentPane(rootPanel);
 
         // 1. LEFT SLOTS: Clock, File Manager, Text Editor, Terminal
+        // 1. LEFT SLOTS (Slots 1-5): Clock, Calendar, File Manager, Text Editor, Mail
         leftSlots = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         leftSlots.setBackground(initialTheme.base());
 
+        // Slot 1: Analog/Digital Clock (flat tab, no drawer)
         ClockDockWidget clockWidget = new ClockDockWidget();
         widgets.add(clockWidget);
         leftSlots.add(clockWidget.component());
 
+        // Slot 2: Tear-off Paper Calendar (flat tab, no drawer)
         CalendarDockWidget calendarWidget = new CalendarDockWidget();
         widgets.add(calendarWidget);
         leftSlots.add(calendarWidget.component());
 
+        // Slot 3: File Manager (with drawer ▲)
         DrawerDockWidget fmDrawer = createCategoryDrawer(
                 "file-manager", "File Manager", "file-manager",
                 XdgCategory.FILE_MANAGER,
@@ -171,6 +176,7 @@ public final class AmadeDesktopPanel extends JFrame {
         widgets.add(fmDrawer);
         leftSlots.add(fmDrawer.component());
 
+        // Slot 4: Text Editor (with drawer ▲)
         DrawerDockWidget editorDrawer = createCategoryDrawer(
                 "editor", "Text Editor", "text-editor",
                 XdgCategory.TEXT_EDITOR,
@@ -183,19 +189,20 @@ public final class AmadeDesktopPanel extends JFrame {
         widgets.add(editorDrawer);
         leftSlots.add(editorDrawer.component());
 
-        DrawerDockWidget termDrawer = createCategoryDrawer(
-                "terminal", "Terminal (xterm)", "terminal",
-                XdgCategory.TERMINAL,
-                e -> launchProcess("xterm"),
+        // Slot 5: Mail / Mailer (with drawer ▲)
+        DrawerDockWidget mailDrawer = createCategoryDrawer(
+                "mail", "Electronic Mail", "mail",
+                XdgCategory.MAIL,
+                e -> launchProcess("xterm", "-title", "Mail", "-e", "sh", "-c", "mailx 2>/dev/null || mutt 2>/dev/null || mail 2>/dev/null || (echo 'No terminal mail client installed. (Install thunderbird, mutt, or s-nail)'; exec sh)"),
                 List.of(
-                        new DrawerTool("Launch xterm", "terminal", e -> launchProcess("xterm")),
-                        new DrawerTool("Root Console (sudo)", "terminal", e -> launchProcess("xterm", "-title", "Root Shell", "-e", "sudo", "sh")),
-                        new DrawerTool("Diagnostics Logs", "diagnostics", e -> showLogViewerDialog(this))
+                        new DrawerTool("Read Mail", "mail", e -> launchProcess("xterm", "-title", "Mail", "-e", "sh", "-c", "mailx 2>/dev/null || mutt 2>/dev/null || mail 2>/dev/null || (echo 'No terminal mail client installed.'; exec sh)")),
+                        new DrawerTool("Terminal (xterm)", "terminal", e -> launchProcess("xterm")),
+                        new DrawerTool("Root Console (sudo)", "terminal", e -> launchProcess("xterm", "-title", "Root Shell", "-e", "sudo", "sh"))
                 ),
-                false // last button in left slot group: no right divider groove before center switcher
+                true
         );
-        widgets.add(termDrawer);
-        leftSlots.add(termDrawer.component());
+        widgets.add(mailDrawer);
+        leftSlots.add(mailDrawer.component());
 
         rootPanel.add(leftSlots, BorderLayout.WEST);
 
@@ -207,44 +214,70 @@ public final class AmadeDesktopPanel extends JFrame {
         widgets.add(switcher);
         rootPanel.add(switcher.component(), BorderLayout.CENTER);
 
-        // 3. RIGHT SLOTS: Memory Meter, Tools, Trash/Power
+        // 3. RIGHT SLOTS (Slots 6-10): Printer, Style Manager, Application Manager, Help Viewer, Trash
         rightSlots = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         rightSlots.setBackground(initialTheme.base());
 
-        MemoryDockWidget memoryWidget = new MemoryDockWidget();
-        widgets.add(memoryWidget);
-        rightSlots.add(memoryWidget.component());
-
-        DrawerDockWidget diagDrawer = createCategoryDrawer(
-                "diagnostics", "Session Diagnostics & System", "diagnostics",
-                XdgCategory.MONITOR,
-                e -> showLogViewerDialog(this),
+        // Slot 6: Printer Manager (replaces Memory widget, with drawer ▲)
+        DrawerDockWidget printerDrawer = createCategoryDrawer(
+                "printer", "Printer Manager", "printer",
+                XdgCategory.PRINTING,
+                e -> launchProcess("xterm", "-title", "Printer Queue", "-e", "sh", "-c", "lpstat -p -d 2>/dev/null || echo 'No CUPS printers configured.'; echo ''; lpq 2>/dev/null; exec sh"),
                 List.of(
-                        new DrawerTool("Desktop & Wallpaper Settings...", "window", e -> {
-                            new org.datazuul.amadeos.wm.settings.AmadeSettingsApplication().setVisible(true);
-                        }),
-                        new DrawerTool("View Session Diagnostics", "diagnostics", e -> showLogViewerDialog(this)),
-                        new DrawerTool("Hardware & System Info", "terminal", e -> launchProcess("xterm", "-e", "sh", "-c", "uname -a; free -h; lscpu | head -n 15; exec sh")),
-                        new DrawerTool("Reload Applications Cache", "window", e -> {
-                            XdgApplicationManager.getInstance().reload();
-                            JOptionPane.showMessageDialog(this, "Application cache reloaded. " + XdgApplicationManager.getInstance().getAllApplications().size() + " applications found.", "amadeOS Applications", JOptionPane.INFORMATION_MESSAGE);
-                        })
-                )
-        );
-        widgets.add(diagDrawer);
-        rightSlots.add(diagDrawer.component());
-
-        DrawerDockWidget trashDrawer = new DrawerDockWidget(
-                "trash", "Trash & Session", "trash",
-                e -> showSessionPowerDialog(this),
-                List.of(
-                        new DrawerTool("Session & Power Controls...", "power", e -> showSessionPowerDialog(this)),
-                        new DrawerTool("Inspect /tmp Storage", "trash", e -> launchProcess("xterm", "-e", "sh", "-c", "df -h /tmp; echo 'amadeOS temporary storage clean'; exec sh"))
+                        new DrawerTool("Print Queue & Status", "printer", e -> launchProcess("xterm", "-title", "Printer Queue", "-e", "sh", "-c", "lpq; lpstat -o; exec sh")),
+                        new DrawerTool("CUPS Web Administration", "window", e -> launchProcess("xdg-open", "http://localhost:631/")),
+                        new DrawerTool("Printer Settings", "printer", e -> launchProcess("system-config-printer"))
                 ),
-                false // last button in row: no right divider groove
+                true
         );
-        widgets.add(trashDrawer);
-        rightSlots.add(trashDrawer.component());
+        widgets.add(printerDrawer);
+        rightSlots.add(printerDrawer.component());
+
+        // Slot 7: Style Manager (flat notch tab, no drawer ▲)
+        DrawerDockWidget styleWidget = new DrawerDockWidget(
+                "style", "Style Manager", "style",
+                e -> new org.datazuul.amadeos.wm.settings.AmadeSettingsApplication().setVisible(true),
+                List.of(),
+                false
+        );
+        widgets.add(styleWidget);
+        rightSlots.add(styleWidget.component());
+
+        // Slot 8: Application Manager (flat notch tab, no drawer ▲)
+        DrawerDockWidget appManagerWidget = new DrawerDockWidget(
+                "app-manager", "Application Manager", "app-manager",
+                e -> showApplicationManagerDialog(this),
+                List.of(),
+                false
+        );
+        widgets.add(appManagerWidget);
+        rightSlots.add(appManagerWidget.component());
+
+        // Slot 9: Help Viewer (with drawer ▲)
+        DrawerDockWidget helpDrawer = createCategoryDrawer(
+                "help", "Help & Information Viewer", "help",
+                XdgCategory.HELP,
+                e -> showHelpDialog(this),
+                List.of(
+                        new DrawerTool("amadeOS Desktop Help", "help", e -> showHelpDialog(this)),
+                        new DrawerTool("Front Panel Overview", "help", e -> showHelpDialog(this)),
+                        new DrawerTool("Session Diagnostics & Logs", "diagnostics", e -> showLogViewerDialog(this)),
+                        new DrawerTool("Hardware & System Info", "terminal", e -> launchProcess("xterm", "-e", "sh", "-c", "uname -a; free -h; lscpu | head -n 15; exec sh"))
+                ),
+                true
+        );
+        widgets.add(helpDrawer);
+        rightSlots.add(helpDrawer.component());
+
+        // Slot 10: Trash Can (flat notch tab, no drawer ▲)
+        DrawerDockWidget trashWidget = new DrawerDockWidget(
+                "trash", "Trash Can", "trash",
+                e -> launchProcess("xterm", "-title", "Trash Can", "-e", "sh", "-c", "echo 'amadeOS Trash Can:'; ls -la ~/.local/share/Trash/files 2>/dev/null || echo '(Empty)'; exec sh"),
+                List.of(),
+                false
+        );
+        widgets.add(trashWidget);
+        rightSlots.add(trashWidget.component());
 
         rootPanel.add(rightSlots, BorderLayout.EAST);
 
@@ -356,7 +389,7 @@ public final class AmadeDesktopPanel extends JFrame {
             XdgCategory category,
             java.awt.event.ActionListener fallbackPrimaryAction,
             List<DrawerTool> defaultTools,
-            boolean hasRightDivider) {
+            boolean hasDrawer) {
 
         List<XdgDesktopEntry> apps = XdgApplicationManager.getInstance().getApplicationsByCategory(category);
         List<DrawerTool> tools = new ArrayList<>();
@@ -395,7 +428,7 @@ public final class AmadeDesktopPanel extends JFrame {
             primaryAction = fallbackPrimaryAction;
         }
 
-        return new DrawerDockWidget(id, title, iconKey, primaryAction, tools, hasRightDivider);
+        return new DrawerDockWidget(id, title, iconKey, primaryAction, tools, hasDrawer);
     }
 
     private void launchProcess(String... cmd) {
@@ -567,6 +600,153 @@ public final class AmadeDesktopPanel extends JFrame {
         area.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
         area.setCaretPosition(area.getDocument().getLength());
         return area;
+    }
+
+    private void showApplicationManagerDialog(JFrame parent) {
+        JDialog dialog = new JDialog(parent, "amadeOS Application Manager", false);
+        dialog.setLayout(new BorderLayout(8, 8));
+        DesktopTheme t = ThemeManager.currentTheme();
+        dialog.getContentPane().setBackground(t.base());
+
+        JPanel header = new JPanel(new GridLayout(2, 1, 2, 2));
+        header.setBackground(t.base());
+        header.setBorder(BorderFactory.createEmptyBorder(10, 14, 6, 14));
+        JLabel title = new JLabel("amadeOS Application Manager", JLabel.LEFT);
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 14.0f));
+        title.setForeground(t.textActive());
+        JLabel subtitle = new JLabel("Registered applications and desktop tools:", JLabel.LEFT);
+        subtitle.setForeground(t.textActive());
+        header.add(title);
+        header.add(subtitle);
+        dialog.add(header, BorderLayout.NORTH);
+
+        JTabbedPane tabs = new JTabbedPane();
+        tabs.setBackground(t.base());
+
+        for (XdgCategory cat : XdgCategory.values()) {
+            List<XdgDesktopEntry> catApps = XdgApplicationManager.getInstance().getApplicationsByCategory(cat);
+            if (catApps.isEmpty() && cat != XdgCategory.OTHER) continue;
+
+            JPanel listPanel = new JPanel(new GridLayout(0, 1, 4, 4));
+            listPanel.setBackground(t.base());
+            listPanel.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+
+            for (XdgDesktopEntry app : catApps) {
+                JPanel item = new JPanel(new BorderLayout(8, 0));
+                item.setBackground(t.base());
+                item.setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createMatteBorder(0, 0, 1, 0, t.shadow()),
+                        BorderFactory.createEmptyBorder(4, 4, 4, 4)
+                ));
+
+                JLabel iconLbl = new JLabel(IconManager.getIcon(app.icon(), 24));
+                JLabel textLbl = new JLabel("<html><b>" + app.name() + "</b>"
+                        + (app.comment() != null && !app.comment().isBlank() ? "<br><font color='#707070'>" + app.comment() + "</font>" : "")
+                        + "</html>");
+                textLbl.setForeground(t.textActive());
+
+                JButton launchBtn = new JButton("Launch");
+                launchBtn.addActionListener(e -> {
+                    try {
+                        app.launch();
+                    } catch (Exception ex) {
+                        JOptionPane.showMessageDialog(dialog, "Failed to launch " + app.name() + ": " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                    }
+                });
+
+                item.add(iconLbl, BorderLayout.WEST);
+                item.add(textLbl, BorderLayout.CENTER);
+                item.add(launchBtn, BorderLayout.EAST);
+                listPanel.add(item);
+            }
+
+            JScrollPane scroll = new JScrollPane(listPanel);
+            scroll.getVerticalScrollBar().setUnitIncrement(16);
+            tabs.addTab(cat.displayName(), scroll);
+        }
+
+        dialog.add(tabs, BorderLayout.CENTER);
+
+        JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        footer.setBackground(t.base());
+        footer.setBorder(BorderFactory.createEmptyBorder(4, 14, 10, 14));
+
+        JButton reloadBtn = new JButton("Reload Cache");
+        reloadBtn.addActionListener(e -> {
+            XdgApplicationManager.getInstance().reload();
+            dialog.dispose();
+            showApplicationManagerDialog(parent);
+        });
+        JButton closeBtn = new JButton("Close");
+        closeBtn.addActionListener(e -> dialog.dispose());
+
+        footer.add(reloadBtn);
+        footer.add(closeBtn);
+        dialog.add(footer, BorderLayout.SOUTH);
+
+        dialog.setPreferredSize(new Dimension(600, 450));
+        dialog.pack();
+        dialog.setLocationRelativeTo(parent);
+        dialog.setVisible(true);
+    }
+
+    private void showHelpDialog(JFrame parent) {
+        JDialog dialog = new JDialog(parent, "amadeOS Front Panel & Desktop Help", false);
+        dialog.setLayout(new BorderLayout(8, 8));
+        DesktopTheme t = ThemeManager.currentTheme();
+        dialog.getContentPane().setBackground(t.base());
+
+        JPanel header = new JPanel(new GridLayout(2, 1, 2, 2));
+        header.setBackground(t.base());
+        header.setBorder(BorderFactory.createEmptyBorder(10, 14, 6, 14));
+        JLabel title = new JLabel("amadeOS CDE Front Panel Guide", JLabel.LEFT);
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 14.0f));
+        title.setForeground(t.textActive());
+        JLabel subtitle = new JLabel("Common Desktop Environment controls and features:", JLabel.LEFT);
+        subtitle.setForeground(t.textActive());
+        header.add(title);
+        header.add(subtitle);
+        dialog.add(header, BorderLayout.NORTH);
+
+        JEditorPane helpPane = new JEditorPane();
+        helpPane.setContentType("text/html");
+        helpPane.setEditable(false);
+        helpPane.setText("""
+                <html>
+                <body style='font-family: sans-serif; font-size: 11pt; padding: 10px;'>
+                <h3>Front Panel Overview (10 Slots):</h3>
+                <ul>
+                  <li><b>Slot 1: Clock</b> &mdash; Analog clock face displaying system time.</li>
+                  <li><b>Slot 2: Calendar</b> &mdash; Daily tear-off calendar sheet.</li>
+                  <li><b>Slot 3: File Manager</b> &mdash; Home folder navigation and file drawer.</li>
+                  <li><b>Slot 4: Text Editor</b> &mdash; Document notepad and text editor tools.</li>
+                  <li><b>Slot 5: Mail</b> &mdash; Electronic mail client and console tools.</li>
+                  <li><b>Center: Workspace Switcher</b> &mdash; Workspaces One..Four, screen lock, and session exit.</li>
+                  <li><b>Slot 6: Printer Manager</b> &mdash; CUPS print jobs and printer queue.</li>
+                  <li><b>Slot 7: Style Manager</b> &mdash; Desktop color themes, icon themes, and wallpaper.</li>
+                  <li><b>Slot 8: Application Manager</b> &mdash; Categorized desktop application catalog.</li>
+                  <li><b>Slot 9: Help Viewer</b> &mdash; System documentation and diagnostics.</li>
+                  <li><b>Slot 10: Trash Can</b> &mdash; Wastebasket storage and session disposal.</li>
+                </ul>
+                <p>Click the <b>▲</b> arrow above drawer slots to open the subpanel tools.</p>
+                </body>
+                </html>
+                """);
+        helpPane.setCaretPosition(0);
+        dialog.add(new JScrollPane(helpPane), BorderLayout.CENTER);
+
+        JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        footer.setBackground(t.base());
+        footer.setBorder(BorderFactory.createEmptyBorder(4, 14, 10, 14));
+        JButton closeBtn = new JButton("Close");
+        closeBtn.addActionListener(e -> dialog.dispose());
+        footer.add(closeBtn);
+        dialog.add(footer, BorderLayout.SOUTH);
+
+        dialog.setPreferredSize(new Dimension(540, 400));
+        dialog.pack();
+        dialog.setLocationRelativeTo(parent);
+        dialog.setVisible(true);
     }
 
     private String readLogContent(File file) {
