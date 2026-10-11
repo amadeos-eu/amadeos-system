@@ -259,7 +259,7 @@ public final class DrawerDockWidget extends AbstractDockWidget {
             }
 
             // Draw icon centered directly on the panel surface
-            javax.swing.Icon icon = IconManager.getIcon(iconKey, 32);
+            javax.swing.Icon icon = IconManager.getIcon(iconKey, 42);
             if (icon != null) {
                 int ix = (w - icon.getIconWidth()) / 2;
                 int iy = (h - icon.getIconHeight()) / 2;
