@@ -36,6 +36,7 @@ import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import org.datazuul.amadeos.wm.panel.widget.AbstractDockWidget;
+import org.datazuul.amadeos.wm.panel.widget.CdePanelChrome;
 import org.datazuul.amadeos.wm.panel.widget.ClockDockWidget;
 import org.datazuul.amadeos.wm.panel.widget.DockWidget;
 import org.datazuul.amadeos.wm.panel.widget.DrawerDockWidget;
@@ -51,7 +52,7 @@ import org.datazuul.amadeos.wm.xdg.XdgDesktopEntry;
 public final class AmadeDesktopPanel extends JFrame {
     private static final Logger LOGGER = Logger.getLogger(AmadeDesktopPanel.class.getName());
 
-    public static final int DOCK_HEIGHT = 84;
+    public static final int DOCK_HEIGHT = 85;
     private static final int DOCK_WIDTH = 720;
 
     private static final AtomicInteger DOC_COUNTER = new AtomicInteger(0);
@@ -116,77 +117,33 @@ public final class AmadeDesktopPanel extends JFrame {
         setBackground(initialTheme.base());
         setLayout(new BorderLayout());
 
-        // Outer CDE 3D chiseled container
-        rootPanel = new JPanel(new BorderLayout(4, 0)) {
+        // Outer CDE frame: gray chiseled frame with side grip handles (pixel-exact to original CDE)
+        rootPanel = new JPanel(new BorderLayout(0, 0)) {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
+                CdePanelChrome.paintFrame(g, getWidth(), getHeight());
+            }
+
+            @Override
+            public void paint(Graphics g) {
+                super.paint(g);
+                // Left/right edges of the raised button plate (below the drawer tab row)
                 DesktopTheme t = ThemeManager.currentTheme();
-                Graphics2D g2 = (Graphics2D) g;
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-                // Top/Left 3D chisel highlight
-                g2.setColor(t.highlight());
-                g2.drawLine(0, 0, getWidth() - 1, 0);
-                g2.drawLine(0, 0, 0, getHeight() - 1);
-                g2.setColor(t.softHighlight());
-                g2.drawLine(1, 1, getWidth() - 2, 1);
-                g2.drawLine(1, 1, 1, getHeight() - 2);
-
-                // Bottom/Right 3D chisel shadow
-                g2.setColor(t.darkShadow());
-                g2.drawLine(getWidth() - 1, 0, getWidth() - 1, getHeight() - 1);
-                g2.drawLine(0, getHeight() - 1, getWidth() - 1, getHeight() - 1);
-                g2.setColor(t.shadow());
-                g2.drawLine(getWidth() - 2, 1, getWidth() - 2, getHeight() - 2);
-                g2.drawLine(1, getHeight() - 2, getWidth() - 2, getHeight() - 2);
-
-                // Authentic CDE side grip handles (textured ribs & collapse arrow box)
-                int leftX = 4;
-                int rightX = getWidth() - 16;
-                int topY = 6;
-                int botY = getHeight() - 7;
-
-                // Left & Right side groove boxes
-                Color gripBg = new Color(0x99, 0x99, 0x99);
-                for (int gx : new int[]{leftX, rightX}) {
-                    // Darker background plate for side grip decorations
-                    g2.setColor(gripBg);
-                    g2.fillRect(gx - 1, 3, 13, getHeight() - 6);
-
-                    // Sunken bevel border around grip plate (flat/lower level)
-                    g2.setColor(t.darkShadow());
-                    g2.drawLine(gx - 1, 2, gx + 11, 2);
-                    g2.drawLine(gx - 1, 2, gx - 1, getHeight() - 4);
-                    g2.setColor(t.highlight());
-                    g2.drawLine(gx - 1, getHeight() - 4, gx + 11, getHeight() - 4);
-                    g2.drawLine(gx + 11, 2, gx + 11, getHeight() - 4);
-
-                    // Small top collapse toggle box (flat rectangle)
-                    g2.setColor(t.darkShadow());
-                    g2.drawRect(gx, topY, 10, 8);
-                    // Minus/collapse dash inside
-                    g2.drawLine(gx + 3, topY + 4, gx + 7, topY + 4);
-
-                    // Vertical divider separating the grip handle from the slots
-                    int divX = (gx == leftX) ? gx + 14 : gx - 3;
-                    g2.setColor(t.darkShadow());
-                    g2.drawLine(divX, 2, divX, getHeight() - 3);
-                    g2.setColor(t.highlight());
-                    g2.drawLine(divX + 1, 2, divX + 1, getHeight() - 3);
-
-                    // Horizontal textured grip ribs
-                    for (int ry = topY + 13; ry < botY - 1; ry += 3) {
-                        g2.setColor(t.darkShadow());
-                        g2.drawLine(gx + 1, ry, gx + 9, ry);
-                        g2.setColor(t.highlight());
-                        g2.drawLine(gx + 1, ry + 1, gx + 9, ry + 1);
-                    }
-                }
+                int top = CdePanelChrome.FRAME_INSET_V + CdePanelChrome.TAB_HEIGHT;
+                int bottom = getHeight() - CdePanelChrome.FRAME_INSET_V - 1;
+                int lx = CdePanelChrome.FRAME_INSET_H;
+                int rx = getWidth() - CdePanelChrome.FRAME_INSET_H - 1;
+                g.setColor(t.highlight());
+                g.drawLine(lx, top, lx, bottom - 1);
+                g.setColor(t.darkShadow());
+                g.drawLine(rx, top, rx, bottom);
             }
         };
         rootPanel.setBackground(initialTheme.base());
-        rootPanel.setBorder(BorderFactory.createEmptyBorder(5, 20, 5, 20));
+        rootPanel.setBorder(BorderFactory.createEmptyBorder(
+                CdePanelChrome.FRAME_INSET_V, CdePanelChrome.FRAME_INSET_H,
+                CdePanelChrome.FRAME_INSET_V, CdePanelChrome.FRAME_INSET_H));
         setContentPane(rootPanel);
 
         // 1. LEFT SLOTS: Clock, File Manager, Text Editor, Terminal

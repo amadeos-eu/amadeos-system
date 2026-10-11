@@ -84,39 +84,22 @@ public final class ClockDockWidget extends AbstractDockWidget {
                 int h = getHeight();
                 int usableW = w - 2;
 
-                // 1. Top drawer notch tab (15px high, darker gray background, flat notch without triangle)
-                int tabH = 15;
-                g2.setColor(DRAWER_TAB_BG);
-                g2.fillRect(0, 0, usableW, tabH);
+                // 1. Raised drawer tab without triangle + seamless button plate
+                int tabH = CdePanelChrome.TAB_HEIGHT;
+                CdePanelChrome.paintSlotBay(g2, w, h, t);
 
-                // Sunken top edge (flat, lower level)
-                g2.setColor(t.darkShadow());
-                g2.drawLine(0, 0, usableW - 1, 0);
-
-                // 2. Clear horizontal groove between drawer notch and clock launcher area
-                g2.setColor(t.darkShadow());
-                g2.drawLine(0, tabH, w - 1, tabH);
-                g2.setColor(t.highlight());
-                g2.drawLine(0, tabH + 1, w - 1, tabH + 1);
-
-                // 3. Right modular tab divider groove (ONLY in top tab area)
-                g2.setColor(t.darkShadow());
-                g2.drawLine(w - 2, 0, w - 2, tabH - 1);
-                g2.setColor(t.highlight());
-                g2.drawLine(w - 1, 0, w - 1, tabH - 1);
-
-                // 4. Render clock launcher area (y = 17 to h - 1, seamless base without vertical dividers)
+                // 2. Render clock on the button plate (no vertical dividers)
                 if (style == ClockStyle.ANALOG) {
-                    paintAnalogClock(g2, w, h, tabH + 2, t);
+                    paintAnalogClock(g2, w, h, tabH + 1, t);
                 } else {
-                    paintDigitalClock(g2, w, h, tabH + 2, t);
+                    paintDigitalClock(g2, w, h, tabH + 1, t);
                 }
 
                 g2.dispose();
             }
         };
 
-        panel.setPreferredSize(new Dimension(54, 74));
+        panel.setPreferredSize(new Dimension(CdePanelChrome.FIRST_SLOT_WIDTH, CdePanelChrome.SLOT_HEIGHT));
         panel.setBackground(currentTheme.base());
 
         // Context menu to select clock style

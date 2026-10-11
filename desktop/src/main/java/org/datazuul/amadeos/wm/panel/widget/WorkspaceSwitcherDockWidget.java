@@ -64,13 +64,13 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
                 g.drawLine(w - 1, 0, w - 1, h - 1);
             }
         };
-        pad.setPreferredSize(new Dimension(220, 74));
+        pad.setPreferredSize(new Dimension(220, CdePanelChrome.SLOT_HEIGHT));
         pad.setBackground(currentTheme.base());
 
         // 2. Left Pillar: Flat Lock Button
         leftPillar = new JPanel(new GridLayout(2, 1, 0, 0));
         leftPillar.setOpaque(false);
-        leftPillar.setPreferredSize(new Dimension(28, 74));
+        leftPillar.setPreferredSize(new Dimension(28, CdePanelChrome.SLOT_HEIGHT));
 
         lockBtn = new FlatLockButton(e -> JOptionPane.showMessageDialog(pad, "Screen Lock is active.", "Lock", JOptionPane.INFORMATION_MESSAGE));
         leftPillar.add(lockBtn);
@@ -135,7 +135,7 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
         // 4. Right Pillar: Status/Mail Indicator Slit + Flat EXIT Button
         rightPillar = new JPanel(new GridLayout(2, 1, 0, 0));
         rightPillar.setOpaque(false);
-        rightPillar.setPreferredSize(new Dimension(30, 74));
+        rightPillar.setPreferredSize(new Dimension(30, CdePanelChrome.SLOT_HEIGHT));
 
         statusIndicator = new StatusIndicator();
         rightPillar.add(statusIndicator);

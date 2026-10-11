@@ -64,22 +64,11 @@ public final class DrawerDockWidget extends AbstractDockWidget {
                 int w = getWidth();
                 int h = getHeight();
 
-                // Clear horizontal groove between drawer tab and application icon area
-                g.setColor(t.darkShadow());
-                g.drawLine(0, 15, w - 1, 15);
-                g.setColor(t.highlight());
-                g.drawLine(0, 16, w - 1, 16);
-
-                // Right slot divider groove (CDE modular bay separator) ONLY in tab area
-                if (hasRightDivider) {
-                    g.setColor(t.darkShadow());
-                    g.drawLine(w - 2, 0, w - 2, 14);
-                    g.setColor(t.highlight());
-                    g.drawLine(w - 1, 0, w - 1, 14);
-                }
+                // Raised tab segment + seamless button plate (no vertical dividers in plate)
+                CdePanelChrome.paintSlotBay(g, w, h, t);
             }
         };
-        slotPanel.setPreferredSize(new Dimension(hasRightDivider ? 54 : 52, 74));
+        slotPanel.setPreferredSize(new Dimension(CdePanelChrome.SLOT_WIDTH, CdePanelChrome.SLOT_HEIGHT));
         slotPanel.setBackground(currentTheme.base());
 
         // 2. Graphical drawer tab button with 3D beveled triangle
@@ -189,7 +178,7 @@ public final class DrawerDockWidget extends AbstractDockWidget {
             setContentAreaFilled(false);
             setOpaque(false);
             setMargin(new Insets(0, 0, 0, 0));
-            setPreferredSize(new Dimension(52, 15));
+            setPreferredSize(new Dimension(CdePanelChrome.SLOT_WIDTH, CdePanelChrome.TAB_HEIGHT));
             setToolTipText("Open " + tooltip + " Drawer");
         }
 
@@ -199,7 +188,7 @@ public final class DrawerDockWidget extends AbstractDockWidget {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
             int w = getWidth();
-            int usableW = hasRightDivider ? (w - 2) : w;
+            int usableW = w;
             int h = getHeight();
             ButtonModel model = getModel();
             boolean isPressed = model.isArmed() && model.isPressed();
@@ -207,14 +196,9 @@ public final class DrawerDockWidget extends AbstractDockWidget {
 
             DesktopTheme t = currentTheme;
 
-            // Darker drawer tab handle background plate matching authentic CDE
-            Color tabBg = new Color(0x99, 0x99, 0x99);
-            g2.setColor(isPressed || isDrawerOpen ? t.darkShadow() : (isHovered ? t.shadow() : tabBg));
-            g2.fillRect(0, 0, usableW, h);
-
-            // Sunken top edge (flat, lower level)
-            g2.setColor(t.darkShadow());
-            g2.drawLine(0, 0, usableW - 1, 0);
+            // Raised flat drawer tab (gray), highlight left edge / shadow right edge
+            Color tabBg = isPressed || isDrawerOpen ? t.darkShadow() : (isHovered ? t.shadow() : CdePanelChrome.FRAME_BG);
+            CdePanelChrome.paintTab(g2, 0, 0, w, h, tabBg);
 
             // Draw authentic 3D CDE drawer triangle (12x7px)
             int triW = 12;

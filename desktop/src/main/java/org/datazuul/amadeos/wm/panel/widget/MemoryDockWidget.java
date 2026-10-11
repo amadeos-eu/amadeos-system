@@ -5,9 +5,7 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Graphics;
-import java.awt.Graphics2D;
 import java.awt.GridLayout;
-import java.awt.RenderingHints;
 import javax.swing.BorderFactory;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
@@ -24,7 +22,6 @@ import org.datazuul.amadeos.wm.theme.DesktopTheme;
  * - Center: Seamless base background with JVM memory label and activity gauge.
  */
 public final class MemoryDockWidget extends AbstractDockWidget {
-    private static final Color DRAWER_TAB_BG = new Color(0x99, 0x99, 0x99);
 
     private final JPanel panel;
     private final JLabel valueLabel;
@@ -38,45 +35,17 @@ public final class MemoryDockWidget extends AbstractDockWidget {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
-                DesktopTheme t = currentTheme;
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-                int w = getWidth();
-                int h = getHeight();
-                int usableTabW = w - 2; // right tab divider separating Memory tab from Diagnostics tab
-                int tabH = 15;
-
-                // 1. Top drawer notch tab (15px high, darker gray background, flat notch without triangle)
-                g2.setColor(DRAWER_TAB_BG);
-                g2.fillRect(0, 0, usableTabW, tabH);
-
-                // Sunken top edge (flat, lower level)
-                g2.setColor(t.darkShadow());
-                g2.drawLine(0, 0, usableTabW - 1, 0);
-
-                // 2. Clear horizontal groove between drawer notch and memory launcher area
-                g2.setColor(t.darkShadow());
-                g2.drawLine(0, tabH, w - 1, tabH);
-                g2.setColor(t.highlight());
-                g2.drawLine(0, tabH + 1, w - 1, tabH + 1);
-
-                // 3. Right modular tab divider groove (ONLY in top tab area)
-                g2.setColor(t.darkShadow());
-                g2.drawLine(w - 2, 0, w - 2, tabH - 1);
-                g2.setColor(t.highlight());
-                g2.drawLine(w - 1, 0, w - 1, tabH - 1);
-
-                g2.dispose();
+                // Raised drawer tab without triangle + seamless button plate
+                CdePanelChrome.paintSlotBay(g, getWidth(), getHeight(), currentTheme);
             }
         };
-        panel.setPreferredSize(new Dimension(54, 74));
+        panel.setPreferredSize(new Dimension(CdePanelChrome.SLOT_WIDTH, CdePanelChrome.SLOT_HEIGHT));
         panel.setBackground(currentTheme.base());
 
-        // Top notch spacer of 17px
+        // Spacer covering the drawer tab row
         JPanel notchSpacer = new JPanel();
         notchSpacer.setOpaque(false);
-        notchSpacer.setPreferredSize(new Dimension(54, 17));
+        notchSpacer.setPreferredSize(new Dimension(CdePanelChrome.SLOT_WIDTH, CdePanelChrome.TAB_HEIGHT + 1));
         panel.add(notchSpacer, BorderLayout.NORTH);
 
         // Meter content panel in button area below notch

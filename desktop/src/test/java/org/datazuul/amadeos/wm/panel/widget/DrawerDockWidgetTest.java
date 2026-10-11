@@ -66,7 +66,7 @@ class DrawerDockWidgetTest {
         DrawerDockWidget.DrawerTool tool = new DrawerDockWidget.DrawerTool("Tool 1", null, e -> {});
         DrawerDockWidget widget = new DrawerDockWidget("trash", "Trash", "trash", e -> {}, List.of(tool), false);
 
-        assertEquals(52, widget.component().getPreferredSize().width);
+        assertEquals(CdePanelChrome.SLOT_WIDTH, widget.component().getPreferredSize().width);
     }
 }
 
