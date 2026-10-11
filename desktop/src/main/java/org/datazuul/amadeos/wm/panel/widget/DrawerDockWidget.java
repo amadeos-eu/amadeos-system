@@ -67,9 +67,9 @@ public final class DrawerDockWidget extends AbstractDockWidget {
                 // Horizontal groove between drawer tab and application icon area
                 int grooveEnd = hasRightDivider ? (w - 2) : (w - 1);
                 g.setColor(t.darkShadow());
-                g.drawLine(1, 13, grooveEnd, 13);
+                g.drawLine(1, 15, grooveEnd, 15);
                 g.setColor(t.highlight());
-                g.drawLine(1, 14, grooveEnd, 14);
+                g.drawLine(1, 16, grooveEnd, 16);
 
                 // Right slot divider groove (CDE modular bay separator)
                 if (hasRightDivider) {
@@ -80,7 +80,7 @@ public final class DrawerDockWidget extends AbstractDockWidget {
                 }
             }
         };
-        slotPanel.setPreferredSize(new Dimension(hasRightDivider ? 54 : 52, 54));
+        slotPanel.setPreferredSize(new Dimension(hasRightDivider ? 54 : 52, 74));
         slotPanel.setBackground(currentTheme.base());
 
         // 2. Graphical drawer tab button with 3D beveled triangle
@@ -190,7 +190,7 @@ public final class DrawerDockWidget extends AbstractDockWidget {
             setContentAreaFilled(false);
             setOpaque(false);
             setMargin(new Insets(0, 0, 0, 0));
-            setPreferredSize(new Dimension(52, 13));
+            setPreferredSize(new Dimension(52, 15));
             setToolTipText("Open " + tooltip + " Drawer");
         }
 
@@ -208,14 +208,17 @@ public final class DrawerDockWidget extends AbstractDockWidget {
 
             DesktopTheme t = currentTheme;
 
-            // Subtle tab plate background on hover/press
-            if (isPressed || isDrawerOpen) {
-                g2.setColor(t.sunkenBg());
-                g2.fillRect(0, 0, usableW, h);
-            } else if (isHovered) {
-                g2.setColor(t.softHighlight());
-                g2.fillRect(0, 0, usableW, h);
-            }
+            // Darker drawer tab handle background plate matching authentic CDE
+            Color tabBg = new Color(0x99, 0x99, 0x99);
+            g2.setColor(isPressed || isDrawerOpen ? t.darkShadow() : (isHovered ? t.shadow() : tabBg));
+            g2.fillRect(0, 0, usableW, h);
+
+            // Tab 3D borders
+            g2.setColor(t.highlight());
+            g2.drawLine(0, 0, usableW - 1, 0);
+            g2.drawLine(0, 0, 0, h - 1);
+            g2.setColor(t.darkShadow());
+            g2.drawLine(0, h - 1, usableW - 1, h - 1);
 
             // Draw authentic 3D CDE drawer triangle (12x7px)
             int triW = 12;

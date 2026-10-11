@@ -14,10 +14,10 @@ class AmadeDesktopPanelVisualTest {
             X11EwmhHelper helper = X11EwmhHelper.open(null);
             AmadeDesktopPanel panel = new AmadeDesktopPanel(helper);
             panel.addNotify();
-            panel.setSize(720, 64);
+            panel.setSize(720, 84);
             panel.validate();
 
-            BufferedImage img = new BufferedImage(720, 64, BufferedImage.TYPE_INT_RGB);
+            BufferedImage img = new BufferedImage(720, 84, BufferedImage.TYPE_INT_RGB);
             Graphics2D g2 = img.createGraphics();
             panel.getContentPane().paint(g2);
             g2.dispose();

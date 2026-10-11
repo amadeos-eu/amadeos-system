@@ -21,7 +21,7 @@ class WorkspaceSwitcherDockWidgetTest {
         );
 
         assertEquals(220, widget.component().getPreferredSize().width);
-        assertEquals(54, widget.component().getPreferredSize().height);
+        assertEquals(74, widget.component().getPreferredSize().height);
 
         // Initially workspace 1 is active
         assertTrue(widget.workspaceButtons[0].isSelected(), "Workspace 'One' should be selected initially");

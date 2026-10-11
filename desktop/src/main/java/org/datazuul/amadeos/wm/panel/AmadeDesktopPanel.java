@@ -48,7 +48,7 @@ import org.datazuul.amadeos.wm.xdg.XdgDesktopEntry;
 public final class AmadeDesktopPanel extends JFrame {
     private static final Logger LOGGER = Logger.getLogger(AmadeDesktopPanel.class.getName());
 
-    public static final int DOCK_HEIGHT = 64;
+    public static final int DOCK_HEIGHT = 84;
     private static final int DOCK_WIDTH = 720;
 
     private static final AtomicInteger DOC_COUNTER = new AtomicInteger(0);
@@ -141,11 +141,16 @@ public final class AmadeDesktopPanel extends JFrame {
                 // Authentic CDE side grip handles (textured ribs & collapse arrow box)
                 int leftX = 4;
                 int rightX = getWidth() - 16;
-                int topY = 4;
-                int botY = getHeight() - 5;
+                int topY = 6;
+                int botY = getHeight() - 7;
 
                 // Left & Right side groove boxes
+                Color gripBg = new Color(0x99, 0x99, 0x99);
                 for (int gx : new int[]{leftX, rightX}) {
+                    // Darker background plate for side grip decorations
+                    g2.setColor(gripBg);
+                    g2.fillRect(gx - 1, 3, 13, getHeight() - 6);
+
                     // Small top collapse toggle box
                     g2.setColor(t.darkShadow());
                     g2.drawRect(gx, topY, 11, 9);
@@ -164,7 +169,7 @@ public final class AmadeDesktopPanel extends JFrame {
                     g2.drawLine(divX + 1, 2, divX + 1, getHeight() - 3);
 
                     // Horizontal textured grip ribs
-                    for (int ry = topY + 13; ry < botY - 2; ry += 3) {
+                    for (int ry = topY + 14; ry < botY - 2; ry += 3) {
                         g2.setColor(t.darkShadow());
                         g2.drawLine(gx + 1, ry, gx + 10, ry);
                         g2.setColor(t.highlight());
@@ -174,7 +179,7 @@ public final class AmadeDesktopPanel extends JFrame {
             }
         };
         rootPanel.setBackground(initialTheme.base());
-        rootPanel.setBorder(BorderFactory.createEmptyBorder(4, 20, 4, 20));
+        rootPanel.setBorder(BorderFactory.createEmptyBorder(5, 20, 5, 20));
         setContentPane(rootPanel);
 
         // 1. LEFT SLOTS: Clock, File Manager, Text Editor, Terminal

@@ -30,9 +30,11 @@ import org.datazuul.amadeos.wm.theme.DesktopTheme;
 
 /**
  * Authentic CDE Workstation Front Panel Clock module:
- * - Analog Clock (Default): Octagonal dial plate with etched 3D bevel directly on panel base,
- *   diamond hour ticks at 12, 3, 6, 9, dot ticks at other hours, slate-cyan hands.
- * - Digital Clock: Clean centered monospace time and uppercase date directly on panel base.
+ * - Top: Drawer notch tab with darker gray background (no triangle arrow).
+ * - Center: Analog Clock (Default) with chiseled etched groove border,
+ *   authentic #A8988F dial face, high-contrast white ticks with drop shadows,
+ *   slate-cyan hands centered with exact pivot.
+ * - Digital Clock mode: Clean monospace time and uppercase date.
  * - Context menu to toggle between Analog and Digital styles.
  * - Modular right bay divider groove.
  */
@@ -46,8 +48,9 @@ public final class ClockDockWidget extends AbstractDockWidget {
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("MMM dd");
     private static final DateTimeFormatter TOOLTIP_FMT = DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy HH:mm:ss");
 
-    private static final Color HAND_COLOR = new Color(0xB8, 0xDE, 0xEC);
-    private static final Color TICK_COLOR = Color.WHITE;
+    private static final Color HAND_COLOR = new Color(0x9A, 0xC8, 0xD6);
+    private static final Color DIAL_BG = new Color(0xA8, 0x98, 0x8F);
+    private static final Color DRAWER_TAB_BG = new Color(0x99, 0x99, 0x99);
 
     private final JPanel panel;
     private final Timer timer;
@@ -79,25 +82,44 @@ public final class ClockDockWidget extends AbstractDockWidget {
 
                 int w = getWidth();
                 int h = getHeight();
+                int usableW = w - 2;
 
-                // 1. Right slot divider groove (CDE modular bay separator)
+                // 1. Top drawer notch tab (15px high, darker gray background, empty notch without triangle)
+                int tabH = 15;
+                g2.setColor(DRAWER_TAB_BG);
+                g2.fillRect(0, 0, usableW, tabH);
+
+                // Tab 3D borders
+                g2.setColor(t.highlight());
+                g2.drawLine(0, 0, usableW - 1, 0);
+                g2.drawLine(0, 0, 0, tabH - 1);
+                g2.setColor(t.darkShadow());
+                g2.drawLine(0, tabH - 1, usableW - 1, tabH - 1);
+
+                // 2. Horizontal groove between drawer tab and clock launcher area
+                g2.setColor(t.darkShadow());
+                g2.drawLine(0, tabH, usableW - 1, tabH);
+                g2.setColor(t.highlight());
+                g2.drawLine(0, tabH + 1, usableW - 1, tabH + 1);
+
+                // 3. Right modular bay divider groove
                 g2.setColor(t.darkShadow());
                 g2.drawLine(w - 2, 0, w - 2, h - 1);
                 g2.setColor(t.highlight());
                 g2.drawLine(w - 1, 0, w - 1, h - 1);
 
-                // 2. Render clock face based on chosen style
+                // 4. Render clock launcher area (y = 17 to h - 1)
                 if (style == ClockStyle.ANALOG) {
-                    paintAnalogClock(g2, w, h, t);
+                    paintAnalogClock(g2, usableW, h, tabH + 2, t);
                 } else {
-                    paintDigitalClock(g2, w, h, t);
+                    paintDigitalClock(g2, usableW, h, tabH + 2, t);
                 }
 
                 g2.dispose();
             }
         };
 
-        panel.setPreferredSize(new Dimension(54, 54));
+        panel.setPreferredSize(new Dimension(54, 74));
         panel.setBackground(currentTheme.base());
 
         // Context menu to select clock style
@@ -187,35 +209,25 @@ public final class ClockDockWidget extends AbstractDockWidget {
         panel.setToolTipText("Clock (" + fullInfo + ") - Right-click to change style");
     }
 
-    private void paintAnalogClock(Graphics2D g2, int w, int h, DesktopTheme t) {
-        int usableW = w - 2;
+    private void paintAnalogClock(Graphics2D g2, int usableW, int h, int topOffset, DesktopTheme t) {
         int cx = usableW / 2; // 26
-        int cy = h / 2;        // 27
+        int cy = topOffset + (h - topOffset) / 2; // 17 + 28 = 45
 
-        // 1. Outer chiseled border (41x41 octagon with 4px chamfer)
-        // Only a chiseled border line; the inner band remains on the same level & color as panel base
-        int dialR = 20;
-        int c = 4;
-        drawSunkenOctagonBorder(g2, cx, cy, dialR, c, t.darkShadow(), t.highlight());
+        // 1. Outer chiseled etched groove (40x40 octagon, r=20, c=5)
+        // Authentic 2-pixel carved groove: darkShadow + highlight all around
+        drawChiseledOctagonGroove(g2, cx, cy, 20, 5, t);
 
-        // 2. Inner clock circle with darker background for maximum hand contrast
-        int innerR = 15;
-        Color innerBg = new Color(
-                (t.shadow().getRed() + t.darkShadow().getRed()) / 2,
-                (t.shadow().getGreen() + t.darkShadow().getGreen()) / 2,
-                (t.shadow().getBlue() + t.darkShadow().getBlue()) / 2
-        );
-        g2.setColor(innerBg);
-        g2.fillOval(cx - innerR, cy - innerR, innerR * 2, innerR * 2);
+        // 2. Dial face plate: octagon with r=16, c=5, filled with authentic #A8988F dial color
+        Polygon dialPlate = createOctagon(cx, cy, 16, 5);
+        g2.setColor(DIAL_BG);
+        g2.fillPolygon(dialPlate);
 
-        // Chiseled 1px rim around inner circle
-        g2.setColor(t.darkShadow());
-        g2.drawArc(cx - innerR, cy - innerR, innerR * 2, innerR * 2, 45, 180);
-        g2.setColor(t.softHighlight());
-        g2.drawArc(cx - innerR, cy - innerR, innerR * 2, innerR * 2, 225, 180);
+        // Etched 1px rim around the dial plate
+        drawSunkenOctagonBorder(g2, cx, cy, 16, 5, t.shadow(), t.softHighlight());
 
-        // 3. 12 hour ticks in the outer band on the panel surface (radius 17)
-        int tickR = 17;
+        // 3. 12 hour ticks touching dial plate perimeter (radius 16)
+        // Drawn with dark shadow edge for razor-sharp visibility
+        int tickR = 16;
         for (int i = 0; i < 12; i++) {
             double angle = Math.toRadians(i * 30.0);
             double tx = cx + tickR * Math.sin(angle);
@@ -224,22 +236,32 @@ public final class ClockDockWidget extends AbstractDockWidget {
             int ry = (int) Math.round(ty);
 
             if (i % 3 == 0) {
-                // Diamond tick mark at 12, 3, 6, 9
+                // Diamond tick mark at 12, 3, 6, 9 with dark shadow
+                Polygon shadowDiamond = new Polygon(
+                        new int[]{rx + 1, rx + 2, rx + 1, rx},
+                        new int[]{ry, ry + 1, ry + 2, ry + 1},
+                        4
+                );
+                g2.setColor(t.darkShadow());
+                g2.fillPolygon(shadowDiamond);
+
                 Polygon diamond = new Polygon(
                         new int[]{rx, rx + 1, rx, rx - 1},
                         new int[]{ry - 1, ry, ry + 1, ry},
                         4
                 );
-                g2.setColor(TICK_COLOR);
+                g2.setColor(Color.WHITE);
                 g2.fillPolygon(diamond);
             } else {
-                // 1px dot tick at other hours
-                g2.setColor(TICK_COLOR);
+                // 1px dot tick at other hours with dark shadow
+                g2.setColor(t.darkShadow());
+                g2.fillRect(rx + 1, ry + 1, 1, 1);
+                g2.setColor(Color.WHITE);
                 g2.fillRect(rx, ry, 1, 1);
             }
         }
 
-        // 4. Hands with dark drop shadow for crisp readability
+        // 4. Hands emanating from EXACT center (cx, cy)
         LocalTime now = LocalTime.now();
         double second = now.getSecond();
         double minute = now.getMinute() + second / 60.0;
@@ -264,14 +286,14 @@ public final class ClockDockWidget extends AbstractDockWidget {
         g2.drawLine(cx + 1, cy + 1, (int) Math.round(hx) + 1, (int) Math.round(hy) + 1);
         g2.drawLine(cx + 1, cy + 1, (int) Math.round(mx) + 1, (int) Math.round(my) + 1);
 
-        // Bright slate-cyan hands
+        // Slate-cyan hands
         g2.setColor(HAND_COLOR);
         g2.setStroke(new BasicStroke(2.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         g2.drawLine(cx, cy, (int) Math.round(hx), (int) Math.round(hy));
         g2.setStroke(new BasicStroke(2.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         g2.drawLine(cx, cy, (int) Math.round(mx), (int) Math.round(my));
 
-        // Center pivot cap
+        // Center pivot cap at exact center (cx, cy)
         g2.fillOval(cx - 2, cy - 2, 5, 5);
         g2.setColor(t.darkShadow());
         g2.fillOval(cx - 1, cy - 1, 3, 3);
@@ -279,27 +301,27 @@ public final class ClockDockWidget extends AbstractDockWidget {
         g2.setStroke(origStroke);
     }
 
-    private void paintDigitalClock(Graphics2D g2, int w, int h, DesktopTheme t) {
+    private void paintDigitalClock(Graphics2D g2, int usableW, int h, int topOffset, DesktopTheme t) {
         LocalTime nowTime = LocalTime.now();
         LocalDate nowDate = LocalDate.now();
         String timeStr = nowTime.format(TIME_FMT);
         String dateStr = nowDate.format(DATE_FMT).toUpperCase();
 
-        int usableW = w - 2;
+        int cy = topOffset + (h - topOffset) / 2;
         g2.setColor(t.textActive());
 
         // Time
         g2.setFont(new Font(Font.MONOSPACED, Font.BOLD, 10));
         FontMetrics fmTime = g2.getFontMetrics();
         int timeX = Math.max(0, (usableW - fmTime.stringWidth(timeStr)) / 2);
-        int timeY = h / 2 - 2;
+        int timeY = cy - 3;
         g2.drawString(timeStr, timeX, timeY);
 
         // Date
         g2.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 8));
         FontMetrics fmDate = g2.getFontMetrics();
         int dateX = Math.max(0, (usableW - fmDate.stringWidth(dateStr)) / 2);
-        int dateY = h / 2 + 12;
+        int dateY = cy + 13;
         g2.drawString(dateStr, dateX, dateY);
     }
 
@@ -311,6 +333,46 @@ public final class ClockDockWidget extends AbstractDockWidget {
                 new int[]{y0, y0, y1, y2, y3, y3, y2, y1},
                 8
         );
+    }
+
+    private void drawChiseledOctagonGroove(Graphics2D g2, int cx, int cy, int r, int c, DesktopTheme t) {
+        int d = r * 2;
+        int x0 = cx - r, y0 = cy - r;
+        int x1 = x0 + c, y1 = y0 + c;
+        int x2 = x0 + d - c, y2 = y0 + d - c;
+        int x3 = x0 + d, y3 = y0 + d;
+
+        // Outer line: top/left darkShadow, bottom/right highlight
+        g2.setColor(t.darkShadow());
+        g2.drawLine(x0, y2, x0, y1);
+        g2.drawLine(x0, y1, x1, y0);
+        g2.drawLine(x1, y0, x2, y0);
+        g2.drawLine(x2, y0, x3, y1);
+
+        g2.setColor(t.highlight());
+        g2.drawLine(x3, y1, x3, y2);
+        g2.drawLine(x3, y2, x2, y3);
+        g2.drawLine(x2, y3, x1, y3);
+        g2.drawLine(x1, y3, x0, y2);
+
+        // Inner 1px line: top/left softHighlight, bottom/right shadow
+        int d_i = d - 2;
+        int x0_i = x0 + 1, y0_i = y0 + 1;
+        int x1_i = x0_i + c, y1_i = y0_i + c;
+        int x2_i = x0_i + d_i - c, y2_i = y0_i + d_i - c;
+        int x3_i = x0_i + d_i, y3_i = y0_i + d_i;
+
+        g2.setColor(t.softHighlight());
+        g2.drawLine(x0_i, y2_i, x0_i, y1_i);
+        g2.drawLine(x0_i, y1_i, x1_i, y0_i);
+        g2.drawLine(x1_i, y0_i, x2_i, y0_i);
+        g2.drawLine(x2_i, y0_i, x3_i, y1_i);
+
+        g2.setColor(t.shadow());
+        g2.drawLine(x3_i, y1_i, x3_i, y2_i);
+        g2.drawLine(x3_i, y2_i, x2_i, y3_i);
+        g2.drawLine(x2_i, y3_i, x1_i, y3_i);
+        g2.drawLine(x1_i, y3_i, x0_i, y2_i);
     }
 
     private void drawSunkenOctagonBorder(Graphics2D g2, int cx, int cy, int r, int c, Color dark, Color light) {

@@ -36,7 +36,7 @@ class ClockDockWidgetTest {
 
         assertNotNull(widget.component());
         assertEquals(54, widget.component().getPreferredSize().width);
-        assertEquals(54, widget.component().getPreferredSize().height);
+        assertEquals(74, widget.component().getPreferredSize().height);
 
         // Verify default style is ANALOG
         assertEquals(ClockDockWidget.ClockStyle.ANALOG, widget.getClockStyle(), "Default style must be ANALOG");
@@ -61,11 +61,11 @@ class ClockDockWidgetTest {
     @Test
     void testRenderAnalogAndDigital() throws Exception {
         ClockDockWidget widget = new ClockDockWidget();
-        widget.component().setSize(54, 54);
+        widget.component().setSize(54, 74);
 
         // 1. Render Analog
         widget.setClockStyle(ClockDockWidget.ClockStyle.ANALOG);
-        java.awt.image.BufferedImage analogImg = new java.awt.image.BufferedImage(54, 54, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        java.awt.image.BufferedImage analogImg = new java.awt.image.BufferedImage(54, 74, java.awt.image.BufferedImage.TYPE_INT_RGB);
         java.awt.Graphics2D g2a = analogImg.createGraphics();
         widget.component().paint(g2a);
         g2a.dispose();
@@ -73,7 +73,7 @@ class ClockDockWidgetTest {
 
         // 2. Render Digital
         widget.setClockStyle(ClockDockWidget.ClockStyle.DIGITAL);
-        java.awt.image.BufferedImage digitalImg = new java.awt.image.BufferedImage(54, 54, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        java.awt.image.BufferedImage digitalImg = new java.awt.image.BufferedImage(54, 74, java.awt.image.BufferedImage.TYPE_INT_RGB);
         java.awt.Graphics2D g2d = digitalImg.createGraphics();
         widget.component().paint(g2d);
         g2d.dispose();

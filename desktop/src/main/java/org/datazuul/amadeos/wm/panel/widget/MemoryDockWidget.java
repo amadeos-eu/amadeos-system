@@ -21,7 +21,7 @@ public final class MemoryDockWidget extends AbstractDockWidget {
     public MemoryDockWidget() {
         super("memory");
         panel = new JPanel(new GridLayout(2, 1, 0, 1));
-        panel.setPreferredSize(new Dimension(54, 48));
+        panel.setPreferredSize(new Dimension(54, 74));
         panel.setBorder(new MotifBevelBorder(false, 2));
 
         valueLabel = new JLabel("0M", JLabel.CENTER);
