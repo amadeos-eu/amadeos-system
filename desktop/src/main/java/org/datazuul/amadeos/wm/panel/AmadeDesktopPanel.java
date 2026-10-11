@@ -213,7 +213,8 @@ public final class AmadeDesktopPanel extends JFrame {
                         new DrawerTool("Launch xterm", "terminal", e -> launchProcess("xterm")),
                         new DrawerTool("Root Console (sudo)", "terminal", e -> launchProcess("xterm", "-title", "Root Shell", "-e", "sudo", "sh")),
                         new DrawerTool("Diagnostics Logs", "diagnostics", e -> showLogViewerDialog(this))
-                )
+                ),
+                false // last button in left slot group: no right divider groove before center switcher
         );
         widgets.add(termDrawer);
         leftSlots.add(termDrawer.component());
@@ -353,6 +354,17 @@ public final class AmadeDesktopPanel extends JFrame {
             XdgCategory category,
             java.awt.event.ActionListener fallbackPrimaryAction,
             List<DrawerTool> defaultTools) {
+        return createCategoryDrawer(id, title, iconKey, category, fallbackPrimaryAction, defaultTools, true);
+    }
+
+    private DrawerDockWidget createCategoryDrawer(
+            String id,
+            String title,
+            String iconKey,
+            XdgCategory category,
+            java.awt.event.ActionListener fallbackPrimaryAction,
+            List<DrawerTool> defaultTools,
+            boolean hasRightDivider) {
 
         List<XdgDesktopEntry> apps = XdgApplicationManager.getInstance().getApplicationsByCategory(category);
         List<DrawerTool> tools = new ArrayList<>();
@@ -391,7 +403,7 @@ public final class AmadeDesktopPanel extends JFrame {
             primaryAction = fallbackPrimaryAction;
         }
 
-        return new DrawerDockWidget(id, title, iconKey, primaryAction, tools);
+        return new DrawerDockWidget(id, title, iconKey, primaryAction, tools, hasRightDivider);
     }
 
     private void launchProcess(String... cmd) {
