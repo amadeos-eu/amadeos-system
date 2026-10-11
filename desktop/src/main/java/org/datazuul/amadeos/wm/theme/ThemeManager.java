@@ -109,6 +109,23 @@ public final class ThemeManager {
         applyTheme(theme.id());
     }
 
+    public static synchronized void applyIconTheme(String iconThemeId) {
+        if (iconThemeId == null || iconThemeId.isBlank()) return;
+        currentTheme = currentTheme.withIconTheme(iconThemeId);
+        IconManager.clearCache();
+        persistIconTheme(iconThemeId);
+        LOGGER.info(() -> "Applied icon theme: " + iconThemeId);
+
+        // Notify in-process listeners
+        for (ThemeChangeListener l : LISTENERS) {
+            try {
+                l.onThemeChanged(currentTheme);
+            } catch (Exception e) {
+                LOGGER.warning("Error notifying theme listener: " + e.getMessage());
+            }
+        }
+    }
+
     private static void discoverThemesFromDisk() {
         String userHome = System.getProperty("user.home", "/tmp");
         File[] searchDirs = {
@@ -172,6 +189,14 @@ public final class ThemeManager {
                     currentTheme = THEMES.get(id);
                 }
             }
+
+            Path iconConf = Path.of(userHome, ".config", "amadeos", "icon_theme.conf");
+            if (Files.exists(iconConf)) {
+                String iconThemeId = Files.readString(iconConf, StandardCharsets.UTF_8).trim();
+                if (!iconThemeId.isBlank()) {
+                    currentTheme = currentTheme.withIconTheme(iconThemeId);
+                }
+            }
         } catch (Exception ignored) {}
     }
 
@@ -181,6 +206,15 @@ public final class ThemeManager {
             Path dir = Path.of(userHome, ".config", "amadeos");
             Files.createDirectories(dir);
             Files.writeString(dir.resolve("theme.conf"), themeId, StandardCharsets.UTF_8);
+        } catch (Exception ignored) {}
+    }
+
+    private static void persistIconTheme(String iconThemeId) {
+        try {
+            String userHome = System.getProperty("user.home", "/tmp");
+            Path dir = Path.of(userHome, ".config", "amadeos");
+            Files.createDirectories(dir);
+            Files.writeString(dir.resolve("icon_theme.conf"), iconThemeId, StandardCharsets.UTF_8);
         } catch (Exception ignored) {}
     }
 }

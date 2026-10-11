@@ -67,12 +67,19 @@ public final class IconManager {
     private IconManager() {}
 
     /**
-     * Resolves an icon for the given logical key or Freedesktop icon name at requested size.
+     * Resolves an icon for the given logical key or Freedesktop icon name at requested size using active theme.
      */
     public static Icon getIcon(String key, int size) {
-        String theme = ThemeManager.currentTheme().iconTheme();
-        String cacheKey = theme + ":" + key + ":" + size;
-        return ICON_CACHE.computeIfAbsent(cacheKey, k -> loadOrGenerateIcon(theme, key, size));
+        return getIcon(ThemeManager.currentTheme().iconTheme(), key, size);
+    }
+
+    /**
+     * Resolves an icon for the given logical key from the specified icon theme at requested size.
+     */
+    public static Icon getIcon(String theme, String key, int size) {
+        String effectiveTheme = theme != null && !theme.isBlank() ? theme : ThemeManager.currentTheme().iconTheme();
+        String cacheKey = effectiveTheme + ":" + key + ":" + size;
+        return ICON_CACHE.computeIfAbsent(cacheKey, k -> loadOrGenerateIcon(effectiveTheme, key, size));
     }
 
     public static void clearCache() {
@@ -348,8 +355,14 @@ public final class IconManager {
                     if (img != null) return img;
                 }
             }
-            // Second pass: any directory in index.theme
-            for (String sub : info.directories()) {
+            // Second pass: directories sorted by closeness to requested size (e.g. 32, 24, 48, 16)
+            List<String> sortedDirs = new ArrayList<>(info.directories());
+            sortedDirs.sort((a, b) -> {
+                int sa = extractSize(a);
+                int sb = extractSize(b);
+                return Integer.compare(Math.abs(sa - size), Math.abs(sb - size));
+            });
+            for (String sub : sortedDirs) {
                 BufferedImage img = searchSubDirForCandidates(new File(themeDir, sub), candidates);
                 if (img != null) return img;
             }
@@ -387,6 +400,17 @@ public final class IconManager {
             }
         }
         return null;
+    }
+
+    private static int extractSize(String path) {
+        if (path == null) return 0;
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\d+)").matcher(path);
+        if (m.find()) {
+            try {
+                return Integer.parseInt(m.group(1));
+            } catch (Exception ignored) {}
+        }
+        return 0;
     }
 
     private static Icon scaleIcon(BufferedImage img, int size) {

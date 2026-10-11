@@ -55,6 +55,12 @@ public final class DesktopTheme {
         return new DesktopTheme(id, name, base, null, null, null, null, null, null, null, null, null, "classic");
     }
 
+    public DesktopTheme withIconTheme(String newIconTheme) {
+        return new DesktopTheme(id, name, base, highlight, softHighlight, shadow, darkShadow, sunkenBg,
+                activeTitleBg, inactiveTitleBg, textActive, textInactive, newIconTheme,
+                panelFrameBg, panelFrameHighlight, panelFrameShadow);
+    }
+
     // Built-in theme definitions
     public static final DesktopTheme WARM_MOTIF = new DesktopTheme(
             "warm-motif", "Warm Motif (Default)",

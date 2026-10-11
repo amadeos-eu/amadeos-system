@@ -228,14 +228,22 @@ public final class AmadeSettingsApplication extends JFrame {
                 return l;
             }
         });
+        String activeIconTheme = ThemeManager.currentTheme().iconTheme();
+        for (int i = 0; i < iconThemes.size(); i++) {
+            if (iconThemes.get(i).id().equalsIgnoreCase(activeIconTheme)) {
+                iconThemeCombo.setSelectedIndex(i);
+                break;
+            }
+        }
         iconThemeCombo.addActionListener(e -> updateIconPreviewStrip());
 
         JButton applyIconBtn = new JButton("Apply Icon Theme");
         applyIconBtn.addActionListener(e -> {
             IconManager.IconThemeInfo sel = (IconManager.IconThemeInfo) iconThemeCombo.getSelectedItem();
             if (sel != null) {
-                IconManager.clearCache();
-                statusLabel.setText("Icon cache refreshed for theme: " + sel.name());
+                ThemeManager.applyIconTheme(sel.id());
+                updateIconPreviewStrip();
+                statusLabel.setText("Icon theme applied globally: " + sel.name() + " (" + sel.id() + ")");
                 JOptionPane.showMessageDialog(this, "Icon theme changed to '" + sel.name() + "'. Icons refreshed.", "Icon Theme", JOptionPane.INFORMATION_MESSAGE);
             }
         });
@@ -258,10 +266,13 @@ public final class AmadeSettingsApplication extends JFrame {
         if (iconPreviewStrip == null) return;
         iconPreviewStrip.removeAll();
 
+        IconManager.IconThemeInfo sel = iconThemeCombo != null ? (IconManager.IconThemeInfo) iconThemeCombo.getSelectedItem() : null;
+        String themeId = sel != null ? sel.id() : ThemeManager.currentTheme().iconTheme();
+
         String[] sampleKeys = {"file-manager", "text-editor", "terminal", "lock", "power", "trash", "diagnostics", "window"};
         for (String k : sampleKeys) {
             JPanel card = new JPanel(new BorderLayout(0, 4));
-            Icon icon = IconManager.getIcon(k, 32);
+            Icon icon = IconManager.getIcon(themeId, k, 32);
             JLabel iconLbl = new JLabel(icon, JLabel.CENTER);
             JLabel textLbl = new JLabel(k, JLabel.CENTER);
             card.add(iconLbl, BorderLayout.CENTER);
