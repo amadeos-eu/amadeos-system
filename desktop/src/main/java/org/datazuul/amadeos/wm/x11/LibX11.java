@@ -715,6 +715,8 @@ public interface LibX11 extends Library {
 
     int XFetchName(Pointer display, NativeLong window, PointerByReference window_name_return);
 
+    int XStoreName(Pointer display, NativeLong window, String window_name);
+
     int XSetFunction(Pointer display, Pointer gc, int function);
 
     int XSetSubwindowMode(Pointer display, Pointer gc, int subwindow_mode);

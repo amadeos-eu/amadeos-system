@@ -588,6 +588,33 @@ class X11WindowManagerIntegrationTest {
             }
         }
     }
+
+    @Test
+    void testScreenLockerWindowIsNotDecoratedAndCoversFullScreen() throws Exception {
+        try (X11WindowManagerService wm = X11WindowManagerService.open(display)) {
+            LibX11 x11 = LibX11.INSTANCE;
+            com.sun.jna.NativeLong lockWin = x11.XCreateSimpleWindow(
+                    wm.display(), new com.sun.jna.NativeLong(wm.rootWindow()),
+                    0, 0, 800, 600, 0, new com.sun.jna.NativeLong(0), new com.sun.jna.NativeLong(0));
+            assertTrue(lockWin.longValue() != 0);
+
+            x11.XStoreName(wm.display(), lockWin, "amadeOS Workstation Locked");
+            x11.XMapWindow(wm.display(), lockWin);
+            x11.XFlush(wm.display());
+
+            Thread.sleep(200);
+            wm.processPendingEvents();
+
+            // Screen Locker must be recognized as special unmanaged window
+            assertTrue(wm.isSpecialUnmanagedWindow(lockWin.longValue()), "Should be identified as special unmanaged window");
+            // Must NOT have a decoration frame
+            assertNull(wm.getFrameForClient(lockWin.longValue()), "Screen locker must not have a decoration frame");
+            // Must NOT be in the managed window registry
+            assertTrue(wm.core().registry().find(lockWin.longValue()).isEmpty(), "Screen locker must not be managed in registry");
+
+            x11.XDestroyWindow(wm.display(), lockWin);
+        }
+    }
 }
 
 

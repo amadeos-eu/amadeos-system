@@ -51,6 +51,9 @@ public final class DesktopRootMenu {
 
         SwingUtilities.invokeLater(() -> {
             try {
+                if (popupMenu != null && popupMenu.isVisible()) {
+                    popupMenu.setVisible(false);
+                }
                 if (invoker == null) {
                     invoker = new JWindow();
                     invoker.setAlwaysOnTop(true);

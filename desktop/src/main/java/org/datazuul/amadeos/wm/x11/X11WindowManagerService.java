@@ -259,22 +259,10 @@ public final class X11WindowManagerService implements AutoCloseable {
         // Native Root Cursor Polish: set left_ptr arrow cursor on root window
         x11.XDefineCursor(display, new NativeLong(rootWindow), cursorDefault);
 
-        // Root Window button grabs for Desktop Root Menu (Button 3) and dismiss (Button 1)
+        // Root Window button grab for Desktop Root Menu (Button 3)
         x11.XGrabButton(
                 display,
                 LibX11.Button3,
-                new NativeLong(LibX11.AnyModifier),
-                new NativeLong(rootWindow),
-                1,
-                new NativeLong(LibX11.ButtonPressMask),
-                LibX11.GrabModeAsync,
-                LibX11.GrabModeAsync,
-                new NativeLong(0),
-                new NativeLong(0)
-        );
-        x11.XGrabButton(
-                display,
-                LibX11.Button1,
                 new NativeLong(LibX11.AnyModifier),
                 new NativeLong(rootWindow),
                 1,
@@ -379,6 +367,10 @@ public final class X11WindowManagerService implements AutoCloseable {
         } catch (Exception e) {
             LOGGER.fine("Wallpaper init deferred: " + e.getMessage());
         }
+    }
+
+    public Pointer display() {
+        return display;
     }
 
     public WindowManagerCore core() {
@@ -881,6 +873,17 @@ public final class X11WindowManagerService implements AutoCloseable {
         );
     }
 
+    public boolean isSpecialUnmanagedWindow(long win) {
+        String title = fetchWindowTitle(win);
+        if (title != null) {
+            String lower = title.toLowerCase();
+            if (lower.contains("workstation locked") || lower.contains("screen locker") || lower.contains("lock screen")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public String fetchWindowTitle(long win) {
         PointerByReference nameRet = new PointerByReference();
         if (x11.XFetchName(display, new NativeLong(win), nameRet) != 0) {
@@ -896,6 +899,34 @@ public final class X11WindowManagerService implements AutoCloseable {
                 }
             }
         }
+
+        // Also check _NET_WM_NAME (UTF-8)
+        if (netWmName != null && utf8String != null) {
+            PointerByReference actualTypeRet = new PointerByReference();
+            IntByReference actualFormatRet = new IntByReference();
+            com.sun.jna.ptr.NativeLongByReference nitemsRet = new com.sun.jna.ptr.NativeLongByReference();
+            com.sun.jna.ptr.NativeLongByReference bytesAfterRet = new com.sun.jna.ptr.NativeLongByReference();
+            PointerByReference propRet = new PointerByReference();
+
+            int status = x11.XGetWindowProperty(
+                    display, new NativeLong(win), netWmName,
+                    new NativeLong(0), new NativeLong(256), 0,
+                    utf8String,
+                    actualTypeRet, actualFormatRet, nitemsRet, bytesAfterRet, propRet);
+
+            if (status == 0 && propRet.getValue() != null && nitemsRet.getValue() != null && nitemsRet.getValue().longValue() > 0) {
+                Pointer ptr = propRet.getValue();
+                try {
+                    String title = ptr.getString(0);
+                    if (title != null && !title.isBlank()) {
+                        return title;
+                    }
+                } finally {
+                    x11.XFree(ptr);
+                }
+            }
+        }
+
         return "Window";
     }
 
@@ -951,8 +982,10 @@ public final class X11WindowManagerService implements AutoCloseable {
     }
 
     public FrameWindow decorateAndReparent(long clientWin, WindowGeometry geom) {
-        if (isDockWindow(clientWin)) {
-            dockWindows.add(clientWin);
+        if (isDockWindow(clientWin) || isSpecialUnmanagedWindow(clientWin)) {
+            if (isSpecialUnmanagedWindow(clientWin)) {
+                x11.XMoveResizeWindow(display, new NativeLong(clientWin), 0, 0, screenWidth, screenHeight);
+            }
             x11.XMapWindow(display, new NativeLong(clientWin));
             x11.XRaiseWindow(display, new NativeLong(clientWin));
             return null;
@@ -1097,11 +1130,15 @@ public final class X11WindowManagerService implements AutoCloseable {
                 LibX11.XWindowAttributes attrs = new LibX11.XWindowAttributes();
                 if (x11.XGetWindowAttributes(display, new NativeLong(child), attrs) != 0) {
                     if (attrs.override_redirect == 0 && attrs.map_state == 2 /* IsViewable */) {
-                        if (isDockWindow(child)) {
-                            dockWindows.add(child);
-                            int strut = readDockStrutBottom(child);
-                            if (strut > 0) {
-                                dockMarginBottom = strut;
+                        if (isDockWindow(child) || isSpecialUnmanagedWindow(child)) {
+                            if (isDockWindow(child)) {
+                                dockWindows.add(child);
+                                int strut = readDockStrutBottom(child);
+                                if (strut > 0) {
+                                    dockMarginBottom = strut;
+                                }
+                            } else if (isSpecialUnmanagedWindow(child)) {
+                                x11.XMoveResizeWindow(display, new NativeLong(child), 0, 0, screenWidth, screenHeight);
                             }
                             x11.XRaiseWindow(display, new NativeLong(child));
                             continue;
@@ -1164,6 +1201,10 @@ public final class X11WindowManagerService implements AutoCloseable {
         switch (event.type) {
             case LibX11.KeyPress -> {
                 LibX11.XKeyEvent keyEvent = new LibX11.XKeyEvent(event.getPointer());
+                if (AmadeScreenLocker.isLocked()) {
+                    LOGGER.fine("Screen is locked; ignoring window manager key press");
+                    return;
+                }
                 // Check if Super modifier (Mod4Mask) is held and keycode matches 'l'
                 boolean isSuper = (keyEvent.state & (int) LibX11.Mod4Mask) != 0;
                 if (isSuper && (lockKeycode != 0 && keyEvent.keycode == lockKeycode)) {
@@ -1196,6 +1237,16 @@ public final class X11WindowManagerService implements AutoCloseable {
                     x11.XMapWindow(display, new NativeLong(win));
                     x11.XRaiseWindow(display, new NativeLong(win));
                     LOGGER.info(() -> "Mapped dock window without frame: " + win + " strutBottom=" + dockMarginBottom);
+                    return;
+                }
+
+                if (isSpecialUnmanagedWindow(win)) {
+                    LOGGER.info(() -> "Mapping unmanaged fullscreen special window: " + win + " (" + fetchWindowTitle(win) + ")");
+                    x11.XMoveResizeWindow(display, new NativeLong(win), 0, 0, screenWidth, screenHeight);
+                    x11.XMapWindow(display, new NativeLong(win));
+                    x11.XRaiseWindow(display, new NativeLong(win));
+                    x11.XSetInputFocus(display, new NativeLong(win), LibX11.RevertToPointerRoot, new NativeLong(LibX11.CurrentTime));
+                    x11.XFlush(display);
                     return;
                 }
 
@@ -1271,6 +1322,12 @@ public final class X11WindowManagerService implements AutoCloseable {
             case LibX11.ButtonPress -> {
                 LibX11.XButtonEvent btnEvent = new LibX11.XButtonEvent(event.getPointer());
                 long eventWin = btnEvent.window.longValue();
+
+                if (AmadeScreenLocker.isLocked()) {
+                    LOGGER.fine("Screen is locked; ignoring window manager button press");
+                    x11.XFlush(display);
+                    return;
+                }
 
                 // Desktop background click: Button 3 shows Root Menu, Button 1 hides it
                 if (eventWin == rootWindow) {

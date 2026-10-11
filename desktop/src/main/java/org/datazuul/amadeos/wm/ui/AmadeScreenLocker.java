@@ -68,6 +68,15 @@ public final class AmadeScreenLocker {
         GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
         GraphicsDevice gd = ge.getDefaultScreenDevice();
         Dimension screenSize = java.awt.Toolkit.getDefaultToolkit().getScreenSize();
+        int screenW = screenSize.width;
+        int screenH = screenSize.height;
+        if (gd != null && gd.getDefaultConfiguration() != null) {
+            java.awt.Rectangle bounds = gd.getDefaultConfiguration().getBounds();
+            if (bounds != null && bounds.width > 0 && bounds.height > 0) {
+                screenW = bounds.width;
+                screenH = bounds.height;
+            }
+        }
 
         JDialog dialog = new JDialog();
         activeLockDialog = dialog;
@@ -75,8 +84,9 @@ public final class AmadeScreenLocker {
         dialog.setUndecorated(true);
         dialog.setAlwaysOnTop(true);
         dialog.setModal(false);
-        dialog.setSize(screenSize);
-        dialog.setLocation(0, 0);
+        dialog.setResizable(false);
+        dialog.setBounds(0, 0, screenW, screenH);
+        dialog.setPreferredSize(new Dimension(screenW, screenH));
 
         // Backdrop panel: Dark chiseled slate / stippled pattern background
         JPanel backdrop = new JPanel(new GridBagLayout()) {
@@ -286,12 +296,34 @@ public final class AmadeScreenLocker {
 
             @Override
             public void windowOpened(WindowEvent e) {
+                dialog.toFront();
+                dialog.requestFocus();
                 passwordField.requestFocusInWindow();
+            }
+        });
+
+        dialog.addWindowFocusListener(new java.awt.event.WindowFocusListener() {
+            @Override
+            public void windowGainedFocus(WindowEvent e) {
+                passwordField.requestFocusInWindow();
+            }
+
+            @Override
+            public void windowLostFocus(WindowEvent e) {
+                if (IS_LOCKED.get() && dialog.isVisible()) {
+                    SwingUtilities.invokeLater(() -> {
+                        if (IS_LOCKED.get() && dialog.isVisible()) {
+                            dialog.toFront();
+                            passwordField.requestFocusInWindow();
+                        }
+                    });
+                }
             }
         });
 
         dialog.setVisible(true);
         dialog.toFront();
+        dialog.requestFocus();
         passwordField.requestFocusInWindow();
         LOGGER.info("amadeOS Screen Locker activated for user " + currentUser);
     }
