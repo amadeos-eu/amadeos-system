@@ -8,6 +8,8 @@ import java.awt.Graphics2D;
 import java.awt.Insets;
 import java.awt.RenderingHints;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.List;
 import javax.swing.BorderFactory;
 import javax.swing.ButtonModel;
@@ -31,13 +33,15 @@ public final class DrawerDockWidget extends AbstractDockWidget {
     public record DrawerTool(String title, String iconKey, ActionListener action) {}
 
     private final JPanel slotPanel;
-    private final DrawerTabButton tabBtn;
-    private final FlatLauncherButton mainBtn;
+    final DrawerTabButton tabBtn;
+    final FlatLauncherButton mainBtn;
     private final String iconKey;
     private final String tooltip;
     private final List<DrawerTool> tools;
-    private final JPopupMenu drawerPopup;
+    final JPopupMenu drawerPopup;
     private boolean isDrawerOpen = false;
+    private long popupClosedTime = 0;
+    private boolean wasOpenWhenPressed = false;
 
     public DrawerDockWidget(String id, String tooltip, String iconKey, ActionListener primaryAction, List<DrawerTool> tools) {
         super(id);
@@ -98,22 +102,45 @@ public final class DrawerDockWidget extends AbstractDockWidget {
             @Override
             public void popupMenuWillBecomeInvisible(PopupMenuEvent e) {
                 isDrawerOpen = false;
+                popupClosedTime = System.currentTimeMillis();
                 tabBtn.repaint();
             }
 
             @Override
             public void popupMenuCanceled(PopupMenuEvent e) {
                 isDrawerOpen = false;
+                popupClosedTime = System.currentTimeMillis();
                 tabBtn.repaint();
+            }
+        });
+
+        tabBtn.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                // When clicking the tab while popup is open, Swing closes the popup
+                // just before delivering mousePressed to tabBtn. If closed within 350ms,
+                // record that the popup was already open so the release action won't re-open it.
+                wasOpenWhenPressed = (System.currentTimeMillis() - popupClosedTime < 350);
             }
         });
 
         tabBtn.addActionListener(e -> {
             if (this.tools.isEmpty()) return;
+            if (wasOpenWhenPressed || (System.currentTimeMillis() - popupClosedTime < 350)) {
+                wasOpenWhenPressed = false;
+                if (drawerPopup.isVisible()) {
+                    drawerPopup.setVisible(false);
+                }
+                return;
+            }
             if (drawerPopup.isVisible()) {
                 drawerPopup.setVisible(false);
             } else {
-                drawerPopup.show(tabBtn, 0, -drawerPopup.getPreferredSize().height - 2);
+                if (tabBtn.isShowing()) {
+                    drawerPopup.show(tabBtn, 0, -drawerPopup.getPreferredSize().height - 2);
+                } else {
+                    drawerPopup.setVisible(true);
+                }
             }
         });
 
@@ -146,7 +173,7 @@ public final class DrawerDockWidget extends AbstractDockWidget {
     /**
      * Graphical CDE drawer tab button featuring an authentic carved 3D triangle.
      */
-    private final class DrawerTabButton extends JButton {
+    final class DrawerTabButton extends JButton {
         DrawerTabButton() {
             setFocusPainted(false);
             setRolloverEnabled(true);
