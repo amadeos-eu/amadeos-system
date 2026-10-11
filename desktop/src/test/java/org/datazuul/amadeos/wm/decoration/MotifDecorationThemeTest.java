@@ -98,6 +98,6 @@ class MotifDecorationThemeTest {
         assertNotNull(image);
         // Verify pixel at (0, 0) is highlight color (top-left 3D bevel)
         int rgb00 = image.getRGB(0, 0);
-        assertEquals(0xFFFFFFFF, rgb00);
+        assertEquals(theme.theme().highlight().getRGB(), rgb00);
     }
 }

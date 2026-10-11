@@ -82,18 +82,23 @@ public final class AmadeUI {
         UIManager.put("ToggleButton.select", new ColorUIResource(sunken));
         UIManager.put("ToggleButton.border", new MotifButtonBorder(2));
 
-        // Disable default Metal / Ocean blue gradients
-        java.util.List<?> noGrad = java.util.Collections.emptyList();
-        UIManager.put("MenuBar.gradient", noGrad);
-        UIManager.put("MenuItem.gradient", noGrad);
-        UIManager.put("CheckBoxMenuItem.gradient", noGrad);
-        UIManager.put("RadioButtonMenuItem.gradient", noGrad);
-        UIManager.put("Button.gradient", noGrad);
-        UIManager.put("ToggleButton.gradient", noGrad);
-        UIManager.put("CheckBox.gradient", noGrad);
-        UIManager.put("RadioButton.gradient", noGrad);
-        UIManager.put("ScrollBar.gradient", noGrad);
-        UIManager.put("Slider.gradient", noGrad);
+        // Flat solid palette for Metal controls (avoid Ocean blue gradients and IndexOutOfBoundsException on emptyList)
+        java.util.List<?> flatGrad = java.util.Arrays.asList(
+                0.0, 0.0,
+                new ColorUIResource(base),
+                new ColorUIResource(base),
+                new ColorUIResource(base)
+        );
+        UIManager.put("MenuBar.gradient", flatGrad);
+        UIManager.put("MenuItem.gradient", flatGrad);
+        UIManager.put("CheckBoxMenuItem.gradient", flatGrad);
+        UIManager.put("RadioButtonMenuItem.gradient", flatGrad);
+        UIManager.put("Button.gradient", flatGrad);
+        UIManager.put("ToggleButton.gradient", flatGrad);
+        UIManager.put("CheckBox.gradient", flatGrad);
+        UIManager.put("RadioButton.gradient", flatGrad);
+        UIManager.put("ScrollBar.gradient", flatGrad);
+        UIManager.put("Slider.gradient", flatGrad);
 
         // Menus
         UIManager.put("MenuBarUI", "javax.swing.plaf.basic.BasicMenuBarUI");
@@ -165,6 +170,7 @@ public final class AmadeUI {
         UIManager.put("TextField.border", new MotifBevelBorder(false, 2));
 
         // ScrollPanes & ScrollBars
+        UIManager.put("ScrollBarUI", "javax.swing.plaf.basic.BasicScrollBarUI");
         UIManager.put("ScrollPane.background", new ColorUIResource(base));
         UIManager.put("ScrollPane.border", new MotifBevelBorder(false, 2));
         UIManager.put("ScrollBar.background", new ColorUIResource(sunken));
