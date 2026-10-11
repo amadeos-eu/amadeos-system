@@ -36,6 +36,7 @@ import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import org.datazuul.amadeos.wm.panel.widget.AbstractDockWidget;
+import org.datazuul.amadeos.wm.panel.widget.CalendarDockWidget;
 import org.datazuul.amadeos.wm.panel.widget.CdePanelChrome;
 import org.datazuul.amadeos.wm.panel.widget.ClockDockWidget;
 import org.datazuul.amadeos.wm.panel.widget.DockWidget;
@@ -53,7 +54,7 @@ public final class AmadeDesktopPanel extends JFrame {
     private static final Logger LOGGER = Logger.getLogger(AmadeDesktopPanel.class.getName());
 
     public static final int DOCK_HEIGHT = 85;
-    private static final int DOCK_WIDTH = 720;
+    private static final int DOCK_WIDTH = 740;
 
     private static final AtomicInteger DOC_COUNTER = new AtomicInteger(0);
     private static java.nio.channels.FileLock panelLock = null;
@@ -153,6 +154,10 @@ public final class AmadeDesktopPanel extends JFrame {
         ClockDockWidget clockWidget = new ClockDockWidget();
         widgets.add(clockWidget);
         leftSlots.add(clockWidget.component());
+
+        CalendarDockWidget calendarWidget = new CalendarDockWidget();
+        widgets.add(calendarWidget);
+        leftSlots.add(calendarWidget.component());
 
         DrawerDockWidget fmDrawer = createCategoryDrawer(
                 "file-manager", "File Manager", "file-manager",
