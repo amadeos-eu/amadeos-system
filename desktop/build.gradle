@@ -31,6 +31,15 @@ application {
     mainClass = 'org.datazuul.amadeos.wm.AmadeOsLauncher'
 }
 
+tasks.register('runPanel', JavaExec) {
+    group = 'application'
+    description = 'Runs the standalone CDE Front Panel on your current desktop'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.datazuul.amadeos.wm.panel.AmadeDesktopPanel'
+    jvmArgs = ['--enable-native-access=ALL-UNNAMED']
+    systemProperties = System.properties
+}
+
 tasks.named('jar') {
     manifest {
         attributes('Main-Class': application.mainClass.get())

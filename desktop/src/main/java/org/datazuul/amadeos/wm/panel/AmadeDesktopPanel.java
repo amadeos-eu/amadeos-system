@@ -20,8 +20,10 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.awt.event.KeyEvent;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
+import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -30,6 +32,7 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
+import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import org.datazuul.amadeos.wm.panel.widget.AbstractDockWidget;
@@ -287,12 +290,30 @@ public final class AmadeDesktopPanel extends JFrame {
         // Listen for internal ThemeManager changes
         ThemeManager.addListener(this::applyTheme);
 
-        // Position dock centered at bottom
+        // Position dock centered at bottom (or custom position for testing)
         int screenW = helper.screenWidth();
         int screenH = helper.screenHeight();
         int dockX = Math.max(0, (screenW - DOCK_WIDTH) / 2);
         int dockY = screenH - DOCK_HEIGHT;
+
+        if (Boolean.getBoolean("amadeos.dock.center")) {
+            dockY = Math.max(0, (screenH - DOCK_HEIGHT) / 2);
+        } else {
+            String customY = System.getProperty("amadeos.dock.y");
+            if (customY != null) {
+                try {
+                    dockY = Integer.parseInt(customY);
+                } catch (Exception ignored) {}
+            }
+        }
         setBounds(dockX, dockY, DOCK_WIDTH, DOCK_HEIGHT);
+
+        // Press Escape to exit standalone panel
+        rootPanel.registerKeyboardAction(
+                e -> System.exit(0),
+                KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
+                JComponent.WHEN_IN_FOCUSED_WINDOW
+        );
 
         // Check for theme updates on root window
         pollTimer = new Timer(1000, e -> {
