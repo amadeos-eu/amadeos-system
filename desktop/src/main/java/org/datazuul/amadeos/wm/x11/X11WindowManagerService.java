@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.swing.SwingUtilities;
 import org.datazuul.amadeos.wm.FloatingLayoutPolicy;
 import org.datazuul.amadeos.wm.WindowGeometry;
 import org.datazuul.amadeos.wm.WindowManagerCore;
@@ -25,9 +26,12 @@ import org.datazuul.amadeos.wm.decoration.FrameWindow;
 import org.datazuul.amadeos.wm.decoration.MotifDecorationTheme;
 import org.datazuul.amadeos.wm.decoration.ResizeDirection;
 import org.datazuul.amadeos.wm.decoration.WindowButton;
+import org.datazuul.amadeos.wm.menu.DesktopMenuActions;
+import org.datazuul.amadeos.wm.menu.DesktopRootMenu;
 import org.datazuul.amadeos.wm.theme.DesktopTheme;
 import org.datazuul.amadeos.wm.theme.ThemeManager;
 import org.datazuul.amadeos.wm.theme.WallpaperManager;
+import org.datazuul.amadeos.wm.ui.SessionDialogHelper;
 
 public final class X11WindowManagerService implements AutoCloseable {
     private static final Logger LOGGER = Logger.getLogger(X11WindowManagerService.class.getName());
@@ -85,8 +89,19 @@ public final class X11WindowManagerService implements AutoCloseable {
     private final NativeLong wmState;
     private final NativeLong utf8String;
     private final NativeLong amadeosThemeAtom;
+    private final NativeLong netNumberOfDesktops;
+    private final NativeLong netCurrentDesktop;
+    private final NativeLong netDesktopNames;
+    private final NativeLong netWmDesktop;
     private final NativeLong xaWindowAtom;
     private final NativeLong xaAtomAtom;
+    private final NativeLong xaCardinalAtom;
+
+    public static final int NUMBER_OF_DESKTOPS = 4;
+    public static final long STICKY_DESKTOP = 0xFFFFFFFFL;
+    private int currentDesktop = 0;
+    private final Map<Long, Integer> clientToDesktop = new HashMap<>();
+    private final DesktopRootMenu desktopMenu;
 
     private final java.util.Set<Long> dockWindows = new java.util.HashSet<>();
     private int dockMarginBottom = 0;
@@ -230,8 +245,94 @@ public final class X11WindowManagerService implements AutoCloseable {
         this.wmState = x11.XInternAtom(display, "WM_STATE", 0);
         this.utf8String = x11.XInternAtom(display, "UTF8_STRING", 0);
         this.amadeosThemeAtom = x11.XInternAtom(display, "_AMADEOS_THEME", 0);
+        this.netNumberOfDesktops = x11.XInternAtom(display, "_NET_NUMBER_OF_DESKTOPS", 0);
+        this.netCurrentDesktop = x11.XInternAtom(display, "_NET_CURRENT_DESKTOP", 0);
+        this.netDesktopNames = x11.XInternAtom(display, "_NET_DESKTOP_NAMES", 0);
+        this.netWmDesktop = x11.XInternAtom(display, "_NET_WM_DESKTOP", 0);
         this.xaWindowAtom = new NativeLong(LibX11.XA_WINDOW);
         this.xaAtomAtom = new NativeLong(LibX11.XA_ATOM);
+        this.xaCardinalAtom = new NativeLong(LibX11.XA_CARDINAL);
+
+        // Native Root Cursor Polish: set left_ptr arrow cursor on root window
+        x11.XDefineCursor(display, new NativeLong(rootWindow), cursorDefault);
+
+        // Root Window button grabs for Desktop Root Menu (Button 3) and dismiss (Button 1)
+        x11.XGrabButton(
+                display,
+                LibX11.Button3,
+                new NativeLong(LibX11.AnyModifier),
+                new NativeLong(rootWindow),
+                1,
+                new NativeLong(LibX11.ButtonPressMask),
+                LibX11.GrabModeAsync,
+                LibX11.GrabModeAsync,
+                new NativeLong(0),
+                new NativeLong(0)
+        );
+        x11.XGrabButton(
+                display,
+                LibX11.Button1,
+                new NativeLong(LibX11.AnyModifier),
+                new NativeLong(rootWindow),
+                1,
+                new NativeLong(LibX11.ButtonPressMask),
+                LibX11.GrabModeAsync,
+                LibX11.GrabModeAsync,
+                new NativeLong(0),
+                new NativeLong(0)
+        );
+
+        this.desktopMenu = new DesktopRootMenu(new DesktopMenuActions() {
+            @Override
+            public void switchWorkspace(int workspaceIndex) {
+                X11WindowManagerService.this.switchDesktop(workspaceIndex);
+            }
+
+            @Override
+            public int currentWorkspace() {
+                return X11WindowManagerService.this.currentDesktop();
+            }
+
+            @Override
+            public void shuffleUp() {
+                X11WindowManagerService.this.shuffleUp();
+            }
+
+            @Override
+            public void shuffleDown() {
+                X11WindowManagerService.this.shuffleDown();
+            }
+
+            @Override
+            public void minimizeAll() {
+                X11WindowManagerService.this.minimizeAllCurrentWorkspace();
+            }
+
+            @Override
+            public void restoreAll() {
+                X11WindowManagerService.this.restoreAllCurrentWorkspace();
+            }
+
+            @Override
+            public void refreshDesktop() {
+                X11WindowManagerService.this.refreshDesktop();
+            }
+
+            @Override
+            public void openSettings() {
+                SwingUtilities.invokeLater(() -> new org.datazuul.amadeos.wm.settings.AmadeSettingsApplication().setVisible(true));
+            }
+
+            @Override
+            public void lockScreen() {
+                SessionDialogHelper.lockScreen(null);
+            }
+
+            @Override
+            public void logoutSession() {
+                SessionDialogHelper.showSessionPowerDialog(null);
+            }
+        });
 
         NativeLong createdCheck = x11.XCreateSimpleWindow(
                 display, new NativeLong(rootWindow), 0, 0, 1, 1, 0, new NativeLong(0), new NativeLong(0));
@@ -275,6 +376,235 @@ public final class X11WindowManagerService implements AutoCloseable {
 
     public void setDockMarginBottom(int margin) {
         this.dockMarginBottom = Math.max(0, margin);
+    }
+
+    public int currentDesktop() {
+        return currentDesktop;
+    }
+
+    public boolean isSticky(int desktop) {
+        return desktop == (int) STICKY_DESKTOP || desktop == -1;
+    }
+
+    public int getClientDesktop(long win) {
+        return clientToDesktop.getOrDefault(win, currentDesktop);
+    }
+
+    public int readClientDesktopProperty(long win) {
+        PointerByReference actualTypeRet = new PointerByReference();
+        IntByReference actualFormatRet = new IntByReference();
+        com.sun.jna.ptr.NativeLongByReference nitemsRet = new com.sun.jna.ptr.NativeLongByReference();
+        com.sun.jna.ptr.NativeLongByReference bytesAfterRet = new com.sun.jna.ptr.NativeLongByReference();
+        PointerByReference propRet = new PointerByReference();
+
+        int status = x11.XGetWindowProperty(
+                display, new NativeLong(win), netWmDesktop,
+                new NativeLong(0), new NativeLong(1), 0,
+                xaCardinalAtom,
+                actualTypeRet, actualFormatRet, nitemsRet, bytesAfterRet, propRet);
+
+        if (status == 0 && propRet.getValue() != null && nitemsRet.getValue() != null && nitemsRet.getValue().longValue() > 0) {
+            Pointer ptr = propRet.getValue();
+            try {
+                return (int) ptr.getNativeLong(0).longValue();
+            } finally {
+                x11.XFree(ptr);
+            }
+        }
+        return -1;
+    }
+
+    public void writeClientDesktopProperty(long win, int desktopIndex) {
+        Memory mem = new Memory(NativeLong.SIZE);
+        mem.setNativeLong(0, new NativeLong(desktopIndex));
+        x11.XChangeProperty(display, new NativeLong(win), netWmDesktop, xaCardinalAtom, 32, LibX11.PropModeReplace, mem, 1);
+        x11.XFlush(display);
+    }
+
+    public void switchDesktop(int targetDesktop) {
+        if (targetDesktop < 0 || targetDesktop >= NUMBER_OF_DESKTOPS || targetDesktop == currentDesktop) {
+            return;
+        }
+        int prevDesktop = currentDesktop;
+        currentDesktop = targetDesktop;
+
+        // Update root property _NET_CURRENT_DESKTOP
+        Memory curMem = new Memory(NativeLong.SIZE);
+        curMem.setNativeLong(0, new NativeLong(currentDesktop));
+        x11.XChangeProperty(display, new NativeLong(rootWindow), netCurrentDesktop, xaCardinalAtom, 32, LibX11.PropModeReplace, curMem, 1);
+
+        // Map/Unmap client windows based on active desktop
+        for (Map.Entry<Long, FrameWindow> entry : clientToFrame.entrySet()) {
+            long clientWin = entry.getKey();
+            FrameWindow frame = entry.getValue();
+            int winDesktop = getClientDesktop(clientWin);
+            boolean sticky = isSticky(winDesktop);
+
+            if (winDesktop == currentDesktop || sticky) {
+                if (!frame.isMinimized()) {
+                    x11.XMapWindow(display, frame.frameWindow());
+                    frame.render();
+                    frame.blit(display, gc, screen);
+                    sendSyntheticConfigureNotify(frame);
+                }
+            } else {
+                x11.XUnmapWindow(display, frame.frameWindow());
+            }
+        }
+
+        // Map/Unmap minimized icon tiles based on active desktop
+        for (DesktopIconTile tile : iconTiles) {
+            int winDesktop = getClientDesktop(tile.clientWin());
+            boolean sticky = isSticky(winDesktop);
+            if (winDesktop == currentDesktop || sticky) {
+                x11.XMapWindow(display, tile.tileWin());
+                tile.blit(x11, display, gc, screen);
+            } else {
+                x11.XUnmapWindow(display, tile.tileWin());
+            }
+        }
+
+        // Update active window
+        if (activeWindow != 0 && getClientDesktop(activeWindow) != currentDesktop && !isSticky(getClientDesktop(activeWindow))) {
+            activeWindow = 0;
+            focusTopClientOnCurrentDesktop();
+        } else if (activeWindow == 0) {
+            focusTopClientOnCurrentDesktop();
+        }
+
+        x11.XFlush(display);
+        LOGGER.info(() -> "Switched to workspace " + (currentDesktop + 1) + " (from workspace " + (prevDesktop + 1) + ")");
+    }
+
+    private void focusTopClientOnCurrentDesktop() {
+        var managed = new java.util.ArrayList<>(core.registry().snapshot());
+        for (int i = managed.size() - 1; i >= 0; i--) {
+            long win = managed.get(i).id();
+            FrameWindow frame = clientToFrame.get(win);
+            if (frame != null && !frame.isMinimized()) {
+                int desk = getClientDesktop(win);
+                if (desk == currentDesktop || isSticky(desk)) {
+                    focusClient(win);
+                    return;
+                }
+            }
+        }
+        setActiveWindow(0);
+    }
+
+    public void setClientDesktop(long clientWin, int newDesktop) {
+        if ((newDesktop < 0 || newDesktop >= NUMBER_OF_DESKTOPS) && newDesktop != (int) STICKY_DESKTOP) {
+            return;
+        }
+        clientToDesktop.put(clientWin, newDesktop);
+        writeClientDesktopProperty(clientWin, newDesktop);
+
+        FrameWindow frame = clientToFrame.get(clientWin);
+        if (frame != null) {
+            boolean belongsToCurrent = (newDesktop == currentDesktop || isSticky(newDesktop));
+            if (belongsToCurrent) {
+                if (!frame.isMinimized()) {
+                    x11.XMapWindow(display, frame.frameWindow());
+                    frame.render();
+                    frame.blit(display, gc, screen);
+                    sendSyntheticConfigureNotify(frame);
+                }
+            } else {
+                x11.XUnmapWindow(display, frame.frameWindow());
+                if (activeWindow == clientWin) {
+                    activeWindow = 0;
+                    focusTopClientOnCurrentDesktop();
+                }
+            }
+        }
+
+        DesktopIconTile tile = clientToTile.get(clientWin);
+        if (tile != null) {
+            boolean belongsToCurrent = (newDesktop == currentDesktop || isSticky(newDesktop));
+            if (belongsToCurrent) {
+                x11.XMapWindow(display, tile.tileWin());
+                tile.blit(x11, display, gc, screen);
+            } else {
+                x11.XUnmapWindow(display, tile.tileWin());
+            }
+        }
+        x11.XFlush(display);
+    }
+
+    public void shuffleUp() {
+        var managed = core.registry().snapshot();
+        for (var rec : managed) {
+            long win = rec.id();
+            FrameWindow frame = clientToFrame.get(win);
+            if (frame != null && !frame.isMinimized()) {
+                int desk = getClientDesktop(win);
+                if (desk == currentDesktop || isSticky(desk)) {
+                    core.raise(win);
+                    focusClient(win);
+                    LOGGER.info(() -> "Shuffle Up raised and focused window: " + win);
+                    return;
+                }
+            }
+        }
+    }
+
+    public void shuffleDown() {
+        if (activeWindow != 0) {
+            long winToLower = activeWindow;
+            core.lower(winToLower);
+            LOGGER.info(() -> "Shuffle Down lowered window: " + winToLower);
+            focusTopClientOnCurrentDesktop();
+        }
+    }
+
+    public void minimizeAllCurrentWorkspace() {
+        for (Map.Entry<Long, FrameWindow> entry : new java.util.ArrayList<>(clientToFrame.entrySet())) {
+            long win = entry.getKey();
+            FrameWindow frame = entry.getValue();
+            if (frame != null && !frame.isMinimized()) {
+                int desk = getClientDesktop(win);
+                if (desk == currentDesktop || isSticky(desk)) {
+                    minimizeWindow(frame);
+                }
+            }
+        }
+    }
+
+    public void restoreAllCurrentWorkspace() {
+        for (Map.Entry<Long, FrameWindow> entry : new java.util.ArrayList<>(clientToFrame.entrySet())) {
+            long win = entry.getKey();
+            FrameWindow frame = entry.getValue();
+            if (frame != null && frame.isMinimized()) {
+                int desk = getClientDesktop(win);
+                if (desk == currentDesktop || isSticky(desk)) {
+                    restoreWindow(frame);
+                }
+            }
+        }
+    }
+
+    public void refreshDesktop() {
+        x11.XClearWindow(display, new NativeLong(rootWindow));
+        try {
+            int depth = x11.XDefaultDepth(display, screen);
+            Pointer visual = x11.XDefaultVisual(display, screen);
+            WallpaperManager.applyToRootWindow(x11, display, rootWindow, screenWidth, screenHeight, depth, visual);
+        } catch (Exception e) {
+            LOGGER.warning(() -> "Error refreshing desktop wallpaper: " + e.getMessage());
+        }
+        for (FrameWindow frame : clientToFrame.values()) {
+            if (!frame.isMinimized() && (getClientDesktop(frame.clientWindow().longValue()) == currentDesktop || isSticky(getClientDesktop(frame.clientWindow().longValue())))) {
+                frame.render();
+                frame.blit(display, gc, screen);
+            }
+        }
+        for (DesktopIconTile tile : iconTiles) {
+            if (getClientDesktop(tile.clientWin()) == currentDesktop || isSticky(getClientDesktop(tile.clientWin()))) {
+                tile.blit(x11, display, gc, screen);
+            }
+        }
+        x11.XFlush(display);
+        LOGGER.info("Refreshed X11 desktop background and window frames");
     }
 
     public FrameWindow getFrameForClient(long clientWin) {
@@ -379,10 +709,27 @@ public final class X11WindowManagerService implements AutoCloseable {
         nameMem.write(0, nameBytes, 0, nameBytes.length);
         x11.XChangeProperty(display, new NativeLong(checkWindow), netWmName, utf8String, 8, LibX11.PropModeReplace, nameMem, nameBytes.length);
 
+        // _NET_NUMBER_OF_DESKTOPS on root
+        Memory numMem = new Memory(NativeLong.SIZE);
+        numMem.setNativeLong(0, new NativeLong(NUMBER_OF_DESKTOPS));
+        x11.XChangeProperty(display, new NativeLong(rootWindow), netNumberOfDesktops, xaCardinalAtom, 32, LibX11.PropModeReplace, numMem, 1);
+
+        // _NET_CURRENT_DESKTOP on root
+        Memory curMem = new Memory(NativeLong.SIZE);
+        curMem.setNativeLong(0, new NativeLong(currentDesktop));
+        x11.XChangeProperty(display, new NativeLong(rootWindow), netCurrentDesktop, xaCardinalAtom, 32, LibX11.PropModeReplace, curMem, 1);
+
+        // _NET_DESKTOP_NAMES on root: "One\0Two\0Three\0Four\0"
+        byte[] namesBytes = "One\0Two\0Three\0Four\0".getBytes(StandardCharsets.UTF_8);
+        Memory namesMem = new Memory(namesBytes.length);
+        namesMem.write(0, namesBytes, 0, namesBytes.length);
+        x11.XChangeProperty(display, new NativeLong(rootWindow), netDesktopNames, utf8String, 8, LibX11.PropModeReplace, namesMem, namesBytes.length);
+
         // _NET_SUPPORTED on root
         NativeLong[] supportedAtoms = new NativeLong[]{
             netSupportingWmCheck, netWmName, netSupported, netClientList, netActiveWindow, netCloseWindow,
-            netWmWindowType, netWmWindowTypeDock, netWmState, netWmStateHidden, netWmStrut, netWmStrutPartial
+            netWmWindowType, netWmWindowTypeDock, netWmState, netWmStateHidden, netWmStrut, netWmStrutPartial,
+            netNumberOfDesktops, netCurrentDesktop, netDesktopNames, netWmDesktop
         };
         Memory supMem = new Memory((long) supportedAtoms.length * NativeLong.SIZE);
         for (int i = 0; i < supportedAtoms.length; i++) {
@@ -650,14 +997,26 @@ public final class X11WindowManagerService implements AutoCloseable {
         frame.setTitle(title);
         frame.render();
 
+        // Determine client's desktop
+        int targetDesktop = readClientDesktopProperty(clientWin);
+        if (targetDesktop < 0) {
+            targetDesktop = currentDesktop;
+            writeClientDesktopProperty(clientWin, targetDesktop);
+        }
+        clientToDesktop.put(clientWin, targetDesktop);
+
         clientToFrame.put(clientWin, frame);
         frameToClient.put(frameWin.longValue(), frame);
 
-        // Map both client and frame
+        // Map client window
         x11.XMapWindow(display, new NativeLong(clientWin));
-        x11.XMapWindow(display, frameWin);
 
-        frame.blit(display, gc, screen);
+        // Map frame only if on current desktop or sticky
+        if (targetDesktop == currentDesktop || isSticky(targetDesktop)) {
+            x11.XMapWindow(display, frameWin);
+            frame.blit(display, gc, screen);
+        }
+
         sendSyntheticConfigureNotify(frame);
         x11.XFlush(display);
 
@@ -873,6 +1232,19 @@ public final class X11WindowManagerService implements AutoCloseable {
                 LibX11.XButtonEvent btnEvent = new LibX11.XButtonEvent(event.getPointer());
                 long eventWin = btnEvent.window.longValue();
 
+                // Desktop background click: Button 3 shows Root Menu, Button 1 hides it
+                if (eventWin == rootWindow) {
+                    if (btnEvent.button == LibX11.Button3) {
+                        LOGGER.info(() -> "ButtonPress 3 on Root Window: popping up Desktop Root Menu at "
+                                + btnEvent.x_root + "," + btnEvent.y_root);
+                        desktopMenu.show(btnEvent.x_root, btnEvent.y_root);
+                    } else if (btnEvent.button == LibX11.Button1) {
+                        desktopMenu.hide();
+                    }
+                    x11.XFlush(display);
+                    return;
+                }
+
                 DesktopIconTile clickedTile = tileWinToTile.get(eventWin);
                 if (clickedTile != null) {
                     LOGGER.info(() -> "Desktop icon tile clicked for window " + clickedTile.clientWin());
@@ -988,6 +1360,14 @@ public final class X11WindowManagerService implements AutoCloseable {
                             }
                         }
                     }
+                } else if (cmsg.message_type != null && cmsg.message_type.equals(netCurrentDesktop)) {
+                    long targetDesktop = (cmsg.data != null && cmsg.data.length > 0 && cmsg.data[0] != null) ? cmsg.data[0].longValue() : 0L;
+                    switchDesktop((int) targetDesktop);
+                    LOGGER.info(() -> "ClientMessage _NET_CURRENT_DESKTOP handled: desktop=" + targetDesktop);
+                } else if (cmsg.message_type != null && cmsg.message_type.equals(netWmDesktop)) {
+                    long targetDesktop = (cmsg.data != null && cmsg.data.length > 0 && cmsg.data[0] != null) ? cmsg.data[0].longValue() : 0L;
+                    setClientDesktop(win, (int) targetDesktop);
+                    LOGGER.info(() -> "ClientMessage _NET_WM_DESKTOP handled: win=" + win + " desktop=" + targetDesktop);
                 }
             }
             case LibX11.ConfigureRequest -> {
@@ -1051,8 +1431,8 @@ public final class X11WindowManagerService implements AutoCloseable {
                     return;
                 }
                 FrameWindow frame = clientToFrame.get(win);
-                if (frame != null && frame.isMinimized()) {
-                    // Window minimized by WM, unmap is expected, do not destroy
+                if (frame != null && (frame.isMinimized() || getClientDesktop(win) != currentDesktop)) {
+                    // Window minimized or on another workspace, unmap is expected, do not destroy
                     return;
                 }
                 cleanupWindow(win);
@@ -1446,6 +1826,7 @@ public final class X11WindowManagerService implements AutoCloseable {
         }
 
         dockWindows.remove(win);
+        clientToDesktop.remove(win);
         removeAndReflowIconTile(win);
         FrameWindow frame = clientToFrame.remove(win);
         if (frame != null) {
@@ -1467,6 +1848,7 @@ public final class X11WindowManagerService implements AutoCloseable {
     @Override
     public void close() {
         stop();
+        desktopMenu.dispose();
         if (display != null) {
             for (DesktopIconTile tile : new java.util.ArrayList<>(iconTiles)) {
                 tile.destroy(x11, display);

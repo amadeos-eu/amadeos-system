@@ -32,6 +32,11 @@ public final class LoggingX11Adapter implements X11Adapter {
     }
 
     @Override
+    public void lowerWindow(long windowId) {
+        LOGGER.info(() -> "lower window " + windowId);
+    }
+
+    @Override
     public void closeWindow(long windowId) {
         LOGGER.info(() -> "close window " + windowId);
     }

@@ -77,6 +77,7 @@ public final class AmadeDesktopPanel extends JFrame {
     private final JPanel rootPanel;
     private final JPanel leftSlots;
     private final JPanel rightSlots;
+    private final WorkspaceSwitcherDockWidget switcher;
     private final Timer pollTimer;
 
     public static void main(String[] args) {
@@ -207,10 +208,14 @@ public final class AmadeDesktopPanel extends JFrame {
         rootPanel.add(leftSlots, BorderLayout.WEST);
 
         // 2. CENTER: Iconic CDE 4-way Workspace Switcher Pad
-        WorkspaceSwitcherDockWidget switcher = new WorkspaceSwitcherDockWidget(
-                wsNum -> LOGGER.info(() -> "Switched to workspace: " + wsNum),
-                () -> showSessionPowerDialog(this)
+        this.switcher = new WorkspaceSwitcherDockWidget(
+                wsNum -> helper.setCurrentDesktop(wsNum - 1),
+                () -> org.datazuul.amadeos.wm.ui.SessionDialogHelper.showSessionPowerDialog(this)
         );
+        int initialDesktop = helper.getCurrentDesktop();
+        if (initialDesktop >= 0 && initialDesktop < 4) {
+            switcher.setActiveWorkspace(initialDesktop + 1);
+        }
         widgets.add(switcher);
         rootPanel.add(switcher.component(), BorderLayout.CENTER);
 
@@ -314,12 +319,16 @@ public final class AmadeDesktopPanel extends JFrame {
                 JComponent.WHEN_IN_FOCUSED_WINDOW
         );
 
-        // Check for theme updates on root window
-        pollTimer = new Timer(1000, e -> {
+        // Check for theme and workspace updates on root window
+        pollTimer = new Timer(500, e -> {
             String remoteThemeId = helper.getDesktopTheme();
             if (remoteThemeId != null && !remoteThemeId.isBlank()
                     && !remoteThemeId.equals(ThemeManager.currentTheme().id())) {
                 ThemeManager.applyTheme(remoteThemeId);
+            }
+            int remoteDesktop = helper.getCurrentDesktop();
+            if (remoteDesktop >= 0 && remoteDesktop < 4) {
+                switcher.setActiveWorkspace(remoteDesktop + 1);
             }
         });
         pollTimer.start();

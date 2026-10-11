@@ -43,7 +43,16 @@ public final class WindowManagerCore {
         if (registry.find(windowId).isEmpty()) {
             throw new IllegalArgumentException("Window is not managed: " + windowId);
         }
+        registry.bringToFront(windowId);
         x11.raiseWindow(windowId);
+    }
+
+    public void lower(long windowId) {
+        if (registry.find(windowId).isEmpty()) {
+            throw new IllegalArgumentException("Window is not managed: " + windowId);
+        }
+        registry.sendToBack(windowId);
+        x11.lowerWindow(windowId);
     }
 
     public void close(long windowId) {

@@ -34,6 +34,7 @@ class WindowManagerCoreTest {
         public void unmapWindow(long id) { events.add("unmap:" + id); }
         public void focusWindow(long id) { events.add("focus:" + id); }
         public void raiseWindow(long id) { events.add("raise:" + id); }
+        public void lowerWindow(long id) { events.add("lower:" + id); }
         public void closeWindow(long id) { events.add("close:" + id); }
     }
 }

@@ -109,6 +109,18 @@ public final class NativeX11Adapter implements X11Adapter {
     }
 
     @Override
+    public void lowerWindow(long windowId) {
+        FrameWindow frame = (frameLookup != null) ? frameLookup.apply(windowId) : null;
+        if (frame != null) {
+            x11.XLowerWindow(display, frame.frameWindow());
+            x11.XLowerWindow(display, frame.clientWindow());
+        } else {
+            x11.XLowerWindow(display, new NativeLong(windowId));
+        }
+        x11.XFlush(display);
+    }
+
+    @Override
     public void closeWindow(long windowId) {
         NativeLong wmProtocols = x11.XInternAtom(display, "WM_PROTOCOLS", 0);
         NativeLong wmDeleteWindow = x11.XInternAtom(display, "WM_DELETE_WINDOW", 0);

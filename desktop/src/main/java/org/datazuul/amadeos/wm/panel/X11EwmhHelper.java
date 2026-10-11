@@ -31,6 +31,10 @@ public class X11EwmhHelper implements AutoCloseable {
     private final NativeLong wmState;
     private final NativeLong utf8String;
     private final NativeLong amadeosThemeAtom;
+    private final NativeLong netNumberOfDesktops;
+    private final NativeLong netCurrentDesktop;
+    private final NativeLong netDesktopNames;
+    private final NativeLong netWmDesktop;
     private final NativeLong xaWindowAtom;
     private final NativeLong xaAtomAtom;
     private final NativeLong xaCardinalAtom;
@@ -68,6 +72,10 @@ public class X11EwmhHelper implements AutoCloseable {
         this.wmState = x11.XInternAtom(display, "WM_STATE", 0);
         this.utf8String = x11.XInternAtom(display, "UTF8_STRING", 0);
         this.amadeosThemeAtom = x11.XInternAtom(display, "_AMADEOS_THEME", 0);
+        this.netNumberOfDesktops = x11.XInternAtom(display, "_NET_NUMBER_OF_DESKTOPS", 0);
+        this.netCurrentDesktop = x11.XInternAtom(display, "_NET_CURRENT_DESKTOP", 0);
+        this.netDesktopNames = x11.XInternAtom(display, "_NET_DESKTOP_NAMES", 0);
+        this.netWmDesktop = x11.XInternAtom(display, "_NET_WM_DESKTOP", 0);
         this.xaWindowAtom = new NativeLong(LibX11.XA_WINDOW);
         this.xaAtomAtom = new NativeLong(LibX11.XA_ATOM);
         this.xaCardinalAtom = new NativeLong(LibX11.XA_CARDINAL);
@@ -348,6 +356,110 @@ public class X11EwmhHelper implements AutoCloseable {
             }
         }
         return null;
+    }
+
+    public NativeLong netCurrentDesktop() {
+        return netCurrentDesktop;
+    }
+
+    public NativeLong netNumberOfDesktops() {
+        return netNumberOfDesktops;
+    }
+
+    public NativeLong netWmDesktop() {
+        return netWmDesktop;
+    }
+
+    public int getCurrentDesktop() {
+        PointerByReference actualTypeRet = new PointerByReference();
+        IntByReference actualFormatRet = new IntByReference();
+        NativeLongByReference nitemsRet = new NativeLongByReference();
+        NativeLongByReference bytesAfterRet = new NativeLongByReference();
+        PointerByReference propRet = new PointerByReference();
+
+        int status = x11.XGetWindowProperty(
+                display, new NativeLong(rootWindow), netCurrentDesktop,
+                new NativeLong(0), new NativeLong(1), 0,
+                xaCardinalAtom,
+                actualTypeRet, actualFormatRet, nitemsRet, bytesAfterRet, propRet);
+
+        if (status == 0 && propRet.getValue() != null && nitemsRet.getValue() != null && nitemsRet.getValue().longValue() > 0) {
+            Pointer ptr = propRet.getValue();
+            try {
+                return (int) ptr.getNativeLong(0).longValue();
+            } finally {
+                x11.XFree(ptr);
+            }
+        }
+        return 0;
+    }
+
+    public void setCurrentDesktop(int desktopIndex) {
+        LibX11.XClientMessageEvent cmsg = new LibX11.XClientMessageEvent();
+        cmsg.type = LibX11.ClientMessage;
+        cmsg.serial = new NativeLong(0);
+        cmsg.send_event = 1;
+        cmsg.display = display;
+        cmsg.window = new NativeLong(rootWindow);
+        cmsg.message_type = netCurrentDesktop;
+        cmsg.format = 32;
+        cmsg.data = new NativeLong[5];
+        cmsg.data[0] = new NativeLong(desktopIndex);
+        cmsg.data[1] = new NativeLong(LibX11.CurrentTime);
+        cmsg.data[2] = new NativeLong(0);
+        cmsg.data[3] = new NativeLong(0);
+        cmsg.data[4] = new NativeLong(0);
+        cmsg.write();
+
+        long mask = LibX11.SubstructureRedirectMask | LibX11.SubstructureNotifyMask;
+        x11.XSendEvent(display, new NativeLong(rootWindow), 0, new NativeLong(mask), cmsg.getPointer());
+        x11.XFlush(display);
+    }
+
+    public int getWindowDesktop(long win) {
+        PointerByReference actualTypeRet = new PointerByReference();
+        IntByReference actualFormatRet = new IntByReference();
+        NativeLongByReference nitemsRet = new NativeLongByReference();
+        NativeLongByReference bytesAfterRet = new NativeLongByReference();
+        PointerByReference propRet = new PointerByReference();
+
+        int status = x11.XGetWindowProperty(
+                display, new NativeLong(win), netWmDesktop,
+                new NativeLong(0), new NativeLong(1), 0,
+                xaCardinalAtom,
+                actualTypeRet, actualFormatRet, nitemsRet, bytesAfterRet, propRet);
+
+        if (status == 0 && propRet.getValue() != null && nitemsRet.getValue() != null && nitemsRet.getValue().longValue() > 0) {
+            Pointer ptr = propRet.getValue();
+            try {
+                return (int) ptr.getNativeLong(0).longValue();
+            } finally {
+                x11.XFree(ptr);
+            }
+        }
+        return -1;
+    }
+
+    public void setWindowDesktop(long win, int desktopIndex) {
+        LibX11.XClientMessageEvent cmsg = new LibX11.XClientMessageEvent();
+        cmsg.type = LibX11.ClientMessage;
+        cmsg.serial = new NativeLong(0);
+        cmsg.send_event = 1;
+        cmsg.display = display;
+        cmsg.window = new NativeLong(win);
+        cmsg.message_type = netWmDesktop;
+        cmsg.format = 32;
+        cmsg.data = new NativeLong[5];
+        cmsg.data[0] = new NativeLong(desktopIndex);
+        cmsg.data[1] = new NativeLong(1); // source application
+        cmsg.data[2] = new NativeLong(0);
+        cmsg.data[3] = new NativeLong(0);
+        cmsg.data[4] = new NativeLong(0);
+        cmsg.write();
+
+        long mask = LibX11.SubstructureRedirectMask | LibX11.SubstructureNotifyMask;
+        x11.XSendEvent(display, new NativeLong(rootWindow), 0, new NativeLong(mask), cmsg.getPointer());
+        x11.XFlush(display);
     }
 
     @Override

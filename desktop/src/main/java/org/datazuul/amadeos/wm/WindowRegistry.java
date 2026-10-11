@@ -31,6 +31,24 @@ public final class WindowRegistry {
         windows.put(id, new WindowRecord(id, geometry));
     }
 
+    public void bringToFront(long id) {
+        WindowRecord rec = windows.remove(id);
+        if (rec != null) {
+            windows.put(id, rec);
+        }
+    }
+
+    public void sendToBack(long id) {
+        WindowRecord rec = windows.remove(id);
+        if (rec != null) {
+            Map<Long, WindowRecord> reordered = new LinkedHashMap<>();
+            reordered.put(id, rec);
+            reordered.putAll(windows);
+            windows.clear();
+            windows.putAll(reordered);
+        }
+    }
+
     public Collection<WindowRecord> snapshot() {
         return ListCopy.copyOf(windows.values());
     }

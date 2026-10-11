@@ -523,6 +523,71 @@ class X11WindowManagerIntegrationTest {
             }
         }
     }
+
+    @Test
+    void testVirtualWorkspacesAndDesktopRootMenu() throws Exception {
+        try (X11WindowManagerService wm = X11WindowManagerService.open(display)) {
+            // 1. Verify EWMH virtual workspace properties on root window
+            assertEquals(0, wm.currentDesktop(), "Initial workspace should be 0 (One)");
+
+            // 2. Launch two client windows
+            Process client1 = new ProcessBuilder("xmessage", "-display", display, "-buttons", "OK:0", "Win 1").start();
+            Process client2 = new ProcessBuilder("xmessage", "-display", display, "-buttons", "OK:0", "Win 2").start();
+            try {
+                Thread.sleep(600);
+                wm.processPendingEvents();
+
+                var managed = wm.core().registry().snapshot().stream().map(org.datazuul.amadeos.wm.WindowRecord::id).toList();
+                assertEquals(2, managed.size(), "Two windows should be managed");
+                long win1 = managed.get(0);
+                long win2 = managed.get(1);
+
+                FrameWindow frame1 = wm.getFrameForClient(win1);
+                FrameWindow frame2 = wm.getFrameForClient(win2);
+                assertNotNull(frame1);
+                assertNotNull(frame2);
+
+                assertEquals(0, wm.getClientDesktop(win1));
+                assertEquals(0, wm.getClientDesktop(win2));
+
+                // Move win2 to workspace 1 (Two)
+                wm.setClientDesktop(win2, 1);
+                assertEquals(1, wm.getClientDesktop(win2));
+
+                // Switch to workspace 1
+                wm.switchDesktop(1);
+                assertEquals(1, wm.currentDesktop());
+
+                // Switch back to workspace 0
+                wm.switchDesktop(0);
+                assertEquals(0, wm.currentDesktop());
+
+                // Test shuffle window management
+                wm.shuffleUp();
+                wm.shuffleDown();
+
+                // Test Button 3 on root window (Desktop Root Menu)
+                LibX11.XEvent clickEv = new LibX11.XEvent();
+                LibX11.XButtonEvent btn = new LibX11.XButtonEvent(clickEv.getPointer());
+                btn.type = LibX11.ButtonPress;
+                btn.window = new com.sun.jna.NativeLong(wm.rootWindow());
+                btn.button = LibX11.Button3;
+                btn.x_root = 200;
+                btn.y_root = 200;
+                btn.write();
+                clickEv.type = LibX11.ButtonPress;
+                wm.handleEvent(clickEv);
+
+                // Test Button 1 on root window (Dismiss Root Menu)
+                btn.button = LibX11.Button1;
+                btn.write();
+                wm.handleEvent(clickEv);
+            } finally {
+                client1.destroyForcibly();
+                client2.destroyForcibly();
+            }
+        }
+    }
 }
 
 

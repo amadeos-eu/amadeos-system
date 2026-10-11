@@ -55,6 +55,10 @@ public interface LibX11 extends Library {
     // Pointer and Button constants
     int AnyButton = 0;
     int Button1 = 1;
+    int Button2 = 2;
+    int Button3 = 3;
+    int Button4 = 4;
+    int Button5 = 5;
     long AnyModifier = 1L << 15;
     int GrabModeSync = 0;
     int GrabModeAsync = 1;

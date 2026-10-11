@@ -172,6 +172,17 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
         }
     }
 
+    public int activeWorkspace() {
+        return activeWorkspace;
+    }
+
+    public void setActiveWorkspace(int wsNum) {
+        if (wsNum >= 1 && wsNum <= 4 && wsNum != activeWorkspace) {
+            this.activeWorkspace = wsNum;
+            updateAllButtonAppearances();
+        }
+    }
+
     @Override
     public JComponent component() {
         return pad;

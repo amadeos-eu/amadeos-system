@@ -10,6 +10,8 @@ public interface X11Adapter {
     void focusWindow(long windowId);
  
     void raiseWindow(long windowId);
+ 
+    void lowerWindow(long windowId);
 
     void closeWindow(long windowId);
 }

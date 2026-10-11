@@ -36,5 +36,12 @@ class WorkspaceSwitcherDockWidgetTest {
         // Click exit button
         widget.exitBtn.doClick();
         assertTrue(powerInvoked.get(), "Power/exit action should be invoked");
+
+        // Programmatic workspace updates (e.g. from EWMH or root menu)
+        assertEquals(2, widget.activeWorkspace());
+        widget.setActiveWorkspace(4);
+        assertEquals(4, widget.activeWorkspace());
+        assertTrue(widget.workspaceButtons[3].isSelected(), "Workspace 'Four' should now be selected");
+        assertFalse(widget.workspaceButtons[1].isSelected(), "Workspace 'Two' should now be unselected");
     }
 }
