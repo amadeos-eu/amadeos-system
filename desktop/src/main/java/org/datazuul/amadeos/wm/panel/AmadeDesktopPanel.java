@@ -48,8 +48,8 @@ import org.datazuul.amadeos.wm.xdg.XdgDesktopEntry;
 public final class AmadeDesktopPanel extends JFrame {
     private static final Logger LOGGER = Logger.getLogger(AmadeDesktopPanel.class.getName());
 
-    public static final int DOCK_HEIGHT = 62;
-    private static final int DOCK_WIDTH = 750;
+    public static final int DOCK_HEIGHT = 64;
+    private static final int DOCK_WIDTH = 720;
 
     private static final AtomicInteger DOC_COUNTER = new AtomicInteger(0);
     private static java.nio.channels.FileLock panelLock = null;
@@ -137,14 +137,48 @@ public final class AmadeDesktopPanel extends JFrame {
                 g2.setColor(t.shadow());
                 g2.drawLine(getWidth() - 2, 1, getWidth() - 2, getHeight() - 2);
                 g2.drawLine(1, getHeight() - 2, getWidth() - 2, getHeight() - 2);
+
+                // Authentic CDE side grip handles (textured ribs & collapse arrow box)
+                int leftX = 4;
+                int rightX = getWidth() - 16;
+                int topY = 4;
+                int botY = getHeight() - 5;
+
+                // Left & Right side groove boxes
+                for (int gx : new int[]{leftX, rightX}) {
+                    // Small top collapse toggle box
+                    g2.setColor(t.darkShadow());
+                    g2.drawRect(gx, topY, 11, 9);
+                    g2.setColor(t.highlight());
+                    g2.drawLine(gx + 1, topY + 1, gx + 10, topY + 1);
+                    g2.drawLine(gx + 1, topY + 1, gx + 1, topY + 8);
+                    // Minus/collapse dash inside
+                    g2.setColor(t.darkShadow());
+                    g2.drawLine(gx + 3, topY + 5, gx + 8, topY + 5);
+
+                    // Vertical divider separating the grip handle from the slots
+                    int divX = (gx == leftX) ? gx + 13 : gx - 2;
+                    g2.setColor(t.darkShadow());
+                    g2.drawLine(divX, 2, divX, getHeight() - 3);
+                    g2.setColor(t.highlight());
+                    g2.drawLine(divX + 1, 2, divX + 1, getHeight() - 3);
+
+                    // Horizontal textured grip ribs
+                    for (int ry = topY + 13; ry < botY - 2; ry += 3) {
+                        g2.setColor(t.darkShadow());
+                        g2.drawLine(gx + 1, ry, gx + 10, ry);
+                        g2.setColor(t.highlight());
+                        g2.drawLine(gx + 1, ry + 1, gx + 10, ry + 1);
+                    }
+                }
             }
         };
         rootPanel.setBackground(initialTheme.base());
-        rootPanel.setBorder(BorderFactory.createEmptyBorder(4, 6, 4, 6));
+        rootPanel.setBorder(BorderFactory.createEmptyBorder(4, 20, 4, 20));
         setContentPane(rootPanel);
 
         // 1. LEFT SLOTS: File Manager, Text Editor, Terminal
-        leftSlots = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        leftSlots = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         leftSlots.setBackground(initialTheme.base());
 
         DrawerDockWidget fmDrawer = createCategoryDrawer(
@@ -195,7 +229,7 @@ public final class AmadeDesktopPanel extends JFrame {
         rootPanel.add(switcher.component(), BorderLayout.CENTER);
 
         // 3. RIGHT SLOTS: Clock, Memory Meter, Tools, Trash/Power
-        rightSlots = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
+        rightSlots = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         rightSlots.setBackground(initialTheme.base());
 
         ClockDockWidget clockWidget = new ClockDockWidget();

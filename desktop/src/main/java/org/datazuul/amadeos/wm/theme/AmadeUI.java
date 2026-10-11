@@ -326,8 +326,11 @@ public final class AmadeUI {
                 bg = t.sunkenBg();
             } else if (isHovered) {
                 bg = t.softHighlight();
+            } else if (model.isSelected()) {
+                bg = t.activeTitleBg();
             } else {
-                bg = t.base();
+                Color customBg = b.getBackground();
+                bg = (customBg != null) ? customBg : t.base();
             }
 
             g2.setColor(bg);

@@ -1,29 +1,43 @@
 package org.datazuul.amadeos.wm.panel.widget;
 
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.Insets;
+import java.awt.RenderingHints;
 import java.awt.event.ActionListener;
 import java.util.List;
+import javax.swing.BorderFactory;
+import javax.swing.ButtonModel;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
+import javax.swing.event.PopupMenuEvent;
+import javax.swing.event.PopupMenuListener;
 import org.datazuul.amadeos.wm.theme.DesktopTheme;
 import org.datazuul.amadeos.wm.theme.IconManager;
 
+/**
+ * Authentic CDE Workstation Front Panel drawer module:
+ * - Top: Graphic drawer tab with centered 3D beveled triangle (carved ▲ when closed, ▼ when open).
+ * - Center: Flat launcher icon button (borderless at rest, direct on panel surface, tactile press).
+ * - Modular slot bay dividers with engraved 3D horizontal and vertical grooves.
+ */
 public final class DrawerDockWidget extends AbstractDockWidget {
     public record DrawerTool(String title, String iconKey, ActionListener action) {}
 
     private final JPanel slotPanel;
-    private final JButton tabBtn;
-    private final JButton mainBtn;
+    private final DrawerTabButton tabBtn;
+    private final FlatLauncherButton mainBtn;
     private final String iconKey;
     private final String tooltip;
     private final List<DrawerTool> tools;
     private final JPopupMenu drawerPopup;
+    private boolean isDrawerOpen = false;
 
     public DrawerDockWidget(String id, String tooltip, String iconKey, ActionListener primaryAction, List<DrawerTool> tools) {
         super(id);
@@ -31,28 +45,38 @@ public final class DrawerDockWidget extends AbstractDockWidget {
         this.iconKey = iconKey;
         this.tools = (tools != null) ? tools : List.of();
 
-        slotPanel = new JPanel(new BorderLayout(0, 1));
-        slotPanel.setPreferredSize(new Dimension(50, 52));
-        slotPanel.setOpaque(false);
+        // 1. Modular CDE slot bay with etched groove lines
+        slotPanel = new JPanel(new BorderLayout(0, 0)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                DesktopTheme t = currentTheme;
+                int w = getWidth();
+                int h = getHeight();
 
-        // Slide-up drawer tab (small triangle ▲)
-        tabBtn = new JButton("▲");
-        tabBtn.setPreferredSize(new Dimension(48, 10));
-        tabBtn.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 7));
-        tabBtn.setMargin(new Insets(0, 0, 0, 0));
-        tabBtn.setFocusPainted(false);
-        tabBtn.setToolTipText("Open " + tooltip + " Drawer");
+                // Horizontal groove between drawer tab and application icon area
+                g.setColor(t.darkShadow());
+                g.drawLine(1, 13, w - 2, 13);
+                g.setColor(t.highlight());
+                g.drawLine(1, 14, w - 2, 14);
 
-        // Primary application button
-        mainBtn = new JButton();
-        mainBtn.setPreferredSize(new Dimension(48, 40));
-        mainBtn.setFocusPainted(false);
-        mainBtn.setToolTipText(tooltip);
-        if (primaryAction != null) {
-            mainBtn.addActionListener(primaryAction);
-        }
+                // Right slot divider groove (CDE modular bay separator)
+                g.setColor(t.darkShadow());
+                g.drawLine(w - 2, 0, w - 2, h - 1);
+                g.setColor(t.highlight());
+                g.drawLine(w - 1, 0, w - 1, h - 1);
+            }
+        };
+        slotPanel.setPreferredSize(new Dimension(54, 54));
+        slotPanel.setBackground(currentTheme.base());
 
-        // Subpanel tools popup
+        // 2. Graphical drawer tab button with 3D beveled triangle
+        tabBtn = new DrawerTabButton();
+
+        // 3. Flat application launcher button directly on panel surface
+        mainBtn = new FlatLauncherButton(primaryAction);
+
+        // 4. Subpanel tools popup
         drawerPopup = new JPopupMenu();
         drawerPopup.setBorder(new MotifBevelBorder(true, 2));
         for (DrawerTool tool : this.tools) {
@@ -64,9 +88,33 @@ public final class DrawerDockWidget extends AbstractDockWidget {
             drawerPopup.add(item);
         }
 
+        drawerPopup.addPopupMenuListener(new PopupMenuListener() {
+            @Override
+            public void popupMenuWillBecomeVisible(PopupMenuEvent e) {
+                isDrawerOpen = true;
+                tabBtn.repaint();
+            }
+
+            @Override
+            public void popupMenuWillBecomeInvisible(PopupMenuEvent e) {
+                isDrawerOpen = false;
+                tabBtn.repaint();
+            }
+
+            @Override
+            public void popupMenuCanceled(PopupMenuEvent e) {
+                isDrawerOpen = false;
+                tabBtn.repaint();
+            }
+        });
+
         tabBtn.addActionListener(e -> {
             if (this.tools.isEmpty()) return;
-            drawerPopup.show(tabBtn, 0, -drawerPopup.getPreferredSize().height - 2);
+            if (drawerPopup.isVisible()) {
+                drawerPopup.setVisible(false);
+            } else {
+                drawerPopup.show(tabBtn, 0, -drawerPopup.getPreferredSize().height - 2);
+            }
         });
 
         slotPanel.add(tabBtn, BorderLayout.NORTH);
@@ -83,14 +131,8 @@ public final class DrawerDockWidget extends AbstractDockWidget {
     @Override
     protected void updateThemeStyles(DesktopTheme theme) {
         slotPanel.setBackground(theme.base());
-
-        tabBtn.setBackground(theme.base());
-        tabBtn.setForeground(theme.textActive());
-        tabBtn.setBorder(new org.datazuul.amadeos.wm.theme.AmadeUI.MotifButtonBorder(1));
-
-        mainBtn.setBackground(theme.base());
-        mainBtn.setBorder(new org.datazuul.amadeos.wm.theme.AmadeUI.MotifButtonBorder(2));
-        mainBtn.setIcon(IconManager.getIcon(iconKey, 24));
+        tabBtn.repaint();
+        mainBtn.repaint();
 
         drawerPopup.setBackground(theme.base());
         for (int i = 0; i < drawerPopup.getComponentCount(); i++) {
@@ -100,5 +142,181 @@ public final class DrawerDockWidget extends AbstractDockWidget {
             }
         }
     }
-}
 
+    /**
+     * Graphical CDE drawer tab button featuring an authentic carved 3D triangle.
+     */
+    private final class DrawerTabButton extends JButton {
+        DrawerTabButton() {
+            setFocusPainted(false);
+            setRolloverEnabled(true);
+            setBorderPainted(false);
+            setContentAreaFilled(false);
+            setOpaque(false);
+            setMargin(new Insets(0, 0, 0, 0));
+            setPreferredSize(new Dimension(52, 13));
+            setToolTipText("Open " + tooltip + " Drawer");
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            int w = getWidth();
+            int h = getHeight();
+            ButtonModel model = getModel();
+            boolean isPressed = model.isArmed() && model.isPressed();
+            boolean isHovered = model.isRollover();
+
+            DesktopTheme t = currentTheme;
+
+            // Subtle tab plate background on hover/press
+            if (isPressed || isDrawerOpen) {
+                g2.setColor(t.sunkenBg());
+                g2.fillRect(0, 0, w - 2, h);
+            } else if (isHovered) {
+                g2.setColor(t.softHighlight());
+                g2.fillRect(0, 0, w - 2, h);
+            }
+
+            // Draw authentic 3D CDE drawer triangle (12x7px)
+            int triW = 12;
+            int triH = 7;
+            int cx = (w - 2) / 2;
+            int cy = h / 2;
+
+            if (isPressed) {
+                cx += 1;
+                cy += 1;
+            }
+
+            // Triangle orientation: points UP when closed, points DOWN when drawer is open
+            if (!isDrawerOpen) {
+                int topX = cx;
+                int topY = cy - triH / 2;
+                int blX = cx - triW / 2;
+                int blY = cy + triH / 2;
+                int brX = cx + triW / 2;
+                int brY = cy + triH / 2;
+
+                // Triangle fill
+                int[] xPoints = { topX, blX, brX };
+                int[] yPoints = { topY, blY, brY };
+                g2.setColor(isPressed ? t.darkShadow() : (isHovered ? t.base() : t.sunkenBg()));
+                g2.fillPolygon(xPoints, yPoints, 3);
+
+                // Carved 3D beveled edges:
+                // Left slope: Dark shadow (light blocks from top-left)
+                // Right slope and bottom base: Highlight
+                Color leftEdge = isPressed ? t.highlight() : t.darkShadow();
+                Color rightEdge = isPressed ? t.darkShadow() : t.highlight();
+                Color bottomEdge = isPressed ? t.darkShadow() : t.highlight();
+
+                g2.setColor(leftEdge);
+                g2.drawLine(topX, topY, blX, blY);
+
+                g2.setColor(rightEdge);
+                g2.drawLine(topX, topY, brX, brY);
+
+                g2.setColor(bottomEdge);
+                g2.drawLine(blX, blY, brX, brY);
+            } else {
+                // Pointing DOWN (drawer is open)
+                int botX = cx;
+                int botY = cy + triH / 2;
+                int tlX = cx - triW / 2;
+                int tlY = cy - triH / 2;
+                int trX = cx + triW / 2;
+                int trY = cy - triH / 2;
+
+                int[] xPoints = { tlX, trX, botX };
+                int[] yPoints = { tlY, trY, botY };
+                g2.setColor(isPressed ? t.darkShadow() : (isHovered ? t.base() : t.sunkenBg()));
+                g2.fillPolygon(xPoints, yPoints, 3);
+
+                Color topEdge = isPressed ? t.highlight() : t.darkShadow();
+                Color leftEdge = isPressed ? t.highlight() : t.darkShadow();
+                Color rightEdge = isPressed ? t.darkShadow() : t.highlight();
+
+                g2.setColor(topEdge);
+                g2.drawLine(tlX, tlY, trX, trY);
+
+                g2.setColor(leftEdge);
+                g2.drawLine(tlX, tlY, botX, botY);
+
+                g2.setColor(rightEdge);
+                g2.drawLine(trX, trY, botX, botY);
+            }
+
+            g2.dispose();
+        }
+    }
+
+    /**
+     * Flat application launcher button directly on the panel surface at rest,
+     * providing tactile click feedback without bulky borders.
+     */
+    private final class FlatLauncherButton extends JButton {
+        FlatLauncherButton(ActionListener action) {
+            setFocusPainted(false);
+            setRolloverEnabled(true);
+            setBorderPainted(false);
+            setContentAreaFilled(false);
+            setOpaque(false);
+            setBorder(BorderFactory.createEmptyBorder(2, 2, 2, 2));
+            setPreferredSize(new Dimension(52, 41));
+            setToolTipText(tooltip);
+            if (action != null) {
+                addActionListener(action);
+            }
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            int w = getWidth() - 2; // leave room for right modular divider groove
+            int h = getHeight();
+            ButtonModel model = getModel();
+            boolean isPressed = model.isArmed() && model.isPressed();
+            boolean isHovered = model.isRollover();
+
+            DesktopTheme t = currentTheme;
+
+            // In CDE, launcher icons are flat at rest without borders.
+            // On hover: subtle soft highlight tint.
+            // On press: tactile sunken background with 1px border bevel and 1px icon shift.
+            if (isPressed) {
+                g2.setColor(t.sunkenBg());
+                g2.fillRect(1, 1, w - 2, h - 2);
+
+                // 1px sunken bevel feedback while held down
+                g2.setColor(t.darkShadow());
+                g2.drawLine(0, 0, w - 1, 0);
+                g2.drawLine(0, 0, 0, h - 1);
+                g2.setColor(t.highlight());
+                g2.drawLine(0, h - 1, w - 1, h - 1);
+                g2.drawLine(w - 1, 0, w - 1, h - 1);
+            } else if (isHovered) {
+                g2.setColor(t.softHighlight());
+                g2.fillRect(1, 1, w - 2, h - 2);
+            }
+
+            // Draw icon centered directly on the panel surface
+            javax.swing.Icon icon = IconManager.getIcon(iconKey, 28);
+            if (icon != null) {
+                int ix = (w - icon.getIconWidth()) / 2;
+                int iy = (h - icon.getIconHeight()) / 2;
+                if (isPressed) {
+                    ix += 1;
+                    iy += 1;
+                }
+                icon.paintIcon(this, g2, ix, iy);
+            }
+
+            g2.dispose();
+        }
+    }
+}

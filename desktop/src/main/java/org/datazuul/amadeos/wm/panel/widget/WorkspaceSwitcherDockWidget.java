@@ -136,9 +136,10 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
 
     private void updateButtonAppearance(JButton btn, boolean active) {
         DesktopTheme t = currentTheme;
+        btn.setSelected(active);
         if (active) {
-            btn.setBackground(t.sunkenBg());
-            btn.setForeground(t.textActive());
+            btn.setBackground(t.activeTitleBg());
+            btn.setForeground(t.isDark(t.activeTitleBg()) ? Color.WHITE : Color.BLACK);
             btn.setBorder(new MotifBevelBorder(false, 2));
         } else {
             btn.setBackground(t.base());
