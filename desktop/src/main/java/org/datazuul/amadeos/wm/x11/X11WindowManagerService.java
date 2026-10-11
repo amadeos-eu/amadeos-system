@@ -31,6 +31,7 @@ import org.datazuul.amadeos.wm.menu.DesktopRootMenu;
 import org.datazuul.amadeos.wm.theme.DesktopTheme;
 import org.datazuul.amadeos.wm.theme.ThemeManager;
 import org.datazuul.amadeos.wm.theme.WallpaperManager;
+import org.datazuul.amadeos.wm.ui.AmadeScreenLocker;
 import org.datazuul.amadeos.wm.ui.SessionDialogHelper;
 
 public final class X11WindowManagerService implements AutoCloseable {
@@ -110,6 +111,8 @@ public final class X11WindowManagerService implements AutoCloseable {
     private final java.util.List<DesktopIconTile> iconTiles = new java.util.ArrayList<>();
     private final Map<Long, DesktopIconTile> tileWinToTile = new HashMap<>();
     private final Map<Long, DesktopIconTile> clientToTile = new HashMap<>();
+
+    private int lockKeycode = 0;
 
     private static volatile boolean anotherWmDetected = false;
 
@@ -281,6 +284,34 @@ public final class X11WindowManagerService implements AutoCloseable {
                 new NativeLong(0),
                 new NativeLong(0)
         );
+
+        // Global shortcut: Super+L (Mod4Mask + 'l') to lock screen
+        try {
+            byte kc = x11.XKeysymToKeycode(display, new NativeLong(LibX11.XK_l));
+            this.lockKeycode = Byte.toUnsignedInt(kc);
+            if (this.lockKeycode != 0) {
+                long[] modMasks = {
+                    LibX11.Mod4Mask,
+                    LibX11.Mod4Mask | LibX11.Mod2Mask, // NumLock
+                    LibX11.Mod4Mask | LibX11.LockMask, // CapsLock
+                    LibX11.Mod4Mask | LibX11.Mod2Mask | LibX11.LockMask
+                };
+                for (long mask : modMasks) {
+                    x11.XGrabKey(
+                            display,
+                            this.lockKeycode,
+                            new NativeLong(mask),
+                            new NativeLong(rootWindow),
+                            1,
+                            LibX11.GrabModeAsync,
+                            LibX11.GrabModeAsync
+                    );
+                }
+                LOGGER.fine(() -> "Registered global Super+L lock screen shortcut (keycode=" + lockKeycode + ")");
+            }
+        } catch (Exception e) {
+            LOGGER.warning(() -> "Failed to bind Super+L screen lock shortcut: " + e.getMessage());
+        }
 
         this.desktopMenu = new DesktopRootMenu(new DesktopMenuActions() {
             @Override
@@ -1131,6 +1162,15 @@ public final class X11WindowManagerService implements AutoCloseable {
 
     void handleEvent(LibX11.XEvent event) {
         switch (event.type) {
+            case LibX11.KeyPress -> {
+                LibX11.XKeyEvent keyEvent = new LibX11.XKeyEvent(event.getPointer());
+                // Check if Super modifier (Mod4Mask) is held and keycode matches 'l'
+                boolean isSuper = (keyEvent.state & (int) LibX11.Mod4Mask) != 0;
+                if (isSuper && (lockKeycode != 0 && keyEvent.keycode == lockKeycode)) {
+                    LOGGER.info("Super+L pressed: triggering amadeOS screen locker");
+                    AmadeScreenLocker.lockScreen();
+                }
+            }
             case LibX11.MapRequest -> {
                 LibX11.XMapRequestEvent mapReq = new LibX11.XMapRequestEvent(event.getPointer());
                 long win = mapReq.window.longValue();

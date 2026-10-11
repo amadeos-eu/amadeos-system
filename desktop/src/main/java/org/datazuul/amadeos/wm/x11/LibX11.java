@@ -60,10 +60,27 @@ public interface LibX11 extends Library {
     int Button4 = 4;
     int Button5 = 5;
     long AnyModifier = 1L << 15;
+    int AnyKey = 0;
     int GrabModeSync = 0;
     int GrabModeAsync = 1;
     int AsyncPointer = 0;
     int ReplayPointer = 2;
+
+    // Key modifier masks
+    long ShiftMask = 1L << 0;
+    long LockMask = 1L << 1;
+    long ControlMask = 1L << 2;
+    long Mod1Mask = 1L << 3;
+    long Mod2Mask = 1L << 4;
+    long Mod3Mask = 1L << 5;
+    long Mod4Mask = 1L << 6;
+    long Mod5Mask = 1L << 7;
+
+    // Keysyms
+    long XK_Return = 0xFF0D;
+    long XK_Escape = 0xFF1B;
+    long XK_l = 0x006C;
+    long XK_L = 0x004C;
 
     // Cursor shapes
     int XC_left_ptr = 68;
@@ -274,6 +291,36 @@ public interface LibX11 extends Library {
         }
 
         public XUnmapEvent(Pointer p) {
+            super(p);
+            read();
+        }
+    }
+
+    @Structure.FieldOrder({
+        "type", "serial", "send_event", "display", "window",
+        "root", "subwindow", "time", "x", "y", "x_root", "y_root",
+        "state", "keycode", "same_screen"
+    })
+    class XKeyEvent extends Structure {
+        public int type;
+        public NativeLong serial;
+        public int send_event;
+        public Pointer display;
+        public NativeLong window;
+        public NativeLong root;
+        public NativeLong subwindow;
+        public NativeLong time;
+        public int x, y;
+        public int x_root, y_root;
+        public int state;
+        public int keycode;
+        public int same_screen;
+
+        public XKeyEvent() {
+            super();
+        }
+
+        public XKeyEvent(Pointer p) {
             super(p);
             read();
         }
@@ -539,6 +586,20 @@ public interface LibX11 extends Library {
     );
 
     int XUngrabButton(Pointer display, int button, NativeLong modifiers, NativeLong grab_window);
+
+    byte XKeysymToKeycode(Pointer display, NativeLong keysym);
+
+    int XGrabKey(
+        Pointer display,
+        int keycode,
+        NativeLong modifiers,
+        NativeLong grab_window,
+        int owner_events,
+        int pointer_mode,
+        int keyboard_mode
+    );
+
+    int XUngrabKey(Pointer display, int keycode, NativeLong modifiers, NativeLong grab_window);
 
     int XAllowEvents(Pointer display, int event_mode, NativeLong time);
 

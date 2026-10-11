@@ -126,27 +126,7 @@ public final class SessionDialogHelper {
     }
 
     public static void lockScreen(Component parent) {
-        String[] lockers = {"xlock", "slock", "i3lock", "xscreensaver-command -lock"};
-        for (String locker : lockers) {
-            try {
-                String cmd = locker.split(" ")[0];
-                Process p = new ProcessBuilder("which", cmd).start();
-                if (p.waitFor() == 0) {
-                    new ProcessBuilder(locker.split(" ")).start();
-                    LOGGER.info(() -> "Launched screen lock: " + locker);
-                    return;
-                }
-            } catch (Exception ignored) {
-            }
-        }
-
-        SwingUtilities.invokeLater(() -> {
-            JOptionPane.showMessageDialog(
-                    parent,
-                    "Screen lock initiated.\n(Configure xlock or slock for native X11 screen locking)",
-                    "Screen Lock",
-                    JOptionPane.INFORMATION_MESSAGE);
-        });
+        AmadeScreenLocker.lockScreen();
     }
 }
 
