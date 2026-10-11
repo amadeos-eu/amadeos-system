@@ -39,15 +39,21 @@ public final class DrawerDockWidget extends AbstractDockWidget {
     private final String tooltip;
     private final List<DrawerTool> tools;
     final JPopupMenu drawerPopup;
+    private final boolean hasRightDivider;
     private boolean isDrawerOpen = false;
     private long popupClosedTime = 0;
     private boolean wasOpenWhenPressed = false;
 
     public DrawerDockWidget(String id, String tooltip, String iconKey, ActionListener primaryAction, List<DrawerTool> tools) {
+        this(id, tooltip, iconKey, primaryAction, tools, true);
+    }
+
+    public DrawerDockWidget(String id, String tooltip, String iconKey, ActionListener primaryAction, List<DrawerTool> tools, boolean hasRightDivider) {
         super(id);
         this.tooltip = tooltip;
         this.iconKey = iconKey;
         this.tools = (tools != null) ? tools : List.of();
+        this.hasRightDivider = hasRightDivider;
 
         // 1. Modular CDE slot bay with etched groove lines
         slotPanel = new JPanel(new BorderLayout(0, 0)) {
@@ -59,19 +65,22 @@ public final class DrawerDockWidget extends AbstractDockWidget {
                 int h = getHeight();
 
                 // Horizontal groove between drawer tab and application icon area
+                int grooveEnd = hasRightDivider ? (w - 2) : (w - 1);
                 g.setColor(t.darkShadow());
-                g.drawLine(1, 13, w - 2, 13);
+                g.drawLine(1, 13, grooveEnd, 13);
                 g.setColor(t.highlight());
-                g.drawLine(1, 14, w - 2, 14);
+                g.drawLine(1, 14, grooveEnd, 14);
 
                 // Right slot divider groove (CDE modular bay separator)
-                g.setColor(t.darkShadow());
-                g.drawLine(w - 2, 0, w - 2, h - 1);
-                g.setColor(t.highlight());
-                g.drawLine(w - 1, 0, w - 1, h - 1);
+                if (hasRightDivider) {
+                    g.setColor(t.darkShadow());
+                    g.drawLine(w - 2, 0, w - 2, h - 1);
+                    g.setColor(t.highlight());
+                    g.drawLine(w - 1, 0, w - 1, h - 1);
+                }
             }
         };
-        slotPanel.setPreferredSize(new Dimension(54, 54));
+        slotPanel.setPreferredSize(new Dimension(hasRightDivider ? 54 : 52, 54));
         slotPanel.setBackground(currentTheme.base());
 
         // 2. Graphical drawer tab button with 3D beveled triangle
@@ -191,6 +200,7 @@ public final class DrawerDockWidget extends AbstractDockWidget {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
             int w = getWidth();
+            int usableW = hasRightDivider ? (w - 2) : w;
             int h = getHeight();
             ButtonModel model = getModel();
             boolean isPressed = model.isArmed() && model.isPressed();
@@ -201,16 +211,16 @@ public final class DrawerDockWidget extends AbstractDockWidget {
             // Subtle tab plate background on hover/press
             if (isPressed || isDrawerOpen) {
                 g2.setColor(t.sunkenBg());
-                g2.fillRect(0, 0, w - 2, h);
+                g2.fillRect(0, 0, usableW, h);
             } else if (isHovered) {
                 g2.setColor(t.softHighlight());
-                g2.fillRect(0, 0, w - 2, h);
+                g2.fillRect(0, 0, usableW, h);
             }
 
             // Draw authentic 3D CDE drawer triangle (12x7px)
             int triW = 12;
             int triH = 7;
-            int cx = (w - 2) / 2;
+            int cx = usableW / 2;
             int cy = h / 2;
 
             if (isPressed) {
@@ -304,7 +314,7 @@ public final class DrawerDockWidget extends AbstractDockWidget {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-            int w = getWidth() - 2; // leave room for right modular divider groove
+            int usableW = hasRightDivider ? (getWidth() - 2) : getWidth();
             int h = getHeight();
             ButtonModel model = getModel();
             boolean isPressed = model.isArmed() && model.isPressed();
@@ -317,24 +327,24 @@ public final class DrawerDockWidget extends AbstractDockWidget {
             // On press: tactile sunken background with 1px border bevel and 1px icon shift.
             if (isPressed) {
                 g2.setColor(t.sunkenBg());
-                g2.fillRect(1, 1, w - 2, h - 2);
+                g2.fillRect(1, 1, usableW - 2, h - 2);
 
                 // 1px sunken bevel feedback while held down
                 g2.setColor(t.darkShadow());
-                g2.drawLine(0, 0, w - 1, 0);
+                g2.drawLine(0, 0, usableW - 1, 0);
                 g2.drawLine(0, 0, 0, h - 1);
                 g2.setColor(t.highlight());
-                g2.drawLine(0, h - 1, w - 1, h - 1);
-                g2.drawLine(w - 1, 0, w - 1, h - 1);
+                g2.drawLine(0, h - 1, usableW - 1, h - 1);
+                g2.drawLine(usableW - 1, 0, usableW - 1, h - 1);
             } else if (isHovered) {
                 g2.setColor(t.softHighlight());
-                g2.fillRect(1, 1, w - 2, h - 2);
+                g2.fillRect(1, 1, usableW - 2, h - 2);
             }
 
             // Draw icon centered directly on the panel surface
             javax.swing.Icon icon = IconManager.getIcon(iconKey, 28);
             if (icon != null) {
-                int ix = (w - icon.getIconWidth()) / 2;
+                int ix = (usableW - icon.getIconWidth()) / 2;
                 int iy = (h - icon.getIconHeight()) / 2;
                 if (isPressed) {
                     ix += 1;

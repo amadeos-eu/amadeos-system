@@ -265,7 +265,8 @@ public final class AmadeDesktopPanel extends JFrame {
                 List.of(
                         new DrawerTool("Session & Power Controls...", "power", e -> showSessionPowerDialog(this)),
                         new DrawerTool("Inspect /tmp Storage", "trash", e -> launchProcess("xterm", "-e", "sh", "-c", "df -h /tmp; echo 'amadeOS temporary storage clean'; exec sh"))
-                )
+                ),
+                false // last button in row: no right divider groove
         );
         widgets.add(trashDrawer);
         rightSlots.add(trashDrawer.component());

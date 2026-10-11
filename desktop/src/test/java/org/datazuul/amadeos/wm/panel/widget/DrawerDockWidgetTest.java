@@ -5,6 +5,7 @@ import java.util.List;
 import javax.swing.JFrame;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -59,4 +60,13 @@ class DrawerDockWidgetTest {
 
         frame.dispose();
     }
+
+    @Test
+    void testWithoutRightDivider() {
+        DrawerDockWidget.DrawerTool tool = new DrawerDockWidget.DrawerTool("Tool 1", null, e -> {});
+        DrawerDockWidget widget = new DrawerDockWidget("trash", "Trash", "trash", e -> {}, List.of(tool), false);
+
+        assertEquals(52, widget.component().getPreferredSize().width);
+    }
 }
+
