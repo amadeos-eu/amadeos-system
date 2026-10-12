@@ -181,9 +181,9 @@ public final class X11WindowManagerService implements AutoCloseable {
         int screenWidth = x11.XDisplayWidth(display, screen);
         int screenHeight = x11.XDisplayHeight(display, screen);
 
-        // Claim WM role
+        // Claim WM role; ButtonPressMask delivers desktop clicks (e.g. to close the root menu)
         long mask = LibX11.SubstructureRedirectMask | LibX11.SubstructureNotifyMask
-                | LibX11.StructureNotifyMask | LibX11.PropertyChangeMask;
+                | LibX11.StructureNotifyMask | LibX11.PropertyChangeMask | LibX11.ButtonPressMask;
         x11.XSelectInput(display, new NativeLong(rootWindow), new NativeLong(mask));
         x11.XSync(display, 0);
 
@@ -1429,15 +1429,17 @@ public final class X11WindowManagerService implements AutoCloseable {
                     return;
                 }
 
-                // Desktop background click: Button 3 shows Root Menu, Button 1 hides it
+                // Desktop background click with Button 3 shows the Root Menu; any other click the
+                // window manager sees is outside the menu (its own window is unmanaged) and closes it.
+                if (eventWin == rootWindow && btnEvent.button == LibX11.Button3) {
+                    LOGGER.info(() -> "ButtonPress 3 on Root Window: popping up Desktop Root Menu at "
+                            + btnEvent.x_root + "," + btnEvent.y_root);
+                    desktopMenu.show(btnEvent.x_root, btnEvent.y_root);
+                    x11.XFlush(display);
+                    return;
+                }
+                desktopMenu.hide();
                 if (eventWin == rootWindow) {
-                    if (btnEvent.button == LibX11.Button3) {
-                        LOGGER.info(() -> "ButtonPress 3 on Root Window: popping up Desktop Root Menu at "
-                                + btnEvent.x_root + "," + btnEvent.y_root);
-                        desktopMenu.show(btnEvent.x_root, btnEvent.y_root);
-                    } else if (btnEvent.button == LibX11.Button1) {
-                        desktopMenu.hide();
-                    }
                     x11.XFlush(display);
                     return;
                 }
