@@ -8,6 +8,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.File;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.datazuul.amadeos.wm.WindowGeometry;
 import org.datazuul.amadeos.wm.decoration.FrameWindow;
 import org.junit.jupiter.api.AfterEach;
@@ -615,6 +618,39 @@ class X11WindowManagerIntegrationTest {
             x11.XDestroyWindow(wm.display(), lockWin);
         }
     }
+
+    @Test
+    void actionsFromOtherThreadsRunOnTheEventLoopThread() throws Exception {
+        try (X11WindowManagerService wm = X11WindowManagerService.open(display)) {
+            Thread loop = new Thread(wm::startEventLoop, "wm-event-loop");
+            loop.start();
+            try {
+                // Give the loop time to start and block in XNextEvent.
+                Thread.sleep(300);
+
+                // Like the Swing EDT: queue work from another thread; it must wake the blocked loop.
+                AtomicReference<Thread> ranOn = new AtomicReference<>();
+                CountDownLatch done = new CountDownLatch(1);
+                wm.runOnEventThread(() -> {
+                    ranOn.set(Thread.currentThread());
+                    done.countDown();
+                });
+                assertTrue(done.await(5, TimeUnit.SECONDS), "queued action must run without further X events");
+                assertEquals(loop, ranOn.get(), "X calls must happen on the event loop thread");
+
+                // Root menu action from a non-loop thread switches the workspace through the loop.
+                wm.menuActions().switchWorkspace(2);
+                long deadline = System.currentTimeMillis() + 5000;
+                while (wm.currentDesktop() != 2 && System.currentTimeMillis() < deadline) {
+                    Thread.sleep(20);
+                }
+                assertEquals(2, wm.currentDesktop());
+            } finally {
+                // stop() must also wake the loop out of XNextEvent.
+                wm.stop();
+                loop.join(5000);
+            }
+            assertFalse(loop.isAlive(), "event loop must end after stop()");
+        }
+    }
 }
-
-

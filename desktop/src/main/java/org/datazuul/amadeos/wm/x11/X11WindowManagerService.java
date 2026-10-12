@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -45,6 +46,18 @@ public final class X11WindowManagerService implements AutoCloseable {
     private final int screenHeight;
     private final WindowManagerCore core;
     private final AtomicBoolean running = new AtomicBoolean(false);
+
+    // Xlib is not thread-safe and the display is used without XInitThreads, so every call on
+    // `display` must happen on the event loop thread. Other threads (the Swing EDT for the root
+    // menu and theme changes) queue their work here and wake the loop with a ClientMessage
+    // sent over a separate connection.
+    private final ConcurrentLinkedQueue<Runnable> eventThreadActions = new ConcurrentLinkedQueue<>();
+    private volatile Thread eventThread;
+    private final String displayName;
+    private final Object wakeLock = new Object();
+    private Pointer wakeDisplay;
+    private final NativeLong wakeAtom;
+    private final DesktopMenuActions menuActions;
 
     private final long checkWindow;
     private final Pointer gc;
@@ -100,7 +113,7 @@ public final class X11WindowManagerService implements AutoCloseable {
 
     public static final int NUMBER_OF_DESKTOPS = 4;
     public static final long STICKY_DESKTOP = 0xFFFFFFFFL;
-    private int currentDesktop = 0;
+    private volatile int currentDesktop = 0;
     private final Map<Long, Integer> clientToDesktop = new HashMap<>();
     private final DesktopRootMenu desktopMenu;
 
@@ -193,11 +206,12 @@ public final class X11WindowManagerService implements AutoCloseable {
                 new WindowRegistry(), adapter, new FloatingLayoutPolicy(20, 30));
 
         return new X11WindowManagerService(
-                x11, display, screen, rootWindow, screenWidth, screenHeight, core, clientToFrame, frameToClient, gc, xorGc);
+                x11, displayName, display, screen, rootWindow, screenWidth, screenHeight, core, clientToFrame, frameToClient, gc, xorGc);
     }
 
     private X11WindowManagerService(
             LibX11 x11,
+            String displayName,
             Pointer display,
             int screen,
             long rootWindow,
@@ -209,7 +223,9 @@ public final class X11WindowManagerService implements AutoCloseable {
             Pointer gc,
             Pointer xorGc) {
         this.x11 = x11;
+        this.displayName = displayName;
         this.display = display;
+        this.wakeAtom = x11.XInternAtom(display, "_AMADEOS_WM_WAKE", 0);
         this.screen = screen;
         this.rootWindow = rootWindow;
         this.screenWidth = screenWidth;
@@ -301,10 +317,11 @@ public final class X11WindowManagerService implements AutoCloseable {
             LOGGER.warning(() -> "Failed to bind Super+L screen lock shortcut: " + e.getMessage());
         }
 
-        this.desktopMenu = new DesktopRootMenu(new DesktopMenuActions() {
+        // Menu actions arrive on the Swing EDT; anything touching X runs on the event thread.
+        this.menuActions = new DesktopMenuActions() {
             @Override
             public void switchWorkspace(int workspaceIndex) {
-                X11WindowManagerService.this.switchDesktop(workspaceIndex);
+                runOnEventThread(() -> X11WindowManagerService.this.switchDesktop(workspaceIndex));
             }
 
             @Override
@@ -314,27 +331,27 @@ public final class X11WindowManagerService implements AutoCloseable {
 
             @Override
             public void shuffleUp() {
-                X11WindowManagerService.this.shuffleUp();
+                runOnEventThread(X11WindowManagerService.this::shuffleUp);
             }
 
             @Override
             public void shuffleDown() {
-                X11WindowManagerService.this.shuffleDown();
+                runOnEventThread(X11WindowManagerService.this::shuffleDown);
             }
 
             @Override
             public void minimizeAll() {
-                X11WindowManagerService.this.minimizeAllCurrentWorkspace();
+                runOnEventThread(X11WindowManagerService.this::minimizeAllCurrentWorkspace);
             }
 
             @Override
             public void restoreAll() {
-                X11WindowManagerService.this.restoreAllCurrentWorkspace();
+                runOnEventThread(X11WindowManagerService.this::restoreAllCurrentWorkspace);
             }
 
             @Override
             public void refreshDesktop() {
-                X11WindowManagerService.this.refreshDesktop();
+                runOnEventThread(X11WindowManagerService.this::refreshDesktop);
             }
 
             @Override
@@ -351,14 +368,15 @@ public final class X11WindowManagerService implements AutoCloseable {
             public void logoutSession() {
                 SessionDialogHelper.showSessionPowerDialog(null);
             }
-        });
+        };
+        this.desktopMenu = new DesktopRootMenu(menuActions);
 
         NativeLong createdCheck = x11.XCreateSimpleWindow(
                 display, new NativeLong(rootWindow), 0, 0, 1, 1, 0, new NativeLong(0), new NativeLong(0));
         this.checkWindow = createdCheck != null ? createdCheck.longValue() : 0;
         initEwmh();
 
-        ThemeManager.addListener(this::applyThemeGlobally);
+        ThemeManager.addListener(newTheme -> runOnEventThread(() -> applyThemeGlobally(newTheme)));
 
         try {
             int depth = x11.XDefaultDepth(display, screen);
@@ -1171,6 +1189,7 @@ public final class X11WindowManagerService implements AutoCloseable {
     }
 
     public int processPendingEvents() {
+        runPendingActions();
         int processed = 0;
         while (x11.XPending(display) > 0) {
             processNextEvent();
@@ -1180,11 +1199,16 @@ public final class X11WindowManagerService implements AutoCloseable {
     }
 
     public void startEventLoop() {
+        eventThread = Thread.currentThread();
         running.set(true);
         scanExistingWindows();
         LOGGER.info(() -> "amadeOS Window Manager started event loop on screen " + screenWidth + "x" + screenHeight);
         while (running.get()) {
             try {
+                runPendingActions();
+                if (!running.get()) {
+                    break;
+                }
                 processNextEvent();
             } catch (Exception e) {
                 LOGGER.log(Level.WARNING, "Error processing X event", e);
@@ -1195,6 +1219,81 @@ public final class X11WindowManagerService implements AutoCloseable {
 
     public void stop() {
         running.set(false);
+        Thread loop = eventThread;
+        if (loop != null && loop != Thread.currentThread()) {
+            wakeEventLoop();
+        }
+    }
+
+    /**
+     * Runs an action that uses the X display on the event loop thread. Called on that thread,
+     * or before the loop has started (e.g. in tests driving the service directly), the action
+     * runs immediately; otherwise it is queued and the loop is woken up.
+     */
+    public void runOnEventThread(Runnable action) {
+        Thread loop = eventThread;
+        if (loop == null || loop == Thread.currentThread()) {
+            action.run();
+            return;
+        }
+        eventThreadActions.add(action);
+        wakeEventLoop();
+    }
+
+    DesktopMenuActions menuActions() {
+        return menuActions;
+    }
+
+    private void runPendingActions() {
+        Runnable action;
+        boolean ran = false;
+        while ((action = eventThreadActions.poll()) != null) {
+            ran = true;
+            try {
+                action.run();
+            } catch (RuntimeException e) {
+                LOGGER.log(Level.WARNING, "Error running window manager action", e);
+            }
+        }
+        if (ran) {
+            x11.XFlush(display);
+        }
+    }
+
+    /**
+     * Sends a ClientMessage to the check window over a second connection that only this
+     * method uses, so the event loop's blocking XNextEvent returns and the queue is drained.
+     */
+    private void wakeEventLoop() {
+        if (checkWindow == 0) {
+            return;
+        }
+        synchronized (wakeLock) {
+            if (wakeDisplay == null) {
+                wakeDisplay = x11.XOpenDisplay(displayName);
+                if (wakeDisplay == null) {
+                    LOGGER.warning("Cannot open a second X connection to wake the window manager event loop");
+                    return;
+                }
+            }
+            // Allocate a full XEvent: XSendEvent copies sizeof(XEvent) bytes.
+            LibX11.XEvent buffer = new LibX11.XEvent();
+            buffer.write();
+            LibX11.XClientMessageEvent wake = new LibX11.XClientMessageEvent(buffer.getPointer());
+            wake.type = LibX11.ClientMessage;
+            wake.send_event = 1;
+            wake.display = wakeDisplay;
+            wake.window = new NativeLong(checkWindow);
+            wake.message_type = wakeAtom;
+            wake.format = 32;
+            for (int i = 0; i < wake.data.length; i++) {
+                wake.data[i] = new NativeLong(0);
+            }
+            wake.write();
+            // Event mask 0: delivered to the client that created the check window, i.e. the event loop.
+            x11.XSendEvent(wakeDisplay, new NativeLong(checkWindow), 0, new NativeLong(0), buffer.getPointer());
+            x11.XFlush(wakeDisplay);
+        }
     }
 
     void handleEvent(LibX11.XEvent event) {
@@ -1426,6 +1525,9 @@ public final class X11WindowManagerService implements AutoCloseable {
             }
             case LibX11.ClientMessage -> {
                 LibX11.XClientMessageEvent cmsg = new LibX11.XClientMessageEvent(event.getPointer());
+                if (wakeAtom != null && wakeAtom.equals(cmsg.message_type)) {
+                    return; // only wakes the loop; queued actions run before the next XNextEvent
+                }
                 long win = cmsg.window.longValue();
                 if (cmsg.message_type != null && cmsg.message_type.equals(netCloseWindow)) {
                     core.close(win);
@@ -1945,6 +2047,12 @@ public final class X11WindowManagerService implements AutoCloseable {
     @Override
     public void close() {
         stop();
+        synchronized (wakeLock) {
+            if (wakeDisplay != null) {
+                x11.XCloseDisplay(wakeDisplay);
+                wakeDisplay = null;
+            }
+        }
         desktopMenu.dispose();
         if (display != null) {
             for (DesktopIconTile tile : new java.util.ArrayList<>(iconTiles)) {
