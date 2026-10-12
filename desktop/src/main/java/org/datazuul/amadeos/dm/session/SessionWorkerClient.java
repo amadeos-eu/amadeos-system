@@ -4,8 +4,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.concurrent.TimeUnit;
+import org.datazuul.amadeos.wm.x11.LibC;
 
 /**
  * Used by the display manager: starts a {@link SessionWorker} process, hands it the credentials
@@ -25,7 +28,7 @@ public final class SessionWorkerClient {
     public Result login(String display, String username, String password, SessionType type) {
         Process worker;
         try {
-            worker = new ProcessBuilder(workerCommand(display))
+            worker = new ProcessBuilder(workerCommand(display, loginUid(username)))
                     .redirectError(ProcessBuilder.Redirect.INHERIT)
                     .start();
         } catch (IOException e) {
@@ -54,11 +57,32 @@ public final class SessionWorkerClient {
         }
     }
 
-    /** Same JVM and class path as the display manager, entering via the session-worker mode. */
-    static List<String> workerCommand(String display) {
+    /** The uid to record as the worker's audit login uid; empty when not root or the user is unknown. */
+    private static OptionalInt loginUid(String username) {
+        if (LibC.INSTANCE.getuid() != 0) {
+            return OptionalInt.empty();
+        }
+        return UserAccount.lookup(username).map(account -> OptionalInt.of(account.uid())).orElse(OptionalInt.empty());
+    }
+
+    /**
+     * Same JVM and class path as the display manager, entering via the session-worker mode.
+     *
+     * <p>With a login uid, the JVM is started through a shell that first writes the uid to its own
+     * /proc/self/loginuid. The kernel only accepts that write from the thread-group leader, and the
+     * Java launcher always runs main() on a second thread, so pam_loginuid fails with EPERM when
+     * called from the worker. pam_loginuid accepts a loginuid that is already correct, and exec keeps it.
+     */
+    static List<String> workerCommand(String display, OptionalInt loginUid) {
         String java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
-        return List.of(java, "--enable-native-access=ALL-UNNAMED",
+        List<String> command = new ArrayList<>();
+        if (loginUid.isPresent()) {
+            command.addAll(List.of("/bin/sh", "-c", "printf %s \"$1\" > /proc/self/loginuid; shift; exec \"$@\"",
+                    "amadeos-session-worker", Integer.toString(loginUid.getAsInt())));
+        }
+        command.addAll(List.of(java, "--enable-native-access=ALL-UNNAMED",
                 "-cp", System.getProperty("java.class.path"),
-                "org.datazuul.amadeos.wm.AmadeOsLauncher", "session-worker", display);
+                "org.datazuul.amadeos.wm.AmadeOsLauncher", "session-worker", display));
+        return command;
     }
 }
