@@ -16,6 +16,8 @@ public final class AmadeOsLauncher {
                         a -> System.out.println("Greeter power action: " + a)
                 ).setVisible(true);
             });
+        } else if ("lock".equalsIgnoreCase(mode)) {
+            org.datazuul.amadeos.lock.ScreenLock.main(subArgs);
         } else if ("wm".equalsIgnoreCase(mode)) {
             AmadeWindowManagerMain.main(subArgs);
         } else if ("settings".equalsIgnoreCase(mode) || "config".equalsIgnoreCase(mode)) {

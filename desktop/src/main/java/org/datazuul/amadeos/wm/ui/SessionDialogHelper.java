@@ -126,7 +126,7 @@ public final class SessionDialogHelper {
     }
 
     public static void lockScreen(Component parent) {
-        AmadeScreenLocker.lockScreen();
+        org.datazuul.amadeos.lock.LockLauncher.lockScreen();
     }
 }
 

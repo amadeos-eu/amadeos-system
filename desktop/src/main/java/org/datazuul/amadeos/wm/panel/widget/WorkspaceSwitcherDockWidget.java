@@ -72,7 +72,7 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
         leftPillar.setOpaque(false);
         leftPillar.setPreferredSize(new Dimension(28, CdePanelChrome.SLOT_HEIGHT));
 
-        lockBtn = new FlatLockButton(e -> org.datazuul.amadeos.wm.ui.AmadeScreenLocker.lockScreen());
+        lockBtn = new FlatLockButton(e -> org.datazuul.amadeos.lock.LockLauncher.lockScreen());
         leftPillar.add(lockBtn);
 
         JPanel leftSpacer = new JPanel();
