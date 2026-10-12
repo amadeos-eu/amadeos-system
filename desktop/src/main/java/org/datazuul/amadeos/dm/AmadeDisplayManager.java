@@ -4,6 +4,8 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.SwingUtilities;
@@ -54,9 +56,17 @@ public final class AmadeDisplayManager {
         if (!xSocket.exists() && ":0".equals(display)) {
             LOGGER.info("X server not detected on " + display + ". Launching Xorg on vt7...");
             try {
-                ProcessBuilder pb = new ProcessBuilder(
-                        "Xorg", ":0", "vt7", "-novtswitch", "-nolisten", "tcp", "-background", "none"
-                );
+                List<String> command = new ArrayList<>(List.of(
+                        "Xorg", ":0", "vt7", "-novtswitch", "-nolisten", "tcp", "-background", "none"));
+                String authority = System.getenv("XAUTHORITY");
+                if (authority != null && !authority.isBlank()) {
+                    // amadeos-dm creates the cookie; without -auth the server would accept anyone.
+                    command.add("-auth");
+                    command.add(authority);
+                } else {
+                    LOGGER.warning("XAUTHORITY is not set; starting Xorg without access control");
+                }
+                ProcessBuilder pb = new ProcessBuilder(command);
                 pb.redirectOutput(new File("/var/log/amadeos-xorg.log"));
                 pb.redirectErrorStream(true);
                 xorgProcess = pb.start();

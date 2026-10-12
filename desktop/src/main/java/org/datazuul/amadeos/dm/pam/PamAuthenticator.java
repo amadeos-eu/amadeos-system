@@ -25,11 +25,19 @@ public final class PamAuthenticator {
     public static final class PamSession implements AutoCloseable {
         private final Pointer pamHandle;
         private final String username;
+        // PAM keeps a pointer to the conversation; keep it reachable until pam_end.
+        @SuppressWarnings("unused")
+        private final LibPam.PamConv conversation;
         private boolean closed = false;
 
         private PamSession(Pointer pamHandle, String username) {
+            this(pamHandle, username, null);
+        }
+
+        private PamSession(Pointer pamHandle, String username, LibPam.PamConv conversation) {
             this.pamHandle = pamHandle;
             this.username = username;
+            this.conversation = conversation;
         }
 
         public String username() {
@@ -64,7 +72,27 @@ public final class PamAuthenticator {
         this.serviceName = Objects.requireNonNull(serviceName);
     }
 
+    /**
+     * Authenticates the user, checks the account and opens a PAM session for a login.
+     * The caller must close the returned session when the login session ends.
+     */
     public AuthResult authenticate(String username, String password) {
+        return run(username, password, true);
+    }
+
+    /**
+     * Only checks the password and account, without establishing credentials or a session.
+     * Used to unlock a screen of a session that is already open.
+     */
+    public AuthResult verify(String username, String password) {
+        AuthResult result = run(username, password, false);
+        if (result.success() && result.session() != null) {
+            result.session().close();
+        }
+        return result;
+    }
+
+    private AuthResult run(String username, String password, boolean openSession) {
         if (username == null || username.isBlank()) {
             return AuthResult.fail("Username cannot be empty");
         }
@@ -72,27 +100,17 @@ public final class PamAuthenticator {
             password = "";
         }
 
-        // Support mock PAM mode for non-root local testing or development (e.g. Xephyr)
-        boolean mockPam = "1".equals(System.getenv("AMADEOS_MOCK_PAM"))
-                || "true".equalsIgnoreCase(System.getProperty("amadeos.mock.pam"));
-        int uid = LibC.INSTANCE.getuid();
-        if (mockPam || uid != 0) {
-            // Non-root development fallback: accept default amadeos/amadeos credentials
-            boolean isUser = "amadeos".equals(username);
-            boolean isPass = "amadeos".equals(password) || "amadeoz".equals(password)
-                    || "live".equals(password) || password.isEmpty();
-            if (isUser && isPass) {
-                LOGGER.info("Non-root/mock mode: authenticated successfully for user " + username);
-                return AuthResult.ok(new PamSession(null, username));
-            } else if (mockPam) {
-                return AuthResult.fail("Invalid username or password (mock mode: user 'amadeos', password 'amadeos')");
+        if (mockModeRequested()) {
+            if (LibC.INSTANCE.getuid() == 0) {
+                // Never let a development switch weaken authentication of the real display manager.
+                LOGGER.severe("Ignoring mock PAM mode: it is only available when not running as root");
+            } else {
+                return mockAuthenticate(username, password);
             }
-            // If not explicitly mock mode, proceed to real PAM attempt even as non-root
         }
 
         final String finalPassword = password;
         final String finalUsername = username;
-
         LibPam.PamConvCallback convCallback = (numMsg, msgArrayPtr, respArrayPtr, appdataPtr) -> {
             if (numMsg <= 0 || msgArrayPtr == null || respArrayPtr == null) {
                 return LibPam.PAM_CONV_ERR;
@@ -152,50 +170,60 @@ public final class PamAuthenticator {
         rc = LibPam.INSTANCE.pam_authenticate(pamh, 0);
         if (rc != LibPam.PAM_SUCCESS) {
             String err = LibPam.INSTANCE.pam_strerror(pamh, rc);
-            LOGGER.info(() -> "Authentication failed for " + username + ": " + err);
-            // Live user fallback: allow default live user credentials even if shadow account was locked by live-config
-            boolean isLiveUser = "amadeos".equals(username);
-            boolean isLivePass = "amadeos".equals(finalPassword) || "amadeoz".equals(finalPassword)
-                    || "live".equals(finalPassword) || finalPassword.isEmpty();
-            if (isLiveUser && isLivePass) {
-                LOGGER.info("Granting live session access for user '" + username + "'");
-                LibPam.INSTANCE.pam_end(pamh, LibPam.PAM_SUCCESS);
-                return AuthResult.ok(new PamSession(null, username));
-            }
+            LOGGER.info(() -> "Authentication failed: " + err);
             LibPam.INSTANCE.pam_end(pamh, rc);
-            return AuthResult.fail("Login incorrect: " + err);
+            return AuthResult.fail("Login incorrect");
         }
 
         rc = LibPam.INSTANCE.pam_acct_mgmt(pamh, 0);
         if (rc != LibPam.PAM_SUCCESS) {
             String err = LibPam.INSTANCE.pam_strerror(pamh, rc);
             LOGGER.warning("pam_acct_mgmt failed for " + username + ": " + err);
-            if ("amadeos".equals(username)) {
-                LOGGER.info("Bypassing account restriction for live user '" + username + "'");
-            } else {
-                LibPam.INSTANCE.pam_end(pamh, rc);
-                return AuthResult.fail("Account restricted: " + err);
-            }
+            LibPam.INSTANCE.pam_end(pamh, rc);
+            return AuthResult.fail("Account restricted: " + err);
+        }
+
+        if (!openSession) {
+            LibPam.INSTANCE.pam_end(pamh, LibPam.PAM_SUCCESS);
+            return AuthResult.ok(null);
         }
 
         rc = LibPam.INSTANCE.pam_setcred(pamh, LibPam.PAM_ESTABLISH_CRED);
         if (rc != LibPam.PAM_SUCCESS) {
-            LOGGER.warning("pam_setcred failed: " + LibPam.INSTANCE.pam_strerror(pamh, rc));
+            String err = LibPam.INSTANCE.pam_strerror(pamh, rc);
+            LOGGER.warning("pam_setcred failed for " + username + ": " + err);
+            LibPam.INSTANCE.pam_end(pamh, rc);
+            return AuthResult.fail("Failed to establish credentials: " + err);
         }
 
         rc = LibPam.INSTANCE.pam_open_session(pamh, 0);
         if (rc != LibPam.PAM_SUCCESS) {
             String err = LibPam.INSTANCE.pam_strerror(pamh, rc);
-            LOGGER.warning("pam_open_session failed: " + err);
-            if (!"amadeos".equals(username)) {
-                LibPam.INSTANCE.pam_setcred(pamh, LibPam.PAM_DELETE_CRED);
-                LibPam.INSTANCE.pam_end(pamh, rc);
-                return AuthResult.fail("Failed to open PAM session: " + err);
-            }
+            LOGGER.warning("pam_open_session failed for " + username + ": " + err);
+            LibPam.INSTANCE.pam_setcred(pamh, LibPam.PAM_DELETE_CRED);
+            LibPam.INSTANCE.pam_end(pamh, rc);
+            return AuthResult.fail("Failed to open PAM session: " + err);
         }
 
         LOGGER.info("PAM authentication and session establishment successful for user: " + username);
-        return AuthResult.ok(new PamSession(pamh, username));
+        return AuthResult.ok(new PamSession(pamh, username, conv));
+    }
+
+    private static boolean mockModeRequested() {
+        return "1".equals(System.getenv("AMADEOS_MOCK_PAM"))
+                || "true".equalsIgnoreCase(System.getProperty("amadeos.mock.pam"));
+    }
+
+    /**
+     * Development-only stand-in for PAM (e.g. the greeter in Xephyr). Accepts the default
+     * live credentials, including "amadeoz" for a German keyboard typed as US layout.
+     */
+    private static AuthResult mockAuthenticate(String username, String password) {
+        if ("amadeos".equals(username) && ("amadeos".equals(password) || "amadeoz".equals(password))) {
+            LOGGER.info("Mock PAM mode: authenticated user " + username);
+            return AuthResult.ok(new PamSession(null, username));
+        }
+        return AuthResult.fail("Invalid username or password (mock mode: user 'amadeos', password 'amadeos')");
     }
 }
 

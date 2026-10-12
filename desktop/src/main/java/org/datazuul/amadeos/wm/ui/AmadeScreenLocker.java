@@ -248,15 +248,12 @@ public final class AmadeScreenLocker {
             passwordField.setEnabled(false);
 
             new Thread(() -> {
-                PamAuthenticator authenticator = new PamAuthenticator();
-                PamAuthenticator.AuthResult result = authenticator.authenticate(currentUser, enteredPassword);
+                // Unlocking only checks the password; the login session is already open.
+                PamAuthenticator.AuthResult result = new PamAuthenticator().verify(currentUser, enteredPassword);
 
                 SwingUtilities.invokeLater(() -> {
                     if (result.success()) {
                         LOGGER.info("Screen unlocked successfully for user " + currentUser);
-                        if (result.session() != null) {
-                            result.session().close();
-                        }
                         dialog.dispose();
                         activeLockDialog = null;
                         IS_LOCKED.set(false);

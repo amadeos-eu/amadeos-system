@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.datazuul.amadeos.wm.x11.LibC;
@@ -130,6 +131,11 @@ public final class SessionLauncher {
             pb.directory(new File("/tmp"));
         }
 
+        String userXauthority = grantDisplayAccess(username, homeDir, display, currentUid == 0);
+        if (userXauthority != null) {
+            env.put("XAUTHORITY", userXauthority);
+        }
+
         pb.redirectErrorStream(true);
         File runnerLog = new File("/var/log/amadeos-session-runner.log");
         try {
@@ -139,5 +145,54 @@ public final class SessionLauncher {
         }
 
         return pb.start();
+    }
+
+    /**
+     * Copies the X server cookie of the display manager into the user's ~/.Xauthority so the
+     * session can connect without opening the server to every local process via xhost.
+     * The file is written by xauth running as the user, never by root, so a planted symlink
+     * cannot redirect the write.
+     *
+     * @return the XAUTHORITY path for the session, or the inherited one when not running as root
+     */
+    String grantDisplayAccess(String username, String homeDir, String display, boolean asRoot) {
+        String serverAuthority = System.getenv("XAUTHORITY");
+        if (serverAuthority == null || serverAuthority.isBlank()) {
+            LOGGER.warning("XAUTHORITY is not set; the session may not be allowed to connect to " + display);
+            return null;
+        }
+        if (!asRoot) {
+            return serverAuthority;
+        }
+        String userAuthority = new File(homeDir, ".Xauthority").getPath();
+        try {
+            Process list = new ProcessBuilder("xauth", "-f", serverAuthority, "nlist", display)
+                    .redirectError(ProcessBuilder.Redirect.DISCARD)
+                    .start();
+            byte[] entries = list.getInputStream().readAllBytes();
+            if (!list.waitFor(5, TimeUnit.SECONDS) || list.exitValue() != 0 || entries.length == 0) {
+                LOGGER.warning("No X authorization entry found for " + display + " in " + serverAuthority);
+                return null;
+            }
+            Process merge = new ProcessBuilder("/usr/sbin/runuser", "-u", username, "--",
+                    "xauth", "-q", "-f", userAuthority, "nmerge", "-")
+                    .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                    .redirectError(ProcessBuilder.Redirect.DISCARD)
+                    .start();
+            try (var stdin = merge.getOutputStream()) {
+                stdin.write(entries);
+            }
+            if (!merge.waitFor(5, TimeUnit.SECONDS) || merge.exitValue() != 0) {
+                LOGGER.warning("Failed to store X authorization in " + userAuthority);
+                return null;
+            }
+            return userAuthority;
+        } catch (IOException e) {
+            LOGGER.log(Level.WARNING, "Failed to grant X display access to " + username + ": " + e.getMessage(), e);
+            return null;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
+        }
     }
 }
