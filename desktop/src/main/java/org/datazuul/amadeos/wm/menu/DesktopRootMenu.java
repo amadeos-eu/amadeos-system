@@ -4,6 +4,7 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Font;
 import java.awt.GraphicsEnvironment;
+import java.awt.Window;
 import java.io.File;
 import java.util.List;
 import java.util.Objects;
@@ -57,6 +58,8 @@ public final class DesktopRootMenu {
                 }
                 if (invoker == null) {
                     invoker = new JWindow();
+                    // POPUP windows are override-redirect on X11; otherwise the window manager frames this anchor.
+                    invoker.setType(Window.Type.POPUP);
                     invoker.setAlwaysOnTop(true);
                     invoker.setSize(1, 1);
                 }
