@@ -1,5 +1,6 @@
 package org.datazuul.amadeos.wm.theme;
 
+import org.datazuul.amadeos.wm.XdgDirectories;
 import java.awt.Color;
 import java.io.File;
 import java.io.FileInputStream;
@@ -127,10 +128,9 @@ public final class ThemeManager {
     }
 
     private static void discoverThemesFromDisk() {
-        String userHome = System.getProperty("user.home", "/tmp");
         File[] searchDirs = {
                 new File("/etc/amadeos/themes"),
-                new File(userHome + "/.config/amadeos/themes")
+                XdgDirectories.amadeosConfigDir().resolve("themes").toFile()
         };
 
         for (File dir : searchDirs) {
@@ -181,8 +181,7 @@ public final class ThemeManager {
 
     private static void loadPersistedTheme() {
         try {
-            String userHome = System.getProperty("user.home", "/tmp");
-            Path conf = Path.of(userHome, ".config", "amadeos", "theme.conf");
+            Path conf = XdgDirectories.amadeosConfigDir().resolve("theme.conf");
             if (Files.exists(conf)) {
                 String id = Files.readString(conf, StandardCharsets.UTF_8).trim();
                 if (THEMES.containsKey(id)) {
@@ -190,7 +189,7 @@ public final class ThemeManager {
                 }
             }
 
-            Path iconConf = Path.of(userHome, ".config", "amadeos", "icon_theme.conf");
+            Path iconConf = XdgDirectories.amadeosConfigDir().resolve("icon_theme.conf");
             if (Files.exists(iconConf)) {
                 String iconThemeId = Files.readString(iconConf, StandardCharsets.UTF_8).trim();
                 if (!iconThemeId.isBlank()) {
@@ -202,8 +201,7 @@ public final class ThemeManager {
 
     private static void persistTheme(String themeId) {
         try {
-            String userHome = System.getProperty("user.home", "/tmp");
-            Path dir = Path.of(userHome, ".config", "amadeos");
+            Path dir = XdgDirectories.amadeosConfigDir();
             Files.createDirectories(dir);
             Files.writeString(dir.resolve("theme.conf"), themeId, StandardCharsets.UTF_8);
         } catch (Exception ignored) {}
@@ -211,8 +209,7 @@ public final class ThemeManager {
 
     private static void persistIconTheme(String iconThemeId) {
         try {
-            String userHome = System.getProperty("user.home", "/tmp");
-            Path dir = Path.of(userHome, ".config", "amadeos");
+            Path dir = XdgDirectories.amadeosConfigDir();
             Files.createDirectories(dir);
             Files.writeString(dir.resolve("icon_theme.conf"), iconThemeId, StandardCharsets.UTF_8);
         } catch (Exception ignored) {}

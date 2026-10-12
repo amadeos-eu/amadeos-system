@@ -1,5 +1,6 @@
 package org.datazuul.amadeos.wm.panel.widget;
 
+import org.datazuul.amadeos.wm.XdgDirectories;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -320,8 +321,7 @@ public final class ClockDockWidget extends AbstractDockWidget {
 
     private void loadPersistedStyle() {
         try {
-            String userHome = System.getProperty("user.home", "/tmp");
-            Path conf = Path.of(userHome, ".config", "amadeos", "clock.conf");
+            Path conf = XdgDirectories.amadeosConfigDir().resolve("clock.conf");
             if (Files.exists(conf)) {
                 String val = Files.readString(conf, StandardCharsets.UTF_8).trim();
                 style = ClockStyle.valueOf(val.toUpperCase());
@@ -331,8 +331,7 @@ public final class ClockDockWidget extends AbstractDockWidget {
 
     private void persistStyle(ClockStyle newStyle) {
         try {
-            String userHome = System.getProperty("user.home", "/tmp");
-            Path dir = Path.of(userHome, ".config", "amadeos");
+            Path dir = XdgDirectories.amadeosConfigDir();
             Files.createDirectories(dir);
             Files.writeString(dir.resolve("clock.conf"), newStyle.name(), StandardCharsets.UTF_8);
         } catch (Exception ignored) {}

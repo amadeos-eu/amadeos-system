@@ -1,5 +1,6 @@
 package org.datazuul.amadeos.wm.theme;
 
+import org.datazuul.amadeos.wm.XdgDirectories;
 import com.sun.jna.Memory;
 import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
@@ -25,7 +26,7 @@ import org.datazuul.amadeos.wm.x11.LibX11;
 /**
  * Manages desktop wallpapers and background rendering on the X11 Root Window.
  * Supports Fill, Fit, Stretch, Tile, and Center modes, solid color backdrops,
- * persistence to ~/.config/amadeos/wallpaper.conf, and Freedesktop/X11 root pixmap export.
+ * persistence to $XDG_CONFIG_HOME/amadeos/wallpaper.conf (default ~/.config), and Freedesktop/X11 root pixmap export.
  */
 public final class WallpaperManager {
     private static final Logger LOGGER = Logger.getLogger(WallpaperManager.class.getName());
@@ -105,7 +106,7 @@ public final class WallpaperManager {
         scanDirectoryForWallpapers(new File(home, "Pictures"), list);
 
         // 4. Custom amadeOS config wallpapers
-        scanDirectoryForWallpapers(new File(home, ".config/amadeos/wallpapers"), list);
+        scanDirectoryForWallpapers(XdgDirectories.amadeosConfigDir().resolve("wallpapers").toFile(), list);
 
         return Collections.unmodifiableList(list);
     }
@@ -325,8 +326,7 @@ public final class WallpaperManager {
 
     private static void persistConfig() {
         try {
-            String home = System.getProperty("user.home", "/tmp");
-            File confDir = new File(home, ".config/amadeos");
+            File confDir = XdgDirectories.amadeosConfigDir().toFile();
             confDir.mkdirs();
             File conf = new File(confDir, "wallpaper.conf");
 
@@ -347,8 +347,7 @@ public final class WallpaperManager {
 
     private static void loadPersistedConfig() {
         try {
-            String home = System.getProperty("user.home", "/tmp");
-            File conf = new File(home, ".config/amadeos/wallpaper.conf");
+            File conf = XdgDirectories.amadeosConfigDir().resolve("wallpaper.conf").toFile();
             if (conf.isFile()) {
                 Properties props = new Properties();
                 try (FileInputStream in = new FileInputStream(conf)) {

@@ -1,5 +1,6 @@
 package org.datazuul.amadeos.wm.theme;
 
+import org.datazuul.amadeos.wm.XdgDirectories;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics2D;
@@ -113,8 +114,8 @@ public final class IconManager {
         // 2. Legacy user icon directory ~/.icons
         list.add(new File(userHome, ".icons"));
 
-        // 3. User amadeOS themes ~/.config/amadeos/themes
-        list.add(new File(userHome, ".config/amadeos/themes"));
+        // 3. User amadeOS themes $XDG_CONFIG_HOME/amadeos/themes (default ~/.config/amadeos/themes)
+        list.add(XdgDirectories.amadeosConfigDir().resolve("themes").toFile());
 
         // 4. $XDG_DATA_DIRS/icons (defaults to /usr/local/share/icons and /usr/share/icons)
         String xdgDataDirs = System.getenv("XDG_DATA_DIRS");
