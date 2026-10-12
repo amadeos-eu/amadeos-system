@@ -19,6 +19,7 @@ import javax.swing.SwingUtilities;
 import javax.swing.event.PopupMenuEvent;
 import javax.swing.event.PopupMenuListener;
 import org.datazuul.amadeos.wm.theme.AmadeUI;
+import org.datazuul.amadeos.wm.process.ProcessLauncher;
 import org.datazuul.amadeos.wm.theme.DesktopTheme;
 import org.datazuul.amadeos.wm.theme.IconManager;
 import org.datazuul.amadeos.wm.theme.ThemeManager;
@@ -124,9 +125,10 @@ public final class DesktopRootMenu {
 
         // 3. New Window Submenu
         JMenu newWindowMenu = createStyledMenu("New Window", theme);
-        newWindowMenu.add(createStyledMenuItem("Terminal Emulator", "terminal", e -> launchProcess("xterm"), theme));
-        newWindowMenu.add(createStyledMenuItem("Text Editor", "text-editor", e -> launchProcess("xed", "mousepad", "gedit", "xterm -e nano"), theme));
-        newWindowMenu.add(createStyledMenuItem("File Manager", "file-manager", e -> launchProcess("xdg-open", System.getProperty("user.home", "/")), theme));
+        newWindowMenu.add(createStyledMenuItem("Terminal Emulator", "terminal", e -> launchFirst(cmd("xterm")), theme));
+        newWindowMenu.add(createStyledMenuItem("Text Editor", "text-editor",
+                e -> launchFirst(cmd("xed"), cmd("mousepad"), cmd("gedit"), cmd("xterm", "-e", "nano")), theme));
+        newWindowMenu.add(createStyledMenuItem("File Manager", "file-manager", e -> launchFirst(cmd("xdg-open", userHome())), theme));
         menu.add(newWindowMenu);
 
         menu.add(createSeparator(theme));
@@ -221,10 +223,10 @@ public final class DesktopRootMenu {
         }
 
         if (!hasAny) {
-            parent.add(createStyledMenuItem("Terminal Emulator", "terminal", e -> launchProcess("xterm"), theme));
-            parent.add(createStyledMenuItem("Text Editor", "text-editor", e -> launchProcess("xed", "mousepad", "gedit"), theme));
-            parent.add(createStyledMenuItem("File Manager", "file-manager", e -> launchProcess("xdg-open", System.getProperty("user.home", "/")), theme));
-            parent.add(createStyledMenuItem("Calculator", "accessories-calculator", e -> launchProcess("gnome-calculator", "xcalc"), theme));
+            parent.add(createStyledMenuItem("Terminal Emulator", "terminal", e -> launchFirst(cmd("xterm")), theme));
+            parent.add(createStyledMenuItem("Text Editor", "text-editor", e -> launchFirst(cmd("xed"), cmd("mousepad"), cmd("gedit")), theme));
+            parent.add(createStyledMenuItem("File Manager", "file-manager", e -> launchFirst(cmd("xdg-open", userHome())), theme));
+            parent.add(createStyledMenuItem("Calculator", "accessories-calculator", e -> launchFirst(cmd("gnome-calculator"), cmd("xcalc")), theme));
         }
     }
 
@@ -260,20 +262,26 @@ public final class DesktopRootMenu {
         return sep;
     }
 
-    private void launchProcess(String... commands) {
+    /**
+     * Starts the first installed candidate. Each candidate is a full argument list, so
+     * arguments such as the home directory are passed as one argument, never split on spaces.
+     */
+    @SafeVarargs
+    private static void launchFirst(List<String>... candidates) {
         try {
-            for (String cmd : commands) {
-                String binary = cmd.split(" ")[0];
-                Process check = new ProcessBuilder("which", binary).start();
-                if (check.waitFor() == 0) {
-                    new ProcessBuilder(cmd.split(" ")).start();
-                    LOGGER.info(() -> "Launched process from menu: " + cmd);
-                    return;
-                }
+            if (ProcessLauncher.startFirstAvailable(List.of(candidates)).isEmpty()) {
+                LOGGER.warning(() -> "None of these programs is installed: " + List.of(candidates));
             }
-            new ProcessBuilder(commands[0].split(" ")).start();
         } catch (Exception e) {
             LOGGER.warning(() -> "Failed to launch process: " + e.getMessage());
         }
+    }
+
+    private static List<String> cmd(String... arguments) {
+        return List.of(arguments);
+    }
+
+    private static String userHome() {
+        return System.getProperty("user.home", "/");
     }
 }
