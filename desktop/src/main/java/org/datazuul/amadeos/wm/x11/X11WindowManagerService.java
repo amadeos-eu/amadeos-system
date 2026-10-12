@@ -27,12 +27,13 @@ import org.datazuul.amadeos.wm.decoration.FrameWindow;
 import org.datazuul.amadeos.wm.decoration.MotifDecorationTheme;
 import org.datazuul.amadeos.wm.decoration.ResizeDirection;
 import org.datazuul.amadeos.wm.decoration.WindowButton;
+import org.datazuul.amadeos.lock.LockLauncher;
+import org.datazuul.amadeos.lock.LockSelection;
 import org.datazuul.amadeos.wm.menu.DesktopMenuActions;
 import org.datazuul.amadeos.wm.menu.DesktopRootMenu;
 import org.datazuul.amadeos.wm.theme.DesktopTheme;
 import org.datazuul.amadeos.wm.theme.ThemeManager;
 import org.datazuul.amadeos.wm.theme.WallpaperManager;
-import org.datazuul.amadeos.wm.ui.AmadeScreenLocker;
 import org.datazuul.amadeos.wm.ui.SessionDialogHelper;
 
 public final class X11WindowManagerService implements AutoCloseable {
@@ -1300,15 +1301,15 @@ public final class X11WindowManagerService implements AutoCloseable {
         switch (event.type) {
             case LibX11.KeyPress -> {
                 LibX11.XKeyEvent keyEvent = new LibX11.XKeyEvent(event.getPointer());
-                if (AmadeScreenLocker.isLocked()) {
+                if (LockSelection.isLocked(x11, display)) {
                     LOGGER.fine("Screen is locked; ignoring window manager key press");
                     return;
                 }
                 // Check if Super modifier (Mod4Mask) is held and keycode matches 'l'
                 boolean isSuper = (keyEvent.state & (int) LibX11.Mod4Mask) != 0;
                 if (isSuper && (lockKeycode != 0 && keyEvent.keycode == lockKeycode)) {
-                    LOGGER.info("Super+L pressed: triggering amadeOS screen locker");
-                    AmadeScreenLocker.lockScreen();
+                    LOGGER.info("Super+L pressed: starting the amadeOS screen lock");
+                    LockLauncher.lockScreen();
                 }
             }
             case LibX11.MapRequest -> {
@@ -1422,7 +1423,7 @@ public final class X11WindowManagerService implements AutoCloseable {
                 LibX11.XButtonEvent btnEvent = new LibX11.XButtonEvent(event.getPointer());
                 long eventWin = btnEvent.window.longValue();
 
-                if (AmadeScreenLocker.isLocked()) {
+                if (LockSelection.isLocked(x11, display)) {
                     LOGGER.fine("Screen is locked; ignoring window manager button press");
                     x11.XFlush(display);
                     return;
