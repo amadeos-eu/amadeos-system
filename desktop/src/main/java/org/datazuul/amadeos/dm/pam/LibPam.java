@@ -87,6 +87,8 @@ public interface LibPam extends Library {
     int pam_set_item(Pointer pamh, int itemType, Pointer item);
     int pam_set_item(Pointer pamh, int itemType, String item);
     int pam_putenv(Pointer pamh, String nameValue);
+    /** Returns a NULL-terminated, malloc'ed array of malloc'ed "NAME=value" strings; the caller frees both. */
+    Pointer pam_getenvlist(Pointer pamh);
     String pam_strerror(Pointer pamh, int errnum);
 }
 
