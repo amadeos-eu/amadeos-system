@@ -713,6 +713,24 @@ public interface LibX11 extends Library {
 
     int XUngrabPointer(Pointer display, NativeLong time);
 
+    // Screen lock: active keyboard grab, selection ownership and key translation
+    int GrabSuccess = 0;
+    int AlreadyGrabbed = 1;
+    long XK_BackSpace = 0xFF08;
+    long XK_KP_Enter = 0xFF8D;
+
+    int XGrabKeyboard(Pointer display, NativeLong grab_window, int owner_events,
+                      int pointer_mode, int keyboard_mode, NativeLong time);
+
+    int XUngrabKeyboard(Pointer display, NativeLong time);
+
+    int XSetSelectionOwner(Pointer display, NativeLong selection, NativeLong owner, NativeLong time);
+
+    NativeLong XGetSelectionOwner(Pointer display, NativeLong selection);
+
+    int XLookupString(Pointer key_event, byte[] buffer_return, int bytes_buffer,
+                      com.sun.jna.ptr.NativeLongByReference keysym_return, Pointer status_in_out);
+
     int XFetchName(Pointer display, NativeLong window, PointerByReference window_name_return);
 
     int XStoreName(Pointer display, NativeLong window, String window_name);
