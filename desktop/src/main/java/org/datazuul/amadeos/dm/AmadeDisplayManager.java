@@ -9,16 +9,16 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.SwingUtilities;
-import org.datazuul.amadeos.dm.pam.PamAuthenticator;
-import org.datazuul.amadeos.dm.session.SessionLauncher;
+import org.datazuul.amadeos.dm.session.SessionType;
+import org.datazuul.amadeos.dm.session.SessionWorkerClient;
+import org.datazuul.amadeos.dm.session.UserAccount;
 import org.datazuul.amadeos.dm.ui.AmadeLoginGreeter;
 
 public final class AmadeDisplayManager {
     private static final Logger LOGGER = Logger.getLogger(AmadeDisplayManager.class.getName());
 
     private final String display;
-    private final PamAuthenticator authenticator;
-    private final SessionLauncher sessionLauncher;
+    private final SessionWorkerClient sessionWorkers;
     private AmadeLoginGreeter greeter;
     private Process xorgProcess;
 
@@ -29,13 +29,12 @@ public final class AmadeDisplayManager {
     }
 
     public AmadeDisplayManager(String display) {
-        this(display, new PamAuthenticator(), new SessionLauncher());
+        this(display, new SessionWorkerClient());
     }
 
-    public AmadeDisplayManager(String display, PamAuthenticator authenticator, SessionLauncher sessionLauncher) {
+    public AmadeDisplayManager(String display, SessionWorkerClient sessionWorkers) {
         this.display = display;
-        this.authenticator = authenticator;
-        this.sessionLauncher = sessionLauncher;
+        this.sessionWorkers = sessionWorkers;
     }
 
     public void start() {
@@ -85,61 +84,39 @@ public final class AmadeDisplayManager {
         }
     }
 
-    private void handleLogin(String username, String password, String sessionType) {
-        LOGGER.info(() -> "Login attempt for user: " + username + " (session: " + sessionType + ")");
+    /** Runs on the greeter's authentication thread. */
+    private void handleLogin(String username, String password, String sessionLabel) {
+        SessionType type = SessionType.from(sessionLabel);
+        LOGGER.info(() -> "Login attempt (session: " + type.id() + ")");
 
-        PamAuthenticator.AuthResult result = authenticator.authenticate(username, password);
-        if (!result.success()) {
-            greeter.setStatus("Login incorrect; please try again.", true);
+        // PAM and the session run in a separate root worker process (see SessionWorker).
+        SessionWorkerClient.Result result = sessionWorkers.login(display, username, password, type);
+        if (result instanceof SessionWorkerClient.Failed failed) {
+            greeter.setStatus(failed.message(), true);
             return;
         }
-
-        greeter.setStatus("Authentication successful. Starting session...", false);
-
-        // Hide greeter and spawn session
+        Process worker = ((SessionWorkerClient.Started) result).worker();
+        greeter.setStatus("Starting session...", false);
         SwingUtilities.invokeLater(() -> greeter.setVisible(false));
-
-        try {
-            Process sessionProc = sessionLauncher.launchSession(username, display);
-
-            // Supervise the session asynchronously
-            new Thread(() -> superviseSession(username, sessionProc, result.session()), "amadeOS-Session-Supervisor").start();
-        } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, "Failed to launch session: " + e.getMessage(), e);
-            greeter.setStatus("Failed to start session: " + e.getMessage(), true);
-            SwingUtilities.invokeLater(() -> greeter.setVisible(true));
-            result.session().close();
-        }
+        new Thread(() -> superviseSession(username, worker), "amadeOS-Session-Supervisor").start();
     }
 
-    private void superviseSession(String username, Process sessionProc, PamAuthenticator.PamSession pamSession) {
+    private void superviseSession(String username, Process worker) {
         long startTime = System.currentTimeMillis();
         int exitCode = -1;
         try {
-            exitCode = sessionProc.waitFor();
+            exitCode = worker.waitFor();
             LOGGER.info("User session for " + username + " exited with code " + exitCode);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } finally {
-            // Clean up PAM session credentials
-            pamSession.close();
-
             // Check if user requested system power actions via session control dialog
             checkSessionActionFile(username);
 
             long duration = System.currentTimeMillis() - startTime;
             if (duration < 2000 || exitCode != 0) {
-                LOGGER.warning("Session ended quickly (" + duration + "ms) with exit code " + exitCode);
-                File runnerLog = new File("/var/log/amadeos-session-runner.log");
-                if (runnerLog.exists()) {
-                    try {
-                        String logTail = Files.readString(runnerLog.toPath());
-                        if (!logTail.isBlank()) {
-                            LOGGER.warning("Session runner log:\n" + logTail);
-                        }
-                    } catch (Exception ignored) {
-                    }
-                }
+                LOGGER.warning("Session ended quickly (" + duration + "ms) with exit code " + exitCode
+                        + "; see /var/log/amadeos-session-runner.log");
             }
 
             // Re-arm the login greeter
@@ -151,7 +128,7 @@ public final class AmadeDisplayManager {
     }
 
     private void checkSessionActionFile(String username) {
-        String home = "/home/" + username;
+        String home = UserAccount.lookup(username).map(UserAccount::home).orElse("/home/" + username);
         File actionFile = new File(home, ".amadeos-session-action");
         if (actionFile.exists()) {
             try {

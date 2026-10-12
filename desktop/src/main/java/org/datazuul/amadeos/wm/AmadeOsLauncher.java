@@ -9,6 +9,8 @@ public final class AmadeOsLauncher {
 
         if ("dm".equalsIgnoreCase(mode)) {
             org.datazuul.amadeos.dm.AmadeDisplayManager.main(subArgs);
+        } else if ("session-worker".equalsIgnoreCase(mode)) {
+            org.datazuul.amadeos.dm.session.SessionWorker.main(subArgs);
         } else if ("greeter".equalsIgnoreCase(mode)) {
             javax.swing.SwingUtilities.invokeLater(() -> {
                 new org.datazuul.amadeos.dm.ui.AmadeLoginGreeter(

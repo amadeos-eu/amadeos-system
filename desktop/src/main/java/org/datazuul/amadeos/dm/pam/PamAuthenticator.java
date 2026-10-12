@@ -3,6 +3,8 @@ package org.datazuul.amadeos.dm.pam;
 import com.sun.jna.Native;
 import com.sun.jna.Pointer;
 import com.sun.jna.ptr.PointerByReference;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -44,6 +46,38 @@ public final class PamAuthenticator {
             return username;
         }
 
+        /**
+         * The PAM environment after the session was opened (e.g. XDG_RUNTIME_DIR, XDG_SESSION_ID
+         * from pam_systemd, variables from pam_env). Empty for mock sessions.
+         */
+        public synchronized Map<String, String> environment() {
+            Map<String, String> result = new LinkedHashMap<>();
+            if (pamHandle == null || closed) {
+                return result;
+            }
+            Pointer list = LibPam.INSTANCE.pam_getenvlist(pamHandle);
+            if (list == null) {
+                return result;
+            }
+            try {
+                for (int i = 0; ; i++) {
+                    Pointer entry = list.getPointer((long) i * Native.POINTER_SIZE);
+                    if (entry == null) {
+                        break;
+                    }
+                    String pair = entry.getString(0);
+                    LibC.INSTANCE.free(entry);
+                    int eq = pair.indexOf('=');
+                    if (eq > 0) {
+                        result.put(pair.substring(0, eq), pair.substring(eq + 1));
+                    }
+                }
+            } finally {
+                LibC.INSTANCE.free(list);
+            }
+            return result;
+        }
+
         @Override
         public synchronized void close() {
             if (closed) {
@@ -77,7 +111,17 @@ public final class PamAuthenticator {
      * The caller must close the returned session when the login session ends.
      */
     public AuthResult authenticate(String username, String password) {
-        return run(username, password, true);
+        return run(username, password, true, "tty7", Map.of());
+    }
+
+    /**
+     * Like {@link #authenticate} for a graphical login: sets PAM_TTY (the X display, e.g. ":0")
+     * and puts the given variables into the PAM environment before authenticating, so modules
+     * such as pam_systemd see XDG_SEAT, XDG_VTNR and XDG_SESSION_TYPE and register an active
+     * graphical seat session.
+     */
+    public AuthResult openLoginSession(String username, String password, String tty, Map<String, String> environment) {
+        return run(username, password, true, tty, environment);
     }
 
     /**
@@ -85,14 +129,15 @@ public final class PamAuthenticator {
      * Used to unlock a screen of a session that is already open.
      */
     public AuthResult verify(String username, String password) {
-        AuthResult result = run(username, password, false);
+        AuthResult result = run(username, password, false, "tty7", Map.of());
         if (result.success() && result.session() != null) {
             result.session().close();
         }
         return result;
     }
 
-    private AuthResult run(String username, String password, boolean openSession) {
+    private AuthResult run(String username, String password, boolean openSession,
+                           String tty, Map<String, String> environment) {
         if (username == null || username.isBlank()) {
             return AuthResult.fail("Username cannot be empty");
         }
@@ -163,8 +208,11 @@ public final class PamAuthenticator {
         Pointer pamh = pamhRef.getValue();
 
         try {
-            LibPam.INSTANCE.pam_set_item(pamh, LibPam.PAM_TTY, "tty7");
+            LibPam.INSTANCE.pam_set_item(pamh, LibPam.PAM_TTY, tty);
         } catch (Exception ignored) {
+        }
+        for (Map.Entry<String, String> variable : environment.entrySet()) {
+            LibPam.INSTANCE.pam_putenv(pamh, variable.getKey() + "=" + variable.getValue());
         }
 
         rc = LibPam.INSTANCE.pam_authenticate(pamh, 0);
