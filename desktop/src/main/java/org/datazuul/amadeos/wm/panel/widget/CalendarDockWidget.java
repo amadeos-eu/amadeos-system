@@ -14,6 +14,8 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.Locale;
+import java.util.List;
+import org.datazuul.amadeos.wm.process.ProcessLauncher;
 import javax.swing.JComponent;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
@@ -238,15 +240,13 @@ public final class CalendarDockWidget extends AbstractDockWidget {
 
     private void launchCalendarApp() {
         // Try launching orage, then gnome-calendar, or fallback to an informative dialog
-        String[] candidates = {"orage", "gnome-calendar", "korganizer"};
-        for (String cmd : candidates) {
-            try {
-                Process p = new ProcessBuilder("which", cmd).start();
-                if (p.waitFor() == 0) {
-                    new ProcessBuilder(cmd).start();
-                    return;
-                }
-            } catch (Exception ignored) {}
+        try {
+            if (ProcessLauncher.startFirstAvailable(
+                    List.of(List.of("orage"), List.of("gnome-calendar"), List.of("korganizer"))).isPresent()) {
+                return;
+            }
+        } catch (Exception ignored) {
+            // fall back to the date dialog
         }
 
         // Fallback: Show today's date dialog

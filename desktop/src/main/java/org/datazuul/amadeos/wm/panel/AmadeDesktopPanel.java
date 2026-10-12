@@ -442,7 +442,7 @@ public final class AmadeDesktopPanel extends JFrame {
 
     private void launchProcess(String... cmd) {
         try {
-            new ProcessBuilder(cmd).start();
+            org.datazuul.amadeos.wm.process.ProcessLauncher.start(java.util.List.of(cmd));
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this, "Failed to launch " + cmd[0] + ": " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }

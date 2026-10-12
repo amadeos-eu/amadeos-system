@@ -1,6 +1,5 @@
 package org.datazuul.amadeos.wm.xdg;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -8,6 +7,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.logging.Logger;
+import org.datazuul.amadeos.wm.process.ProcessLauncher;
 
 /**
  * Represents an individual Freedesktop.org XDG Desktop Entry (.desktop file).
@@ -130,9 +130,7 @@ public record XdgDesktopEntry(
             throw new IOException("Cannot launch application '" + name + "': empty Exec command");
         }
         LOGGER.info(() -> "Launching XDG application [" + name + "]: " + String.join(" ", cmd));
-        ProcessBuilder pb = new ProcessBuilder(cmd);
-        pb.directory(new File(System.getProperty("user.home", "/tmp")));
-        return pb.start();
+        return ProcessLauncher.start(cmd);
     }
 
     private static String stripFieldCodes(String token) {
