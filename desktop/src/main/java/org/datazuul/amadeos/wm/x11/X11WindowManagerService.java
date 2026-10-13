@@ -31,7 +31,7 @@ import org.datazuul.amadeos.lock.LockLauncher;
 import org.datazuul.amadeos.lock.LockSelection;
 import org.datazuul.amadeos.wm.menu.DesktopMenuActions;
 import org.datazuul.amadeos.wm.menu.DesktopRootMenu;
-import org.datazuul.amadeos.wm.theme.DesktopTheme;
+import org.datazuul.amadeos.commons.theme.DesktopTheme;
 import org.datazuul.amadeos.wm.theme.ThemeManager;
 import org.datazuul.amadeos.wm.theme.WallpaperManager;
 import org.datazuul.amadeos.wm.ui.SessionDialogHelper;

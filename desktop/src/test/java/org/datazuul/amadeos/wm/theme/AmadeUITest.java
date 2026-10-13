@@ -1,6 +1,8 @@
 package org.datazuul.amadeos.wm.theme;
 
 import java.awt.Dimension;
+import org.datazuul.amadeos.commons.swing.AmadeUI;
+import org.datazuul.amadeos.commons.theme.DesktopTheme;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import javax.swing.JButton;

@@ -9,7 +9,7 @@ import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
 import javax.swing.border.AbstractBorder;
-import org.datazuul.amadeos.wm.theme.DesktopTheme;
+import org.datazuul.amadeos.commons.theme.DesktopTheme;
 import org.datazuul.amadeos.wm.theme.ThemeManager;
 
 public abstract class AbstractDockWidget implements DockWidget {
@@ -51,7 +51,7 @@ public abstract class AbstractDockWidget implements DockWidget {
 
         @Override
         public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {
-            org.datazuul.amadeos.wm.theme.AmadeUI.paintBevel(g, x, y, width, height, raised, thickness);
+            org.datazuul.amadeos.commons.swing.AmadeUI.paintBevel(g, x, y, width, height, raised, thickness);
         }
 
         @Override
