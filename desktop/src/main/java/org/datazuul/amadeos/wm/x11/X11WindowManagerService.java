@@ -357,7 +357,7 @@ public final class X11WindowManagerService implements AutoCloseable {
 
             @Override
             public void openSettings() {
-                SwingUtilities.invokeLater(() -> new org.datazuul.amadeos.wm.settings.AmadeSettingsApplication().setVisible(true));
+                SwingUtilities.invokeLater(org.datazuul.amadeos.style.StyleManager::open);
             }
 
             @Override

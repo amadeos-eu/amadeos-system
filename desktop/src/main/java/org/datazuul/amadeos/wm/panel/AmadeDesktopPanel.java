@@ -241,7 +241,7 @@ public final class AmadeDesktopPanel extends JFrame {
         // Slot 7: Style Manager (flat notch tab, no drawer ▲)
         DrawerDockWidget styleWidget = new DrawerDockWidget(
                 "style", "Style Manager", "style",
-                e -> new org.datazuul.amadeos.wm.settings.AmadeSettingsApplication().setVisible(true),
+                e -> org.datazuul.amadeos.style.StyleManager.open(),
                 List.of(),
                 false
         );

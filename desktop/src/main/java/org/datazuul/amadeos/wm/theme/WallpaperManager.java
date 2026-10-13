@@ -1,6 +1,7 @@
 package org.datazuul.amadeos.wm.theme;
 
 import org.datazuul.amadeos.wm.XdgDirectories;
+import org.datazuul.amadeos.wm.theme.backdrop.Backdrops;
 import com.sun.jna.Memory;
 import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
@@ -25,7 +26,8 @@ import org.datazuul.amadeos.wm.x11.LibX11;
 
 /**
  * Manages desktop wallpapers and background rendering on the X11 Root Window.
- * Supports Fill, Fit, Stretch, Tile, and Center modes, solid color backdrops,
+ * Supports Fill, Fit, Stretch, Tile, and Center modes, solid color backdrops, CDE pattern backdrops
+ * (X pixmaps and bitmaps coloured from the backdrop colour, see {@link Backdrops}),
  * persistence to $XDG_CONFIG_HOME/amadeos/wallpaper.conf (default ~/.config), and Freedesktop/X11 root pixmap export.
  */
 public final class WallpaperManager {
@@ -43,7 +45,15 @@ public final class WallpaperManager {
         public String label() { return label; }
     }
 
+    /** The list entry for a plain colour without image, CDE's "NoBackdrop". */
+    public static final String NO_BACKDROP = "none";
+
     public record WallpaperItem(String name, String path, boolean isClasspath) {
+        /** Whether this is a CDE-style pattern that is coloured and tiled. */
+        public boolean isPattern() {
+            return Backdrops.isPattern(path);
+        }
+
         @Override
         public String toString() { return name; }
     }
@@ -92,8 +102,13 @@ public final class WallpaperManager {
     public static List<WallpaperItem> availableWallpapers() {
         List<WallpaperItem> list = new ArrayList<>();
 
-        // 1. Classpath default wallpapers
+        // 1. Plain colour and the amadeOS default picture
+        list.add(new WallpaperItem("No Backdrop (color only)", NO_BACKDROP, true));
         list.add(new WallpaperItem("amadeOS Default (Classpath)", "classpath:/wallpapers/default.png", true));
+        // The original CDE backdrops, if the amadeos-backdrops-cde package is installed
+        for (java.nio.file.Path file : Backdrops.systemBackdrops()) {
+            list.add(new WallpaperItem(Backdrops.displayName(file.toString()), file.toString(), false));
+        }
 
         // 2. System backgrounds: /usr/share/backgrounds/
         File sysBg = new File("/usr/share/backgrounds");
@@ -107,6 +122,9 @@ public final class WallpaperManager {
 
         // 4. Custom amadeOS config wallpapers
         scanDirectoryForWallpapers(XdgDirectories.amadeosConfigDir().resolve("wallpapers").toFile(), list);
+        // 5. Personal CDE backdrops (.pm/.bm), in CDE's own place and in the amadeOS config
+        scanDirectoryForWallpapers(new File(home, ".dt/backdrops"), list);
+        scanDirectoryForWallpapers(XdgDirectories.amadeosConfigDir().resolve("backdrops").toFile(), list);
 
         return Collections.unmodifiableList(list);
     }
@@ -118,7 +136,7 @@ public final class WallpaperManager {
         for (File f : files) {
             if (f.isFile() && !f.isHidden()) {
                 String name = f.getName().toLowerCase();
-                if (name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg")) {
+                if (name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg") || Backdrops.isPattern(name)) {
                     out.add(new WallpaperItem(f.getName(), f.getAbsolutePath(), false));
                 }
             } else if (f.isDirectory() && !f.isHidden() && ("amadeos".equalsIgnoreCase(f.getName()) || "backgrounds".equalsIgnoreCase(dir.getName()))) {
@@ -128,13 +146,24 @@ public final class WallpaperManager {
     }
 
     /**
-     * Loads a wallpaper image from either a filesystem path or a classpath resource.
+     * Loads a wallpaper image from either a filesystem path or a classpath resource; patterns are
+     * coloured with the current backdrop colour.
      */
     public static BufferedImage loadImage(String path) {
-        if (path == null || path.isBlank() || "none".equalsIgnoreCase(path)) {
+        return loadImage(path, currentBgColor);
+    }
+
+    /**
+     * Loads a wallpaper image; X pixmap and bitmap patterns are coloured with {@code backdropColor}.
+     */
+    public static BufferedImage loadImage(String path, Color backdropColor) {
+        if (path == null || path.isBlank() || NO_BACKDROP.equalsIgnoreCase(path)) {
             return null;
         }
         try {
+            if (Backdrops.isPattern(path)) {
+                return Backdrops.load(path, backdropColor != null ? backdropColor : currentBgColor);
+            }
             if (path.startsWith("classpath:")) {
                 String resPath = path.substring("classpath:".length());
                 try (InputStream in = WallpaperManager.class.getResourceAsStream(resPath)) {
@@ -264,7 +293,7 @@ public final class WallpaperManager {
             LibX11 x11, Pointer display, long root, int screenW, int screenH, int depth, Pointer visual) {
         if (x11 == null || display == null || root == 0) return;
         try {
-            BufferedImage img = loadImage(currentWallpaperPath);
+            BufferedImage img = loadImage(currentWallpaperPath, currentBgColor);
             BufferedImage targetImg = renderToTarget(img, screenW, screenH, currentMode, currentBgColor);
 
             NativeLong pixmap = x11.XCreatePixmap(display, new NativeLong(root), screenW, screenH, depth);

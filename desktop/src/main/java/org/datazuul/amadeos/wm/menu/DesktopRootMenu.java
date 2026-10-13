@@ -163,8 +163,8 @@ public final class DesktopRootMenu {
 
         menu.add(createSeparator(theme));
 
-        // 6. Style Manager (Desktop Settings)
-        menu.add(createStyledMenuItem("Desktop Settings...", "style", e -> actions.openSettings(), theme));
+        // 6. Style Manager
+        menu.add(createStyledMenuItem("Style Manager...", "style", e -> actions.openSettings(), theme));
 
         // 7. Refresh Desktop
         menu.add(createStyledMenuItem("Refresh Desktop", "view-refresh", e -> actions.refreshDesktop(), theme));
