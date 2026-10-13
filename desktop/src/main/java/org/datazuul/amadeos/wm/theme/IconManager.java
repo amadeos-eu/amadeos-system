@@ -1,5 +1,6 @@
 package org.datazuul.amadeos.wm.theme;
 
+import org.datazuul.amadeos.commons.theme.DesktopTheme;
 import org.datazuul.amadeos.wm.XdgDirectories;
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -10,7 +11,6 @@ import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -31,9 +31,11 @@ import javax.swing.ImageIcon;
  * Resolves desktop and panel icons compliant with the Freedesktop.org Icon Theme
  * and Icon Naming Specifications (https://specifications.freedesktop.org/icon-theme/latest/).
  *
- * Supports third-party icon packs (Adwaita, Papirus, Tango, elementary-xfce, etc.)
- * installed in standard XDG/system directories, custom amadeOS themes, classpath themes,
- * and built-in Java2D vector/pixel fallbacks.
+ * The default icon theme is NsCDE ({@link DesktopTheme#DEFAULT_ICON_THEME}, package
+ * {@code nscde-icon-theme}); other packs (Adwaita, Papirus, Tango, ...) installed in the standard XDG/system
+ * directories and amadeOS theme folders can be chosen in the Style Manager. Names no theme provides fall
+ * back to {@code /usr/share/pixmaps} and finally to icons drawn in Java2D, so the desktop stays usable
+ * without any icon package.
  */
 public final class IconManager {
     private static final Logger LOGGER = Logger.getLogger(IconManager.class.getName());
@@ -137,20 +139,20 @@ public final class IconManager {
     }
 
     /**
-     * Discovers all available icon themes installed across standard XDG and system paths.
+     * Discovers the icon themes installed across standard XDG and system paths: folders with an
+     * {@code index.theme} or an {@code icons/} sub-folder. hicolor is only the common fallback and not
+     * listed; the default theme (NsCDE) comes first when installed.
      */
     public static List<IconThemeInfo> availableIconThemes() {
         Map<String, IconThemeInfo> found = new LinkedHashMap<>();
-
-        // Always include built-in classic
-        found.put("classic", new IconThemeInfo("classic", "Classic amadeOS / CDE", "Built-in authentic Motif/CDE icons", List.of("hicolor"), List.of(), null));
 
         for (File base : getIconBaseDirectories()) {
             if (!base.isDirectory()) continue;
             File[] subs = base.listFiles();
             if (subs == null) continue;
+            java.util.Arrays.sort(subs);
             for (File sub : subs) {
-                if (sub.isDirectory() && !sub.isHidden()) {
+                if (sub.isDirectory() && !sub.isHidden() && isIconTheme(sub)) {
                     String themeId = sub.getName();
                     if (!found.containsKey(themeId)) {
                         IconThemeInfo info = getThemeInfo(themeId, sub);
@@ -162,7 +164,15 @@ public final class IconManager {
             }
         }
 
-        return Collections.unmodifiableList(new ArrayList<>(found.values()));
+        List<IconThemeInfo> list = new ArrayList<>(found.values());
+        list.sort(java.util.Comparator.comparing(
+                (IconThemeInfo t) -> !t.id().equals(DesktopTheme.DEFAULT_ICON_THEME)));
+        return Collections.unmodifiableList(list);
+    }
+
+    private static boolean isIconTheme(File dir) {
+        if ("hicolor".equalsIgnoreCase(dir.getName())) return false;
+        return new File(dir, "index.theme").isFile() || new File(dir, "icons").isDirectory();
     }
 
     private static IconThemeInfo getThemeInfo(String themeId, File dir) {
@@ -257,6 +267,11 @@ public final class IconManager {
 
         Set<String> visitedThemes = new LinkedHashSet<>();
 
+        // A theme that is not installed (e.g. the former built-in "classic") falls back to the default one.
+        if (findThemeDirectory(iconTheme) == null) {
+            iconTheme = DesktopTheme.DEFAULT_ICON_THEME;
+        }
+
         // 1. Resolve through Freedesktop theme hierarchy
         BufferedImage img = resolveFreedesktopThemeHierarchy(iconTheme, candidates, size, visitedThemes);
         if (img != null) {
@@ -284,21 +299,7 @@ public final class IconManager {
             }
         }
 
-        // 3. Check classpath resources: /themes/<iconTheme>/icons/<key>.png or /themes/classic/icons/<key>.png
-        String[] cpPaths = {
-                "/themes/" + iconTheme + "/icons/" + key + ".png",
-                "/themes/classic/icons/" + key + ".png"
-        };
-        for (String cp : cpPaths) {
-            try (InputStream in = IconManager.class.getResourceAsStream(cp)) {
-                if (in != null) {
-                    BufferedImage cpImg = ImageIO.read(in);
-                    if (cpImg != null) return scaleIcon(cpImg, size);
-                }
-            } catch (Exception ignored) {}
-        }
-
-        // 4. Fallback to programmatic pixel/vector generator
+        // 3. Fallback to programmatic pixel/vector generator
         BufferedImage generated = generatePixmaps(key, size);
         return new ImageIcon(generated);
     }
@@ -677,38 +678,5 @@ public final class IconManager {
 
         g.dispose();
         return img;
-    }
-
-    public static void saveDefaultIconsToDirectory(File dir) {
-        if (!dir.exists()) {
-            dir.mkdirs();
-        }
-        String[] keys = {
-                "file-manager", "text-editor", "terminal", "lock", "power", "trash",
-                "diagnostics", "window", "mail", "printer", "style", "app-manager", "help"
-        };
-        for (String key : keys) {
-            File target = new File(dir, key + ".png");
-            if (!target.exists()) {
-                try {
-                    BufferedImage img = generatePixmaps(key, 32);
-                    ImageIO.write(img, "png", target);
-                    LOGGER.info("Generated default theme icon: " + target.getAbsolutePath());
-                } catch (Exception e) {
-                    LOGGER.warning("Failed to save icon " + key + ": " + e.getMessage());
-                }
-            }
-        }
-    }
-
-    public static void main(String[] args) {
-        if (args.length > 0) {
-            for (String dir : args) {
-                saveDefaultIconsToDirectory(new File(dir));
-            }
-        } else {
-            saveDefaultIconsToDirectory(new File("src/main/resources/themes/classic/icons"));
-            saveDefaultIconsToDirectory(new File("config/includes.chroot/etc/amadeos/themes/classic/icons"));
-        }
     }
 }

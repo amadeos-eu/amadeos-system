@@ -6,6 +6,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.swing.Icon;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -70,10 +71,56 @@ class ThemeManagerTest {
     }
 
     @Test
-    void availableIconThemesDiscoversInstalledThemes() {
-        var themes = IconManager.availableIconThemes();
-        assertFalse(themes.isEmpty());
-        assertTrue(themes.stream().anyMatch(t -> "classic".equals(t.id())));
+    void availableIconThemesListsInstalledThemesWithNsCdeFirst(@TempDir java.nio.file.Path home) throws Exception {
+        for (String theme : new String[]{"Adwaita", "NsCDE", "hicolor"}) {
+            java.nio.file.Path dir = java.nio.file.Files.createDirectories(home.resolve(".icons").resolve(theme));
+            java.nio.file.Files.writeString(dir.resolve("index.theme"), "[Icon Theme]\nName=" + theme + "\n");
+        }
+        java.nio.file.Files.createDirectories(home.resolve(".icons/default-cursors-only"));
+        String previous = System.getProperty("user.home");
+        System.setProperty("user.home", home.toString());
+        IconManager.clearCache();
+        try {
+            var ids = IconManager.availableIconThemes().stream().map(IconManager.IconThemeInfo::id).toList();
+            assertEquals(DesktopTheme.DEFAULT_ICON_THEME, ids.get(0));
+            assertTrue(ids.contains("Adwaita"));
+            assertFalse(ids.contains("hicolor"), "hicolor is only the fallback");
+            assertFalse(ids.contains("classic"));
+            assertFalse(ids.contains("default-cursors-only"));
+        } finally {
+            System.setProperty("user.home", previous);
+            IconManager.clearCache();
+        }
+    }
+
+    @Test
+    void anUninstalledIconThemeFallsBackToNsCde(@TempDir java.nio.file.Path home) throws Exception {
+        java.nio.file.Path apps = java.nio.file.Files.createDirectories(home.resolve(".icons/NsCDE/32x32/apps"));
+        java.awt.image.BufferedImage red = new java.awt.image.BufferedImage(32, 32, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        java.awt.Graphics2D g = red.createGraphics();
+        g.setColor(Color.RED);
+        g.fillRect(0, 0, 32, 32);
+        g.dispose();
+        javax.imageio.ImageIO.write(red, "png", apps.resolve("utilities-terminal.png").toFile());
+        String previous = System.getProperty("user.home");
+        System.setProperty("user.home", home.toString());
+        IconManager.clearCache();
+        try {
+            Icon icon = IconManager.getIcon("classic", "terminal", 32);
+            java.awt.image.BufferedImage painted = new java.awt.image.BufferedImage(32, 32, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+            java.awt.Graphics2D pg = painted.createGraphics();
+            icon.paintIcon(null, pg, 0, 0);
+            pg.dispose();
+            assertEquals(Color.RED.getRGB(), painted.getRGB(16, 16), "taken from the NsCDE theme");
+        } finally {
+            System.setProperty("user.home", previous);
+            IconManager.clearCache();
+        }
+    }
+
+    @Test
+    void nsCdeIsTheDefaultIconTheme() {
+        assertEquals("NsCDE", DesktopTheme.WARM_MOTIF.iconTheme());
     }
 
     @Test
