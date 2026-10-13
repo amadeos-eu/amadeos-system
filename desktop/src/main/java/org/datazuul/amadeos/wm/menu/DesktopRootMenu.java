@@ -19,9 +19,9 @@ import javax.swing.JWindow;
 import javax.swing.SwingUtilities;
 import javax.swing.event.PopupMenuEvent;
 import javax.swing.event.PopupMenuListener;
-import org.datazuul.amadeos.wm.theme.AmadeUI;
+import org.datazuul.amadeos.commons.swing.AmadeUI;
 import org.datazuul.amadeos.wm.process.ProcessLauncher;
-import org.datazuul.amadeos.wm.theme.DesktopTheme;
+import org.datazuul.amadeos.commons.theme.DesktopTheme;
 import org.datazuul.amadeos.wm.theme.IconManager;
 import org.datazuul.amadeos.wm.theme.ThemeManager;
 import org.datazuul.amadeos.wm.xdg.XdgApplicationManager;
@@ -42,7 +42,7 @@ public final class DesktopRootMenu {
     public DesktopRootMenu(DesktopMenuActions actions) {
         this.actions = Objects.requireNonNull(actions, "actions must not be null");
         if (!GraphicsEnvironment.isHeadless()) {
-            AmadeUI.install();
+            AmadeUI.install(ThemeManager.currentTheme());
         }
     }
 

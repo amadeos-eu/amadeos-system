@@ -44,7 +44,7 @@ import org.datazuul.amadeos.wm.panel.widget.DockWidget;
 import org.datazuul.amadeos.wm.panel.widget.DrawerDockWidget;
 import org.datazuul.amadeos.wm.panel.widget.DrawerDockWidget.DrawerTool;
 import org.datazuul.amadeos.wm.panel.widget.WorkspaceSwitcherDockWidget;
-import org.datazuul.amadeos.wm.theme.DesktopTheme;
+import org.datazuul.amadeos.commons.theme.DesktopTheme;
 import org.datazuul.amadeos.wm.theme.IconManager;
 import org.datazuul.amadeos.wm.theme.ThemeManager;
 import org.datazuul.amadeos.wm.xdg.XdgApplicationManager;

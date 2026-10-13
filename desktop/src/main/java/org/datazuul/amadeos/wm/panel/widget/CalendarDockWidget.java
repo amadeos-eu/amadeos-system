@@ -22,7 +22,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.Timer;
-import org.datazuul.amadeos.wm.theme.DesktopTheme;
+import org.datazuul.amadeos.commons.theme.DesktopTheme;
 import org.datazuul.amadeos.wm.theme.ThemeManager;
 
 /**

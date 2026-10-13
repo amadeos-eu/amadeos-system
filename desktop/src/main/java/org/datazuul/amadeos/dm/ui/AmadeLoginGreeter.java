@@ -29,7 +29,7 @@ import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
-import org.datazuul.amadeos.wm.theme.DesktopTheme;
+import org.datazuul.amadeos.commons.theme.DesktopTheme;
 import org.datazuul.amadeos.wm.theme.ThemeManager;
 
 public final class AmadeLoginGreeter extends JFrame {

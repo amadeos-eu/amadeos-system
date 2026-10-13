@@ -1,22 +1,30 @@
 package org.datazuul.amadeos.wm.theme;
 
+import org.datazuul.amadeos.commons.swing.AmadeUI;
+import org.datazuul.amadeos.commons.theme.DesktopTheme;
+import org.datazuul.amadeos.commons.theme.ThemeRegistry;
+import org.datazuul.amadeos.commons.theme.ThemeStore;
 import org.datazuul.amadeos.wm.XdgDirectories;
-import java.awt.Color;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStream;
+
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashMap;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
-import java.util.Map;
-import java.util.Properties;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.Logger;
 
+/**
+ * The desktop's side of theming: selects the theme, stores it in {@code ~/.config/amadeos/theme.conf}
+ * and {@code icon_theme.conf} and notifies the desktop processes (window manager, front panel, settings),
+ * which also exchange it through the X11 root window property {@value #X11_THEME_ATOM}.
+ *
+ * <p>The themes themselves, their discovery and the Motif look come from amade-commons
+ * ({@link DesktopTheme}, {@link ThemeRegistry}, {@link AmadeUI}). Applications built on amade-commons read
+ * the same files through {@link ThemeStore} and switch together with the desktop.
+ */
 public final class ThemeManager {
     private static final Logger LOGGER = Logger.getLogger(ThemeManager.class.getName());
     public static final String X11_THEME_ATOM = "_AMADEOS_THEME";
@@ -26,37 +34,25 @@ public final class ThemeManager {
         void onThemeChanged(DesktopTheme newTheme);
     }
 
-    private static final Map<String, DesktopTheme> THEMES = new LinkedHashMap<>();
+    private static final ThemeRegistry REGISTRY = ThemeRegistry.withCustomThemes(List.of(
+            Path.of("/etc/amadeos/themes"), XdgDirectories.amadeosConfigDir().resolve("themes")));
     private static final List<ThemeChangeListener> LISTENERS = new CopyOnWriteArrayList<>();
     private static volatile DesktopTheme currentTheme;
 
     static {
-        registerTheme(DesktopTheme.WARM_MOTIF);
-        registerTheme(DesktopTheme.CDE_BROCADE);
-        registerTheme(DesktopTheme.CDE_DESERT);
-        registerTheme(DesktopTheme.CLASSIC_GRAY);
-        registerTheme(DesktopTheme.DARK_SLATE);
-
-        currentTheme = DesktopTheme.WARM_MOTIF;
-
-        // Discover on-disk custom themes
-        discoverThemesFromDisk();
-
-        // Load persisted preference if available
-        loadPersistedTheme();
-
-        // Install central Motif 3D styling across Swing
+        // Same reading rules as every amade-commons application: theme.conf, then icon_theme.conf.
+        currentTheme = new ThemeStore(XdgDirectories.amadeosConfigDir(), REGISTRY).current();
         AmadeUI.install(currentTheme);
     }
 
     private ThemeManager() {}
 
-    public static synchronized void registerTheme(DesktopTheme theme) {
-        THEMES.put(theme.id(), theme);
+    public static void registerTheme(DesktopTheme theme) {
+        REGISTRY.register(theme);
     }
 
     public static List<DesktopTheme> availableThemes() {
-        return Collections.unmodifiableList(new ArrayList<>(THEMES.values()));
+        return REGISTRY.all();
     }
 
     public static DesktopTheme currentTheme() {
@@ -64,9 +60,7 @@ public final class ThemeManager {
     }
 
     public static DesktopTheme getTheme(String id) {
-        if (id == null) return currentTheme;
-        DesktopTheme found = THEMES.get(id);
-        return found != null ? found : currentTheme;
+        return REGISTRY.find(id).orElse(currentTheme);
     }
 
     public static void addListener(ThemeChangeListener listener) {
@@ -78,7 +72,7 @@ public final class ThemeManager {
     }
 
     public static synchronized void applyTheme(String themeId) {
-        DesktopTheme theme = THEMES.get(themeId);
+        DesktopTheme theme = REGISTRY.find(themeId).orElse(null);
         if (theme == null) {
             LOGGER.warning("Theme '" + themeId + "' not found, keeping current: " + currentTheme.id());
             return;
@@ -86,23 +80,12 @@ public final class ThemeManager {
         if (currentTheme.id().equals(theme.id())) {
             return;
         }
-
         currentTheme = theme;
         AmadeUI.install(theme);
         IconManager.clearCache();
         LOGGER.info(() -> "Applied desktop theme: " + theme.name() + " (" + theme.id() + ")");
-
-        // Save preference
-        persistTheme(theme.id());
-
-        // Notify in-process listeners
-        for (ThemeChangeListener l : LISTENERS) {
-            try {
-                l.onThemeChanged(theme);
-            } catch (Exception e) {
-                LOGGER.warning("Error notifying theme listener: " + e.getMessage());
-            }
-        }
+        persist(ThemeStore.THEME_FILE, theme.id());
+        notifyListeners(theme);
     }
 
     public static synchronized void applyTheme(DesktopTheme theme) {
@@ -114,105 +97,42 @@ public final class ThemeManager {
         if (iconThemeId == null || iconThemeId.isBlank()) return;
         currentTheme = currentTheme.withIconTheme(iconThemeId);
         IconManager.clearCache();
-        persistIconTheme(iconThemeId);
+        persist(ThemeStore.ICON_THEME_FILE, iconThemeId);
         LOGGER.info(() -> "Applied icon theme: " + iconThemeId);
+        notifyListeners(currentTheme);
+    }
 
-        // Notify in-process listeners
+    private static void notifyListeners(DesktopTheme theme) {
         for (ThemeChangeListener l : LISTENERS) {
             try {
-                l.onThemeChanged(currentTheme);
+                l.onThemeChanged(theme);
             } catch (Exception e) {
                 LOGGER.warning("Error notifying theme listener: " + e.getMessage());
             }
         }
     }
 
-    private static void discoverThemesFromDisk() {
-        File[] searchDirs = {
-                new File("/etc/amadeos/themes"),
-                XdgDirectories.amadeosConfigDir().resolve("themes").toFile()
-        };
-
-        for (File dir : searchDirs) {
-            if (dir.isDirectory()) {
-                File[] subdirs = dir.listFiles(File::isDirectory);
-                if (subdirs != null) {
-                    for (File themeDir : subdirs) {
-                        loadThemeFromDirectory(themeDir);
-                    }
-                }
-            }
-        }
-    }
-
-    private static void loadThemeFromDirectory(File dir) {
-        File propFile = new File(dir, "theme.properties");
-        if (!propFile.isFile()) {
-            return;
-        }
-
-        try (InputStream in = new FileInputStream(propFile)) {
-            Properties p = new Properties();
-            p.load(in);
-
-            String id = dir.getName();
-            String name = p.getProperty("name", id);
-            String baseHex = p.getProperty("base", "#CEC2BB");
-            Color base = Color.decode(baseHex);
-
-            Color hl = p.containsKey("highlight") ? Color.decode(p.getProperty("highlight")) : null;
-            Color softHl = p.containsKey("softHighlight") ? Color.decode(p.getProperty("softHighlight")) : null;
-            Color sh = p.containsKey("shadow") ? Color.decode(p.getProperty("shadow")) : null;
-            Color darkSh = p.containsKey("darkShadow") ? Color.decode(p.getProperty("darkShadow")) : null;
-            Color sunken = p.containsKey("sunkenBg") ? Color.decode(p.getProperty("sunkenBg")) : null;
-            Color activeTitle = p.containsKey("activeTitleBg") ? Color.decode(p.getProperty("activeTitleBg")) : null;
-            Color inactiveTitle = p.containsKey("inactiveTitleBg") ? Color.decode(p.getProperty("inactiveTitleBg")) : null;
-            Color txtAct = p.containsKey("textActive") ? Color.decode(p.getProperty("textActive")) : null;
-            Color txtInact = p.containsKey("textInactive") ? Color.decode(p.getProperty("textInactive")) : null;
-            String iconTheme = p.getProperty("iconTheme", id);
-
-            DesktopTheme custom = new DesktopTheme(id, name, base, hl, softHl, sh, darkSh, sunken, activeTitle, inactiveTitle, txtAct, txtInact, iconTheme);
-            registerTheme(custom);
-            LOGGER.info("Discovered custom theme from " + propFile.getAbsolutePath() + ": " + name);
-        } catch (Exception e) {
-            LOGGER.warning("Failed to load theme from " + propFile + ": " + e.getMessage());
-        }
-    }
-
-    private static void loadPersistedTheme() {
-        try {
-            Path conf = XdgDirectories.amadeosConfigDir().resolve("theme.conf");
-            if (Files.exists(conf)) {
-                String id = Files.readString(conf, StandardCharsets.UTF_8).trim();
-                if (THEMES.containsKey(id)) {
-                    currentTheme = THEMES.get(id);
-                }
-            }
-
-            Path iconConf = XdgDirectories.amadeosConfigDir().resolve("icon_theme.conf");
-            if (Files.exists(iconConf)) {
-                String iconThemeId = Files.readString(iconConf, StandardCharsets.UTF_8).trim();
-                if (!iconThemeId.isBlank()) {
-                    currentTheme = currentTheme.withIconTheme(iconThemeId);
-                }
-            }
-        } catch (Exception ignored) {}
-    }
-
-    private static void persistTheme(String themeId) {
+    /**
+     * Writes the file atomically: applications watch these files and must never read a half-written id.
+     */
+    private static void persist(String fileName, String value) {
         try {
             Path dir = XdgDirectories.amadeosConfigDir();
             Files.createDirectories(dir);
-            Files.writeString(dir.resolve("theme.conf"), themeId, StandardCharsets.UTF_8);
-        } catch (Exception ignored) {}
-    }
-
-    private static void persistIconTheme(String iconThemeId) {
-        try {
-            Path dir = XdgDirectories.amadeosConfigDir();
-            Files.createDirectories(dir);
-            Files.writeString(dir.resolve("icon_theme.conf"), iconThemeId, StandardCharsets.UTF_8);
-        } catch (Exception ignored) {}
+            Path temp = Files.createTempFile(dir, fileName, ".tmp");
+            try {
+                Files.writeString(temp, value, StandardCharsets.UTF_8);
+                try {
+                    Files.move(temp, dir.resolve(fileName), StandardCopyOption.REPLACE_EXISTING,
+                            StandardCopyOption.ATOMIC_MOVE);
+                } catch (AtomicMoveNotSupportedException e) {
+                    Files.move(temp, dir.resolve(fileName), StandardCopyOption.REPLACE_EXISTING);
+                }
+            } finally {
+                Files.deleteIfExists(temp);
+            }
+        } catch (IOException e) {
+            LOGGER.warning("Cannot save " + fileName + ": " + e.getMessage());
+        }
     }
 }
-

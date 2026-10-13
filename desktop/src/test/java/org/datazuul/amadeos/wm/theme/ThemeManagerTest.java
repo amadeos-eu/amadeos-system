@@ -1,6 +1,7 @@
 package org.datazuul.amadeos.wm.theme;
 
 import java.awt.Color;
+import org.datazuul.amadeos.commons.theme.DesktopTheme;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.swing.Icon;
 import org.junit.jupiter.api.AfterEach;

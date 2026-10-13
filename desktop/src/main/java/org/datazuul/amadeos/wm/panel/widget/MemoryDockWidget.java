@@ -12,7 +12,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.Timer;
-import org.datazuul.amadeos.wm.theme.DesktopTheme;
+import org.datazuul.amadeos.commons.theme.DesktopTheme;
 
 /**
  * Authentic CDE Workstation Front Panel Memory Monitor module:

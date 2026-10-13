@@ -13,10 +13,19 @@ java {
 
 repositories {
     mavenCentral()
+    maven { url 'https://jitpack.io' }
 }
 
 dependencies {
     implementation 'net.java.dev.jna:jna:5.14.0'
+    // Desktop themes and the Motif look, shared with the amadeOS applications. The desktop does not use
+    // the Guice-based application start-up of amade-commons, so Guice stays out of the image jar.
+    // With ../amade-commons checked out, settings.gradle builds that checkout instead (composite build).
+    implementation('com.github.datazuul:amade-commons:c028597ed9') {
+        exclude group: 'com.google.inject'
+    }
+    // amade-commons logs through SLF4J; route it into java.util.logging like the rest of the desktop.
+    runtimeOnly 'org.slf4j:slf4j-jdk14:2.0.17'
     testImplementation platform('org.junit:junit-bom:5.10.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

@@ -27,7 +27,7 @@ import javax.swing.JRadioButtonMenuItem;
 import javax.swing.Timer;
 import javax.swing.event.PopupMenuEvent;
 import javax.swing.event.PopupMenuListener;
-import org.datazuul.amadeos.wm.theme.DesktopTheme;
+import org.datazuul.amadeos.commons.theme.DesktopTheme;
 
 /**
  * Authentic CDE Workstation Front Panel Clock module:

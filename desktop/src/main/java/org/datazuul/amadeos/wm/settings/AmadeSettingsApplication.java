@@ -37,7 +37,7 @@ import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import org.datazuul.amadeos.wm.panel.X11EwmhHelper;
-import org.datazuul.amadeos.wm.theme.DesktopTheme;
+import org.datazuul.amadeos.commons.theme.DesktopTheme;
 import org.datazuul.amadeos.wm.theme.IconManager;
 import org.datazuul.amadeos.wm.theme.ThemeManager;
 import org.datazuul.amadeos.wm.theme.WallpaperManager;
