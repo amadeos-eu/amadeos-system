@@ -59,6 +59,7 @@ public final class IconManager {
         map.put("file-manager", List.of("system-file-manager", "file-manager", "user-home", "folder", "nautilus", "thunar"));
         map.put("text-editor", List.of("accessories-text-editor", "text-editor", "text-x-generic", "document-edit", "gedit", "kate"));
         map.put("mail", List.of("Mail", "mail", "internet-mail", "evolution", "thunderbird", "kmail", "email"));
+        map.put("multimedia", List.of("amadeos-multimedia", "applications-multimedia", "multimedia-volume-control", "audio-card", "audio-x-generic"));
         map.put("printer", List.of("printer", "document-print", "printmgr", "cups", "stock_printers", "gnome-dev-printer"));
         map.put("style", List.of("style", "preferences-desktop-theme", "preferences-desktop", "preferences-system"));
         map.put("app-manager", List.of("system-application-manager", "application", "applications-other", "gnome-applications", "application-menu"));

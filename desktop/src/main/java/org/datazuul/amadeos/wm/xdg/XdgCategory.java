@@ -19,7 +19,7 @@ public enum XdgCategory {
     DEVELOPMENT("Development", "Development", "terminal", Set.of("development", "ide", "debugger")),
     GRAPHICS("Graphics", "Graphics", "window", Set.of("graphics", "viewer", "rastergraphics", "2dgraphics")),
     NETWORK("Network", "Internet & Network", "window", Set.of("network", "webbrowser", "chat")),
-    AUDIO_VIDEO("AudioVideo", "Sound & Video", "window", Set.of("audiovideo", "audio", "video", "player", "recorder")),
+    AUDIO_VIDEO("AudioVideo", "Sound & Video", "multimedia", Set.of("audiovideo", "audio", "video", "player", "recorder")),
     OTHER("Other", "Applications", "app-manager", Set.of());
 
     private final String key;

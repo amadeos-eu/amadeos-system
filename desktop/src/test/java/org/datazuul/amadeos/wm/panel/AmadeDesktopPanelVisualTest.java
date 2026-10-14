@@ -14,10 +14,11 @@ class AmadeDesktopPanelVisualTest {
             X11EwmhHelper helper = X11EwmhHelper.open(null);
             AmadeDesktopPanel panel = new AmadeDesktopPanel(helper);
             panel.addNotify();
-            panel.setSize(AmadeDesktopPanel.DOCK_WIDTH, AmadeDesktopPanel.DOCK_HEIGHT);
+            int width = panel.getContentPane().getPreferredSize().width;
+            panel.setSize(width, AmadeDesktopPanel.DOCK_HEIGHT);
             panel.validate();
 
-            BufferedImage img = new BufferedImage(AmadeDesktopPanel.DOCK_WIDTH, AmadeDesktopPanel.DOCK_HEIGHT, BufferedImage.TYPE_INT_RGB);
+            BufferedImage img = new BufferedImage(width, AmadeDesktopPanel.DOCK_HEIGHT, BufferedImage.TYPE_INT_RGB);
             Graphics2D g2 = img.createGraphics();
             panel.getContentPane().paint(g2);
             g2.dispose();
