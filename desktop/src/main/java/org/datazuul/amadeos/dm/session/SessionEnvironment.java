@@ -2,12 +2,16 @@ package org.datazuul.amadeos.dm.session;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
+import org.datazuul.amadeos.commons.i18n.Language;
 
 /**
  * Builds the environment of a user session from scratch, so nothing of the root display
  * manager's environment leaks into it.
  */
 public final class SessionEnvironment {
+    /** The locale chosen in the greeter, for {@code amadeos-session}. */
+    public static final String LOGIN_LOCALE = "AMADEOS_LOGIN_LOCALE";
     static final String DEFAULT_PATH = "/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games";
 
     private SessionEnvironment() {
@@ -31,7 +35,24 @@ public final class SessionEnvironment {
      */
     public static Map<String, String> build(Map<String, String> pamEnvironment, UserAccount account,
                                             String display, String xauthority, SessionType type) {
+        return build(pamEnvironment, account, display, xauthority, type, Optional.empty());
+    }
+
+    /**
+     * @param language the language chosen in the greeter: becomes {@code LANG} of the session (replacing the
+     *                 system's {@code LC_ALL} and {@code LANGUAGE}) and {@code AMADEOS_LOGIN_LOCALE}, from
+     *                 which {@code amadeos-session} updates the user's {@code ~/.config/amadeos/locale.conf}
+     */
+    public static Map<String, String> build(Map<String, String> pamEnvironment, UserAccount account,
+                                            String display, String xauthority, SessionType type,
+                                            Optional<Language> language) {
         Map<String, String> env = new LinkedHashMap<>(pamEnvironment);
+        language.ifPresent(l -> {
+            env.remove("LC_ALL");
+            env.remove("LANGUAGE");
+            env.put("LANG", l.posixLocale());
+            env.put(LOGIN_LOCALE, l.posixLocale());
+        });
         env.put("HOME", account.home());
         env.put("USER", account.name());
         env.put("LOGNAME", account.name());

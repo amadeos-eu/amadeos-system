@@ -10,23 +10,40 @@ import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.RenderingHints;
 import java.awt.event.ActionListener;
+import java.io.IOException;
+import java.util.Locale;
+import java.util.Optional;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.function.Consumer;
 import javax.swing.BorderFactory;
+import javax.swing.ButtonGroup;
+import javax.swing.JMenuItem;
+import javax.swing.JPopupMenu;
+import javax.swing.JRadioButtonMenuItem;
+import javax.swing.SwingUtilities;
 import javax.swing.ButtonModel;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import org.datazuul.amadeos.commons.i18n.Language;
+import org.datazuul.amadeos.commons.i18n.LocaleResolution;
+import org.datazuul.amadeos.commons.i18n.LocaleStore;
+import org.datazuul.amadeos.commons.i18n.Messages;
 import org.datazuul.amadeos.commons.theme.DesktopTheme;
 
 /**
  * Authentic CDE 4-way Workspace Switcher & Session Control Pad:
  * - Raised outer plateau block on the main panel layer.
- * - Left pillar: Flat lock button with authentic carved CDE padlock symbol.
+ * - Left pillar: Flat lock button with authentic carved CDE padlock symbol, below it the desktop language
+ *   (a carved code such as "DE" that opens the language menu).
  * - Center tray: Sunken 3D teal/slate tray holding 2x2 grid of workspace buttons ("One", "Two", "Three", "Four").
  * - Right pillar: Mail/activity LED indicator slit at top, flat "EXIT" button at bottom.
  */
 public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
+    private static final Logger LOGGER = Logger.getLogger(WorkspaceSwitcherDockWidget.class.getName());
+    static final String DESKTOP_TEXTS = "org.datazuul.amadeos.i18n.desktop";
     private final JPanel pad;
     private final JPanel leftPillar;
     private final JPanel centerTray;
@@ -34,6 +51,8 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
     private final JPanel grid;
     final JButton[] workspaceButtons = new JButton[4];
     final FlatLockButton lockBtn;
+    final LanguageButton languageBtn;
+    private final LocaleStore locales;
     final FlatExitButton exitBtn;
     final StatusIndicator statusIndicator;
     private int activeWorkspace = 1;
@@ -41,7 +60,19 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
     private final Runnable powerAction;
 
     public WorkspaceSwitcherDockWidget(Consumer<Integer> workspaceListener, Runnable powerAction) {
+        this(workspaceListener, powerAction, systemLocales());
+    }
+
+    private static LocaleStore systemLocales() {
+        LocaleStore store = LocaleStore.system();
+        store.watch();
+        return store;
+    }
+
+    /** @param locales the desktop language, shown and switched by the button under the lock */
+    public WorkspaceSwitcherDockWidget(Consumer<Integer> workspaceListener, Runnable powerAction, LocaleStore locales) {
         super("workspace-switcher");
+        this.locales = locales;
         this.workspaceListener = workspaceListener;
         this.powerAction = powerAction;
 
@@ -75,9 +106,9 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
         lockBtn = new FlatLockButton(e -> org.datazuul.amadeos.lock.LockLauncher.lockScreen());
         leftPillar.add(lockBtn);
 
-        JPanel leftSpacer = new JPanel();
-        leftSpacer.setOpaque(false);
-        leftPillar.add(leftSpacer);
+        languageBtn = new LanguageButton();
+        leftPillar.add(languageBtn);
+        locales.addListener(locale -> SwingUtilities.invokeLater(languageBtn::refresh));
 
         pad.add(leftPillar, BorderLayout.WEST);
 
@@ -196,6 +227,7 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
         rightPillar.setBackground(theme.base());
 
         lockBtn.repaint();
+        languageBtn.repaint();
         statusIndicator.repaint();
         exitBtn.repaint();
 
@@ -304,6 +336,131 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
             g2.setColor(t.darkShadow());
             g2.drawLine(ox + 1, oy + 16, ox + 13, oy + 16);
 
+            g2.dispose();
+        }
+    }
+
+    /** The language the desktop uses now; English if none is set. */
+    Language desktopLanguage() {
+        return locales.language().orElseGet(
+                () -> LocaleResolution.resolve(Optional.empty(), Optional.empty(), System.getenv()).language());
+    }
+
+    /** Builds the language menu: the five languages under their own names, then what a switch affects. */
+    JPopupMenu languageMenu() {
+        Language current = desktopLanguage();
+        Messages messages = Messages.load(WorkspaceSwitcherDockWidget.class, DESKTOP_TEXTS, current.locale());
+        JPopupMenu menu = new JPopupMenu();
+        ButtonGroup group = new ButtonGroup();
+        for (Language language : Language.values()) {
+            JRadioButtonMenuItem item = new JRadioButtonMenuItem(language.nativeName(), language == current);
+            item.setName(language.code());
+            item.addActionListener(e -> switchLanguage(language));
+            group.add(item);
+            menu.add(item);
+        }
+        menu.addSeparator();
+        for (String key : new String[]{"language.hint.apps", "language.hint.session"}) {
+            JMenuItem hint = new JMenuItem(messages.get(key));
+            hint.setEnabled(false);
+            menu.add(hint);
+        }
+        return menu;
+    }
+
+    void switchLanguage(Language language) {
+        try {
+            locales.write(language);
+        } catch (IOException e) {
+            LOGGER.log(Level.WARNING, "Cannot store the desktop language", e);
+        }
+        languageBtn.refresh();
+    }
+
+    /**
+     * The desktop language as a carved two-letter code in an etched box, like EXIT on the other side;
+     * a click opens the language menu above the panel.
+     */
+    final class LanguageButton extends JButton {
+        private String code = "";
+
+        LanguageButton() {
+            setFocusPainted(false);
+            setRolloverEnabled(true);
+            setBorderPainted(false);
+            setContentAreaFilled(false);
+            setOpaque(false);
+            addActionListener(e -> {
+                JPopupMenu menu = languageMenu();
+                menu.show(this, 0, -menu.getPreferredSize().height);
+            });
+            refresh();
+        }
+
+        void refresh() {
+            Language language = desktopLanguage();
+            code = language.code().toUpperCase(Locale.ROOT);
+            Messages messages = Messages.load(WorkspaceSwitcherDockWidget.class, DESKTOP_TEXTS, language.locale());
+            setToolTipText(messages.format("language.tooltip", language.nativeName()));
+            getAccessibleContext().setAccessibleName(getToolTipText());
+            repaint();
+        }
+
+        String code() {
+            return code;
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            int w = getWidth();
+            int h = getHeight();
+            ButtonModel model = getModel();
+            boolean isPressed = model.isArmed() && model.isPressed();
+            boolean isHovered = model.isRollover();
+            DesktopTheme t = currentTheme;
+
+            int bw = 22;
+            int bh = 16;
+            int bx = (w - bw) / 2;
+            int by = (h - bh) / 2;
+            if (isPressed) {
+                bx += 1;
+                by += 1;
+            }
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
+            if (isPressed) {
+                g2.setColor(t.sunkenBg());
+                g2.fillRect(bx + 1, by + 1, bw - 2, bh - 2);
+                g2.setColor(t.darkShadow());
+                g2.drawLine(bx, by, bx + bw - 1, by);
+                g2.drawLine(bx, by, bx, by + bh - 1);
+                g2.setColor(t.highlight());
+                g2.drawLine(bx + 1, by + bh - 1, bx + bw - 1, by + bh - 1);
+                g2.drawLine(bx + bw - 1, by + 1, bx + bw - 1, by + bh - 1);
+            } else {
+                if (isHovered) {
+                    g2.setColor(t.softHighlight());
+                    g2.fillRect(bx + 1, by + 1, bw - 2, bh - 2);
+                }
+                // Etched 1px box, as around EXIT
+                g2.setColor(t.darkShadow());
+                g2.drawLine(bx, by, bx + bw - 1, by);
+                g2.drawLine(bx, by, bx, by + bh - 1);
+                g2.drawLine(bx + bw - 1, by + 1, bx + bw - 1, by + bh - 1);
+                g2.drawLine(bx + 1, by + bh - 1, bx + bw - 1, by + bh - 1);
+                g2.setColor(Color.WHITE);
+                g2.drawLine(bx + 1, by + bh, bx + bw, by + bh);
+                g2.drawLine(bx + bw, by + 1, bx + bw, by + bh);
+            }
+
+            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_GASP);
+            g2.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 10));
+            java.awt.FontMetrics fm = g2.getFontMetrics();
+            int tx = bx + (bw - fm.stringWidth(code)) / 2 + 1;
+            int ty = by + (bh - fm.getHeight()) / 2 + fm.getAscent();
+            g2.setColor(Color.BLACK);
+            g2.drawString(code, tx, ty);
             g2.dispose();
         }
     }

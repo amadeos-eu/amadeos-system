@@ -12,12 +12,17 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.RenderingHints;
 import java.awt.Toolkit;
+import java.awt.Component;
 import java.net.InetAddress;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Consumer;
 import javax.swing.BorderFactory;
+import javax.swing.DefaultListCellRenderer;
+import javax.swing.JList;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JFrame;
@@ -29,12 +34,14 @@ import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
+import org.datazuul.amadeos.commons.i18n.Language;
 import org.datazuul.amadeos.commons.theme.DesktopTheme;
+import org.datazuul.amadeos.dm.session.UserAccount;
 import org.datazuul.amadeos.wm.theme.ThemeManager;
 
 public final class AmadeLoginGreeter extends JFrame {
     public interface LoginCallback {
-        void onLogin(String username, String password, String sessionType);
+        void onLogin(String username, String password, String sessionType, Language language);
     }
 
     private static final DateTimeFormatter CLOCK_FMT = DateTimeFormatter.ofPattern("EEE, MMM dd  HH:mm:ss");
@@ -44,6 +51,7 @@ public final class AmadeLoginGreeter extends JFrame {
     private final JTextField userField;
     private final JPasswordField passField;
     private final JComboBox<String> sessionCombo;
+    private final JComboBox<Language> languageCombo;
     private final JLabel statusLabel;
     private final JLabel clockLabel;
     private final JButton loginBtn;
@@ -128,6 +136,16 @@ public final class AmadeLoginGreeter extends JFrame {
         this.userField = new JTextField("amadeos", 16);
         this.passField = new JPasswordField(16);
         this.sessionCombo = new JComboBox<>(new String[]{"amadeOS CDE Desktop", "Failsafe Terminal"});
+        this.languageCombo = new JComboBox<>(Language.values());
+        languageCombo.setRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index,
+                                                          boolean selected, boolean focus) {
+                Object text = value instanceof Language l ? l.nativeName() : value;
+                return super.getListCellRendererComponent(list, text, index, selected, focus);
+            }
+        });
+        languageCombo.setToolTipText("Language of the desktop and its applications");
         this.statusLabel = new JLabel("Please enter your password to begin session.", SwingConstants.CENTER);
         this.loginBtn = createMotifButton("  Log In  ", theme);
 
@@ -138,6 +156,7 @@ public final class AmadeLoginGreeter extends JFrame {
             @Override
             public void windowOpened(java.awt.event.WindowEvent e) {
                 applyKeyboardLayout("de");
+                preselectLanguage();
                 passField.requestFocusInWindow();
             }
         });
@@ -170,7 +189,7 @@ public final class AmadeLoginGreeter extends JFrame {
             }
         };
         card.setBackground(theme.base());
-        card.setPreferredSize(new Dimension(480, 350));
+        card.setPreferredSize(new Dimension(480, 375));
         card.setBorder(BorderFactory.createEmptyBorder(12, 16, 14, 16));
         return card;
     }
@@ -204,6 +223,12 @@ public final class AmadeLoginGreeter extends JFrame {
         gbc.gridx = 1; gbc.gridy = 0; gbc.weightx = 0.7;
         userField.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 13));
         userField.addActionListener(e -> passField.requestFocusInWindow());
+        userField.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override
+            public void focusLost(java.awt.event.FocusEvent e) {
+                preselectLanguage();
+            }
+        });
         formPanel.add(userField, gbc);
 
         // Password row
@@ -228,14 +253,25 @@ public final class AmadeLoginGreeter extends JFrame {
         gbc.gridx = 1; gbc.gridy = 2; gbc.weightx = 0.7;
         formPanel.add(sessionCombo, gbc);
 
-        // Keyboard Layout row
+        // Language row (CDE: Options > Language); the choice holds for the whole session
         gbc.gridx = 0; gbc.gridy = 3; gbc.weightx = 0.3;
+        JLabel langLabel = new JLabel("Language:", SwingConstants.RIGHT);
+        langLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 12));
+        langLabel.setForeground(theme.textActive());
+        langLabel.setLabelFor(languageCombo);
+        formPanel.add(langLabel, gbc);
+
+        gbc.gridx = 1; gbc.gridy = 3; gbc.weightx = 0.7;
+        formPanel.add(languageCombo, gbc);
+
+        // Keyboard Layout row
+        gbc.gridx = 0; gbc.gridy = 4; gbc.weightx = 0.3;
         JLabel kbLabel = new JLabel("Keyboard:", SwingConstants.RIGHT);
         kbLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 12));
         kbLabel.setForeground(theme.textActive());
         formPanel.add(kbLabel, gbc);
 
-        gbc.gridx = 1; gbc.gridy = 3; gbc.weightx = 0.7;
+        gbc.gridx = 1; gbc.gridy = 4; gbc.weightx = 0.7;
         JComboBox<String> keyboardCombo = new JComboBox<>(new String[]{
                 "German (DE - QWERTZ)",
                 "English (US - QWERTY)"
@@ -251,7 +287,7 @@ public final class AmadeLoginGreeter extends JFrame {
         formPanel.add(keyboardCombo, gbc);
 
         // Recessed status message box
-        gbc.gridx = 0; gbc.gridy = 4; gbc.gridwidth = 2;
+        gbc.gridx = 0; gbc.gridy = 5; gbc.gridwidth = 2;
         gbc.insets = new Insets(10, 4, 4, 4);
         JPanel statusPlate = new JPanel(new BorderLayout()) {
             @Override
@@ -309,6 +345,7 @@ public final class AmadeLoginGreeter extends JFrame {
         String username = userField.getText().trim();
         String password = new String(passField.getPassword());
         String sessionType = (String) sessionCombo.getSelectedItem();
+        Language language = (Language) languageCombo.getSelectedItem();
 
         if (username.isEmpty()) {
             setStatus("Please enter a username.", true);
@@ -322,7 +359,7 @@ public final class AmadeLoginGreeter extends JFrame {
         // Execute authentication on background thread so UI remains responsive
         new Thread(() -> {
             try {
-                loginCallback.onLogin(username, password, sessionType);
+                loginCallback.onLogin(username, password, sessionType, language);
             } finally {
                 SwingUtilities.invokeLater(() -> loginBtn.setEnabled(true));
             }
@@ -340,8 +377,23 @@ public final class AmadeLoginGreeter extends JFrame {
         });
     }
 
+    /** Selects the language the user had last time, or the system default for unknown users. */
+    private void preselectLanguage() {
+        String username = userField.getText().trim();
+        Optional<Language> users = Optional.empty();
+        if (!username.isEmpty()) {
+            try {
+                users = UserAccount.lookup(username).flatMap(account -> LoginLanguage.ofUser(Path.of(account.home())));
+            } catch (RuntimeException | LinkageError e) {
+                // no libc lookup (e.g. preview on another system): fall back to the default
+            }
+        }
+        languageCombo.setSelectedItem(users.orElseGet(() -> LoginLanguage.systemDefault(System.getenv())));
+    }
+
     public void resetFields() {
         SwingUtilities.invokeLater(() -> {
+            preselectLanguage();
             passField.setText("");
             statusLabel.setText("Please enter your password to begin session.");
             statusLabel.setForeground(new Color(0x33, 0x33, 0x33));

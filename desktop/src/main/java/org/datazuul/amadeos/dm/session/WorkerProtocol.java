@@ -5,12 +5,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Optional;
+import org.datazuul.amadeos.commons.i18n.Language;
 
 /**
  * Line protocol between the greeter and the root session worker.
  *
- * <p>The greeter writes three lines to the worker's stdin: user name, password and session
- * type id. The worker answers with one line on stdout, {@code OK} once the user is
+ * <p>The greeter writes four lines to the worker's stdin: user name, password, session type id and
+ * the language chosen at login (a code such as {@code fr}, or empty). The worker answers with one line on stdout, {@code OK} once the user is
  * authenticated and the session is about to start, or {@code FAIL <message>}.
  */
 public final class WorkerProtocol {
@@ -21,12 +23,21 @@ public final class WorkerProtocol {
     private WorkerProtocol() {
     }
 
-    public record Request(String username, String password, SessionType sessionType) {
+    /** @param language the language chosen in the greeter; empty keeps the system default */
+    public record Request(String username, String password, SessionType sessionType, Optional<Language> language) {
+        public Request {
+            language = language == null ? Optional.empty() : language;
+        }
+
+        public Request(String username, String password, SessionType sessionType) {
+            this(username, password, sessionType, Optional.empty());
+        }
     }
 
     public static void writeRequest(OutputStream out, Request request) throws IOException {
         StringBuilder text = new StringBuilder();
-        for (String value : new String[]{request.username(), request.password(), request.sessionType().id()}) {
+        for (String value : new String[]{request.username(), request.password(), request.sessionType().id(),
+                request.language().map(Language::code).orElse("")}) {
             if (value.indexOf('\n') >= 0 || value.indexOf('\r') >= 0 || value.indexOf('\0') >= 0) {
                 throw new IOException("Credentials must not contain line breaks or NUL characters");
             }
@@ -40,10 +51,12 @@ public final class WorkerProtocol {
         String username = readLine(in);
         String password = readLine(in);
         String session = readLine(in);
+        String language = readLine(in);
         if (username == null || password == null) {
             throw new IOException("Incomplete login request");
         }
-        return new Request(username, password, SessionType.from(session == null ? "" : session));
+        return new Request(username, password, SessionType.from(session == null ? "" : session),
+                Language.ofCode(language));
     }
 
     public static void writeResult(OutputStream out, boolean ok, String message) throws IOException {

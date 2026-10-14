@@ -6,8 +6,10 @@ import java.io.OutputStream;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.TimeUnit;
+import org.datazuul.amadeos.commons.i18n.Language;
 import org.datazuul.amadeos.wm.x11.LibC;
 
 /**
@@ -26,6 +28,12 @@ public final class SessionWorkerClient {
     }
 
     public Result login(String display, String username, String password, SessionType type) {
+        return login(display, username, password, type, Optional.empty());
+    }
+
+    /** @param language the language chosen in the greeter; empty keeps the system default */
+    public Result login(String display, String username, String password, SessionType type,
+                        Optional<Language> language) {
         Process worker;
         try {
             worker = new ProcessBuilder(workerCommand(display, loginUid(username)))
@@ -36,7 +44,7 @@ public final class SessionWorkerClient {
         }
         try {
             try (OutputStream stdin = worker.getOutputStream()) {
-                WorkerProtocol.writeRequest(stdin, new WorkerProtocol.Request(username, password, type));
+                WorkerProtocol.writeRequest(stdin, new WorkerProtocol.Request(username, password, type, language));
             }
             String error;
             try (InputStream stdout = worker.getInputStream()) {

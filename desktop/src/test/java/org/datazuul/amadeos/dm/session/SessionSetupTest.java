@@ -2,6 +2,8 @@ package org.datazuul.amadeos.dm.session;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import org.datazuul.amadeos.commons.i18n.Language;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -32,6 +34,22 @@ class SessionSetupTest {
         assertEquals(SessionEnvironment.DEFAULT_PATH, env.get("PATH"));
         assertEquals("desktop", env.get("AMADEOS_SESSION"));
         assertFalse(env.containsKey("JAVA_HOME"), "nothing from the display manager's environment");
+    }
+
+    @Test
+    void theLoginLanguageReplacesTheSystemLocale() {
+        Map<String, String> env = SessionEnvironment.build(
+                Map.of("LANG", "de_DE.UTF-8", "LC_ALL", "de_DE.UTF-8", "LANGUAGE", "de_DE:de:en_US:en"),
+                alice, ":0", null, SessionType.DESKTOP, Optional.of(Language.ITALIAN));
+        assertEquals("it_IT.UTF-8", env.get("LANG"));
+        assertEquals("it_IT.UTF-8", env.get(SessionEnvironment.LOGIN_LOCALE));
+        assertFalse(env.containsKey("LC_ALL"), "LC_ALL would override LANG");
+        assertFalse(env.containsKey("LANGUAGE"), "LANGUAGE would override the message language");
+
+        Map<String, String> unchanged = SessionEnvironment.build(Map.of("LC_ALL", "de_DE.UTF-8"),
+                alice, ":0", null, SessionType.DESKTOP, Optional.empty());
+        assertEquals("de_DE.UTF-8", unchanged.get("LC_ALL"));
+        assertFalse(unchanged.containsKey(SessionEnvironment.LOGIN_LOCALE));
     }
 
     @Test

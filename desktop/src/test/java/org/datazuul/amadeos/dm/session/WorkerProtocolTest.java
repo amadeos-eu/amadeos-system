@@ -4,6 +4,8 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Optional;
+import org.datazuul.amadeos.commons.i18n.Language;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -14,6 +16,24 @@ class WorkerProtocolTest {
         WorkerProtocol.Request request = new WorkerProtocol.Request("jürgen", "pass wört ß", SessionType.FAILSAFE);
         WorkerProtocol.writeRequest(out, request);
         assertEquals(request, WorkerProtocol.readRequest(new ByteArrayInputStream(out.toByteArray())));
+    }
+
+    @Test
+    void theLoginLanguageTravelsWithTheRequest() throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        WorkerProtocol.Request request = new WorkerProtocol.Request("anna", "secret", SessionType.DESKTOP,
+                Optional.of(Language.FRENCH));
+        WorkerProtocol.writeRequest(out, request);
+        assertEquals("anna\nsecret\ndesktop\nfr\n", out.toString(StandardCharsets.UTF_8));
+        assertEquals(request, WorkerProtocol.readRequest(new ByteArrayInputStream(out.toByteArray())));
+    }
+
+    @Test
+    void requestsWithoutOrWithUnknownLanguageKeepTheDefault() throws IOException {
+        assertEquals(Optional.empty(), WorkerProtocol.readRequest(new ByteArrayInputStream(
+                "anna\nsecret\ndesktop\n".getBytes(StandardCharsets.UTF_8))).language());
+        assertEquals(Optional.empty(), WorkerProtocol.readRequest(new ByteArrayInputStream(
+                "anna\nsecret\ndesktop\nklingon\n".getBytes(StandardCharsets.UTF_8))).language());
     }
 
     @Test

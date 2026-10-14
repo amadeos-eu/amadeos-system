@@ -14,7 +14,8 @@ public final class AmadeOsLauncher {
         } else if ("greeter".equalsIgnoreCase(mode)) {
             javax.swing.SwingUtilities.invokeLater(() -> {
                 new org.datazuul.amadeos.dm.ui.AmadeLoginGreeter(
-                        (u, p, s) -> System.out.println("Greeter test login: user=" + u + ", session=" + s),
+                        (u, p, s, l) -> System.out.println("Greeter test login: user=" + u + ", session=" + s
+                                + ", language=" + l),
                         a -> System.out.println("Greeter power action: " + a)
                 ).setVisible(true);
             });

@@ -21,7 +21,7 @@ dependencies {
     // Desktop themes and the Motif look, shared with the amadeOS applications. The desktop does not use
     // the Guice-based application start-up of amade-commons, so Guice stays out of the image jar.
     // With ../amade-commons checked out, settings.gradle builds that checkout instead (composite build).
-    implementation('com.github.datazuul:amade-commons:55888cd1b8') {
+    implementation('com.github.datazuul:amade-commons:327fe95f3e') {
         exclude group: 'com.google.inject'
     }
     // amade-commons logs through SLF4J; route it into java.util.logging like the rest of the desktop.

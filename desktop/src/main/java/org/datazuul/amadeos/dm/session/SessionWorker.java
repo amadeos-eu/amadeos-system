@@ -10,6 +10,7 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.datazuul.amadeos.commons.i18n.Language;
 import org.datazuul.amadeos.dm.pam.PamAuthenticator;
 import org.datazuul.amadeos.wm.x11.LibC;
 
@@ -73,7 +74,7 @@ public final class SessionWorker {
             Process session;
             try {
                 session = startSession(account.get(), request.sessionType(), display, asRoot,
-                        pamSession != null ? pamSession.environment() : Map.of());
+                        pamSession != null ? pamSession.environment() : Map.of(), request.language());
             } catch (IOException e) {
                 LOGGER.log(Level.SEVERE, "Failed to start session for " + account.get().name(), e);
                 reply(out, false, "Failed to start session: " + e.getMessage());
@@ -97,9 +98,10 @@ public final class SessionWorker {
     }
 
     static Process startSession(UserAccount account, SessionType type, String display, boolean asRoot,
-                                Map<String, String> pamEnvironment) throws IOException {
+                                Map<String, String> pamEnvironment, Optional<Language> language) throws IOException {
         String xauthority = DisplayAccess.grant(account, System.getenv("XAUTHORITY"), display, asRoot);
-        Map<String, String> environment = SessionEnvironment.build(pamEnvironment, account, display, xauthority, type);
+        Map<String, String> environment = SessionEnvironment.build(pamEnvironment, account, display, xauthority,
+                type, language);
         List<String> command = SessionCommand.build(account, type, sessionExecutable(), display, asRoot);
 
         ProcessBuilder pb = new ProcessBuilder(command);

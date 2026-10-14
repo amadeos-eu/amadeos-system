@@ -6,9 +6,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.SwingUtilities;
+import org.datazuul.amadeos.commons.i18n.Language;
 import org.datazuul.amadeos.dm.session.SessionType;
 import org.datazuul.amadeos.dm.session.SessionWorkerClient;
 import org.datazuul.amadeos.dm.session.UserAccount;
@@ -85,12 +87,13 @@ public final class AmadeDisplayManager {
     }
 
     /** Runs on the greeter's authentication thread. */
-    private void handleLogin(String username, String password, String sessionLabel) {
+    private void handleLogin(String username, String password, String sessionLabel, Language language) {
         SessionType type = SessionType.from(sessionLabel);
-        LOGGER.info(() -> "Login attempt (session: " + type.id() + ")");
+        LOGGER.info(() -> "Login attempt (session: " + type.id() + ", language: " + language + ")");
 
         // PAM and the session run in a separate root worker process (see SessionWorker).
-        SessionWorkerClient.Result result = sessionWorkers.login(display, username, password, type);
+        SessionWorkerClient.Result result = sessionWorkers.login(display, username, password, type,
+                Optional.ofNullable(language));
         if (result instanceof SessionWorkerClient.Failed failed) {
             greeter.setStatus(failed.message(), true);
             return;
