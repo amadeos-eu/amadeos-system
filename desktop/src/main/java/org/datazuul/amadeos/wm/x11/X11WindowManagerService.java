@@ -29,6 +29,7 @@ import org.datazuul.amadeos.wm.decoration.ResizeDirection;
 import org.datazuul.amadeos.wm.decoration.WindowButton;
 import org.datazuul.amadeos.lock.LockLauncher;
 import org.datazuul.amadeos.lock.LockSelection;
+import org.datazuul.amadeos.sound.BellPlayer;
 import org.datazuul.amadeos.wm.menu.DesktopMenuActions;
 import org.datazuul.amadeos.wm.menu.DesktopRootMenu;
 import org.datazuul.amadeos.commons.theme.DesktopTheme;
@@ -54,6 +55,10 @@ public final class X11WindowManagerService implements AutoCloseable {
     // sent over a separate connection.
     private final ConcurrentLinkedQueue<Runnable> eventThreadActions = new ConcurrentLinkedQueue<>();
     private volatile Thread eventThread;
+    /** XKB's event type, or -1 while the bell is still the server's own (PC speaker). */
+    private int xkbEventBase = -1;
+    private LibXkb xkb;
+    private BellPlayer bellPlayer;
     private final String displayName;
     private final Object wakeLock = new Object();
     private Pointer wakeDisplay;
@@ -1203,6 +1208,7 @@ public final class X11WindowManagerService implements AutoCloseable {
         eventThread = Thread.currentThread();
         running.set(true);
         scanExistingWindows();
+        enableSoundCardBell();
         LOGGER.info(() -> "amadeOS Window Manager started event loop on screen " + screenWidth + "x" + screenHeight);
         while (running.get()) {
             try {
@@ -1640,8 +1646,49 @@ public final class X11WindowManagerService implements AutoCloseable {
                 cleanupWindow(win);
             }
             default -> {
-                // Ignore unhandled events
+                if (xkbEventBase >= 0 && event.type == xkbEventBase) {
+                    handleXkbEvent(event);
+                }
             }
+        }
+    }
+
+    /**
+     * Moves the bell from the PC speaker, which most computers and QEMU lack, to the sound card: the
+     * server's audible bell is switched off and every bell is reported as an XKB event instead, which
+     * {@link #handleXkbEvent} plays with the volume, tone and duration set by {@code xset b} (Style
+     * Manager, Beep). Without XKB or libX11's XKB functions the server's bell stays as it is.
+     */
+    private void enableSoundCardBell() {
+        try {
+            xkb = LibXkb.load();
+            IntByReference opcode = new IntByReference();
+            IntByReference eventBase = new IntByReference();
+            IntByReference errorBase = new IntByReference();
+            IntByReference major = new IntByReference(LibXkb.XkbMajorVersion);
+            IntByReference minor = new IntByReference(LibXkb.XkbMinorVersion);
+            if (!xkb.XkbQueryExtension(display, opcode, eventBase, errorBase, major, minor)) {
+                LOGGER.warning("X server without XKB; the bell stays on the PC speaker");
+                return;
+            }
+            NativeLong bellMask = new NativeLong(LibXkb.XkbBellNotifyMask);
+            if (!xkb.XkbSelectEvents(display, LibXkb.XkbUseCoreKbd, bellMask, bellMask)) {
+                LOGGER.warning("XKB bell events not available; the bell stays on the PC speaker");
+                return;
+            }
+            bellPlayer = new BellPlayer();
+            xkb.XkbChangeEnabledControls(display, LibXkb.XkbUseCoreKbd, LibXkb.XkbAudibleBellMask, 0);
+            xkbEventBase = eventBase.getValue();
+            x11.XFlush(display);
+        } catch (UnsatisfiedLinkError | RuntimeException e) {
+            LOGGER.log(Level.WARNING, "Cannot take over the bell; it stays on the PC speaker", e);
+        }
+    }
+
+    private void handleXkbEvent(LibX11.XEvent event) {
+        LibXkb.XkbBellNotifyEvent bell = new LibXkb.XkbBellNotifyEvent(event.getPointer());
+        if (bell.xkb_type == LibXkb.XkbBellNotify && bellPlayer != null) {
+            bellPlayer.ring(bell.percent, bell.pitch, bell.duration);
         }
     }
 
@@ -2057,7 +2104,15 @@ public final class X11WindowManagerService implements AutoCloseable {
             }
         }
         desktopMenu.dispose();
+        if (bellPlayer != null) {
+            bellPlayer.close();
+        }
         if (display != null) {
+            if (xkbEventBase >= 0) {
+                // Give the bell back to the server, e.g. for a window manager started after this one
+                xkb.XkbChangeEnabledControls(display, LibXkb.XkbUseCoreKbd, LibXkb.XkbAudibleBellMask,
+                        LibXkb.XkbAudibleBellMask);
+            }
             for (DesktopIconTile tile : new java.util.ArrayList<>(iconTiles)) {
                 tile.destroy(x11, display);
             }

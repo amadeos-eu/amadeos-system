@@ -44,6 +44,9 @@ import org.datazuul.amadeos.wm.panel.widget.DockWidget;
 import org.datazuul.amadeos.wm.panel.widget.DrawerDockWidget;
 import org.datazuul.amadeos.wm.panel.widget.DrawerDockWidget.DrawerTool;
 import org.datazuul.amadeos.wm.panel.widget.WorkspaceSwitcherDockWidget;
+import org.datazuul.amadeos.net.NmcliNetworkService;
+import org.datazuul.amadeos.wm.panel.status.NetworkCell;
+import org.datazuul.amadeos.wm.panel.status.StatusDockWidget;
 import org.datazuul.amadeos.commons.theme.DesktopTheme;
 import org.datazuul.amadeos.wm.theme.IconManager;
 import org.datazuul.amadeos.wm.theme.ThemeManager;
@@ -240,7 +243,7 @@ public final class AmadeDesktopPanel extends JFrame {
         widgets.add(switcher);
         rootPanel.add(switcher.component(), BorderLayout.CENTER);
 
-        // 3. RIGHT SLOTS (Slots 8-12): Printer, Style Manager, Application Manager, Help Viewer, Trash
+        // 3. RIGHT SLOTS (Slots 8-13): Printer, Style Manager, Application Manager, Help Viewer, Trash, Status
         rightSlots = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         rightSlots.setBackground(initialTheme.base());
 
@@ -304,6 +307,13 @@ public final class AmadeDesktopPanel extends JFrame {
         );
         widgets.add(trashWidget);
         rightSlots.add(trashWidget.component());
+
+        // Slot 13: Status (network now; sound, battery and Bluetooth to follow), outermost on the right
+        StatusDockWidget statusWidget = new StatusDockWidget(List.of(
+                new NetworkCell(new NmcliNetworkService(),
+                        () -> launchProcess("xterm", "-title", "Network Settings", "-e", "nmtui"))));
+        widgets.add(statusWidget);
+        rightSlots.add(statusWidget.component());
 
         rootPanel.add(rightSlots, BorderLayout.EAST);
 
