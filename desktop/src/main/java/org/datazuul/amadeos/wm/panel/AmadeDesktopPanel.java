@@ -149,7 +149,7 @@ public final class AmadeDesktopPanel extends JFrame {
         setContentPane(rootPanel);
 
         // 1. LEFT SLOTS: Clock, File Manager, Text Editor, Terminal
-        // 1. LEFT SLOTS (Slots 1-6): Clock, Calendar, File Manager, Text Editor, Mail, Multimedia
+        // 1. LEFT SLOTS (Slots 1-7): Clock, Calendar, File Manager, Text Editor, Mail, Multimedia, Graphics
         leftSlots = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         leftSlots.setBackground(initialTheme.base());
 
@@ -215,6 +215,17 @@ public final class AmadeDesktopPanel extends JFrame {
         widgets.add(multimediaDrawer);
         leftSlots.add(multimediaDrawer.component());
 
+        // Slot 7: Graphics (with drawer ▲), filled from Graphics desktop entries
+        DrawerDockWidget graphicsDrawer = createCategoryDrawer(
+                "graphics", "Graphics", "graphics",
+                XdgCategory.GRAPHICS,
+                e -> showApplicationManagerDialog(this),
+                List.of(),
+                true
+        );
+        widgets.add(graphicsDrawer);
+        leftSlots.add(graphicsDrawer.component());
+
         rootPanel.add(leftSlots, BorderLayout.WEST);
 
         // 2. CENTER: Iconic CDE 4-way Workspace Switcher Pad
@@ -229,11 +240,11 @@ public final class AmadeDesktopPanel extends JFrame {
         widgets.add(switcher);
         rootPanel.add(switcher.component(), BorderLayout.CENTER);
 
-        // 3. RIGHT SLOTS (Slots 7-11): Printer, Style Manager, Application Manager, Help Viewer, Trash
+        // 3. RIGHT SLOTS (Slots 8-12): Printer, Style Manager, Application Manager, Help Viewer, Trash
         rightSlots = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         rightSlots.setBackground(initialTheme.base());
 
-        // Slot 7: Printer Manager (replaces Memory widget, with drawer ▲)
+        // Slot 8: Printer Manager (replaces Memory widget, with drawer ▲)
         DrawerDockWidget printerDrawer = createCategoryDrawer(
                 "printer", "Printer Manager", "printer",
                 XdgCategory.PRINTING,
@@ -248,7 +259,7 @@ public final class AmadeDesktopPanel extends JFrame {
         widgets.add(printerDrawer);
         rightSlots.add(printerDrawer.component());
 
-        // Slot 8: Style Manager (flat notch tab, no drawer ▲)
+        // Slot 9: Style Manager (flat notch tab, no drawer ▲)
         DrawerDockWidget styleWidget = new DrawerDockWidget(
                 "style", "Style Manager", "style",
                 e -> org.datazuul.amadeos.style.StyleManager.open(),
@@ -258,7 +269,7 @@ public final class AmadeDesktopPanel extends JFrame {
         widgets.add(styleWidget);
         rightSlots.add(styleWidget.component());
 
-        // Slot 9: Application Manager (flat notch tab, no drawer ▲)
+        // Slot 10: Application Manager (flat notch tab, no drawer ▲)
         DrawerDockWidget appManagerWidget = new DrawerDockWidget(
                 "app-manager", "Application Manager", "app-manager",
                 e -> showApplicationManagerDialog(this),
@@ -268,7 +279,7 @@ public final class AmadeDesktopPanel extends JFrame {
         widgets.add(appManagerWidget);
         rightSlots.add(appManagerWidget.component());
 
-        // Slot 10: Help Viewer (with drawer ▲)
+        // Slot 11: Help Viewer (with drawer ▲)
         DrawerDockWidget helpDrawer = createCategoryDrawer(
                 "help", "Help & Information Viewer", "help",
                 XdgCategory.HELP,
@@ -284,7 +295,7 @@ public final class AmadeDesktopPanel extends JFrame {
         widgets.add(helpDrawer);
         rightSlots.add(helpDrawer.component());
 
-        // Slot 11: Trash Can (flat notch tab, no drawer ▲)
+        // Slot 12: Trash Can (flat notch tab, no drawer ▲)
         DrawerDockWidget trashWidget = new DrawerDockWidget(
                 "trash", "Trash Can", "trash",
                 e -> launchProcess("xterm", "-title", "Trash Can", "-e", "sh", "-c", "echo 'amadeOS Trash Can:'; ls -la ~/.local/share/Trash/files 2>/dev/null || echo '(Empty)'; exec sh"),
@@ -735,7 +746,7 @@ public final class AmadeDesktopPanel extends JFrame {
         helpPane.setText("""
                 <html>
                 <body style='font-family: sans-serif; font-size: 11pt; padding: 10px;'>
-                <h3>Front Panel Overview (11 Slots):</h3>
+                <h3>Front Panel Overview (12 Slots):</h3>
                 <ul>
                   <li><b>Slot 1: Clock</b> &mdash; Analog clock face displaying system time.</li>
                   <li><b>Slot 2: Calendar</b> &mdash; Daily tear-off calendar sheet.</li>
@@ -743,12 +754,13 @@ public final class AmadeDesktopPanel extends JFrame {
                   <li><b>Slot 4: Text Editor</b> &mdash; Document notepad and text editor tools.</li>
                   <li><b>Slot 5: Mail</b> &mdash; Electronic mail client and console tools.</li>
                   <li><b>Slot 6: Sound &amp; Video</b> &mdash; Audio and video players from the AudioVideo category.</li>
+                  <li><b>Slot 7: Graphics</b> &mdash; Image viewers, scanning and drawing programs from the Graphics category.</li>
                   <li><b>Center: Workspace Switcher</b> &mdash; Workspaces One..Four, screen lock, and session exit.</li>
-                  <li><b>Slot 7: Printer Manager</b> &mdash; CUPS print jobs and printer queue.</li>
-                  <li><b>Slot 8: Style Manager</b> &mdash; Desktop color themes, icon themes, and wallpaper.</li>
-                  <li><b>Slot 9: Application Manager</b> &mdash; Categorized desktop application catalog.</li>
-                  <li><b>Slot 10: Help Viewer</b> &mdash; System documentation and diagnostics.</li>
-                  <li><b>Slot 11: Trash Can</b> &mdash; Wastebasket storage and session disposal.</li>
+                  <li><b>Slot 8: Printer Manager</b> &mdash; CUPS print jobs and printer queue.</li>
+                  <li><b>Slot 9: Style Manager</b> &mdash; Desktop color themes, icon themes, and wallpaper.</li>
+                  <li><b>Slot 10: Application Manager</b> &mdash; Categorized desktop application catalog.</li>
+                  <li><b>Slot 11: Help Viewer</b> &mdash; System documentation and diagnostics.</li>
+                  <li><b>Slot 12: Trash Can</b> &mdash; Wastebasket storage and session disposal.</li>
                 </ul>
                 <p>Click the <b>▲</b> arrow above drawer slots to open the subpanel tools.</p>
                 </body>

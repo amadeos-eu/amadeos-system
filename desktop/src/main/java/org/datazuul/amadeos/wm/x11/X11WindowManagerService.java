@@ -746,7 +746,7 @@ public final class X11WindowManagerService implements AutoCloseable {
         x11.XChangeProperty(display, new NativeLong(checkWindow), netSupportingWmCheck, xaWindowAtom, 32, LibX11.PropModeReplace, checkMem, 1);
 
         // _NET_WM_NAME on check window
-        byte[] nameBytes = "DazeWM".getBytes(StandardCharsets.UTF_8);
+        byte[] nameBytes = "amadeOS".getBytes(StandardCharsets.UTF_8);
         Memory nameMem = new Memory(nameBytes.length);
         nameMem.write(0, nameBytes, 0, nameBytes.length);
         x11.XChangeProperty(display, new NativeLong(checkWindow), netWmName, utf8String, 8, LibX11.PropModeReplace, nameMem, nameBytes.length);
