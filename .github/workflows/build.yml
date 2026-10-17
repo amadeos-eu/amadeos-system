@@ -57,7 +57,7 @@ jobs:
             if [ -d $module/packaging/root ]; then
               rm -rf control-$name && dpkg-deb --control "$deb" control-$name
               (cd $module/packaging/root && find . -type f) | while read -r f; do
-                grep -q " \${f}\$" contents.txt || { echo "missing in $name: $f"; exit 1; }
+                grep -q " ${f}\$" contents.txt || { echo "missing in $name: $f"; exit 1; }
                 case "$f" in ./etc/*) grep -qx "${f#.}" control-$name/conffiles || { echo "not a conffile in $name: $f"; exit 1; } ;; esac
               done
               for script in $module/packaging/debian/*; do
