@@ -1,0 +1,24 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=amadeOS Print Manager
+Name[de]=amadeOS Druckverwaltung
+Name[fr]=amadeOS Gestionnaire d'impression
+Name[es]=amadeOS Administrador de impresión
+Name[it]=amadeOS Gestione stampa
+GenericName=Print Manager
+GenericName[de]=Druckverwaltung
+GenericName[fr]=Gestionnaire d'impression
+GenericName[es]=Administrador de impresión
+GenericName[it]=Gestione stampa
+Comment=Show printers and print jobs, cancel jobs, print a test page
+Comment[de]=Drucker und Druckaufträge anzeigen, Aufträge abbrechen, eine Testseite drucken
+Comment[fr]=Afficher les imprimantes et les tâches, annuler des tâches, imprimer une page de test
+Comment[es]=Mostrar impresoras y trabajos, cancelar trabajos, imprimir una página de prueba
+Comment[it]=Mostrare stampanti e lavori di stampa, annullare lavori, stampare una pagina di prova
+Icon=printer
+Exec=/usr/bin/amade-print
+Terminal=false
+Categories=Settings;HardwareSettings;Printing;
+Keywords=printer;print;queue;job;cups;
+StartupNotify=true

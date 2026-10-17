@@ -1,0 +1,13 @@
+application {
+    mainClass = 'org.datazuul.amadeos.sysinfo.bootstrap.AmadeSysinfoApplication'
+}
+
+debian = [
+    section    : 'utils',
+    // lspci names the graphics card; without it that line is left out.
+    recommends : ['pciutils'],
+    summary    : 'Hardware and system information for amadeOS',
+    description: '''Shows the operating system, processor, memory, storage, graphics, network
+interfaces and battery of the computer on one page, and copies or saves them
+as text. Part of the amadeOS desktop.'''
+]
