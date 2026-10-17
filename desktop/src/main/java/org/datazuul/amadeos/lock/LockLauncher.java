@@ -13,7 +13,7 @@ import java.util.logging.Logger;
  */
 public final class LockLauncher {
     private static final Logger LOGGER = Logger.getLogger(LockLauncher.class.getName());
-    static final String WRAPPER = "/usr/local/bin/amadeos-lock";
+    static final String WRAPPER = "/usr/bin/amadeos-lock";
 
     private LockLauncher() {
     }

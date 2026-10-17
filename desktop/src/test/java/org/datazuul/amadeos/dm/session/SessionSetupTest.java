@@ -72,8 +72,8 @@ class SessionSetupTest {
     @Test
     void rootDropsPrivilegesWithSetpriv() {
         assertEquals(List.of("setpriv", "--reuid=1001", "--regid=1001", "--init-groups", "--",
-                        "/usr/local/bin/amadeos-session", ":0"),
-                SessionCommand.build(alice, SessionType.DESKTOP, "/usr/local/bin/amadeos-session", ":0", true));
+                        "/usr/bin/amadeos-session", ":0"),
+                SessionCommand.build(alice, SessionType.DESKTOP, "/usr/bin/amadeos-session", ":0", true));
     }
 
     @Test

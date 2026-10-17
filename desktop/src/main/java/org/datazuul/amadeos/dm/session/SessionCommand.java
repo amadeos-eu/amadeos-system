@@ -7,7 +7,7 @@ import java.util.List;
  * The command line that starts a session, dropping root privileges with setpriv (util-linux).
  */
 public final class SessionCommand {
-    public static final String DEFAULT_SESSION_EXECUTABLE = "/usr/local/bin/amadeos-session";
+    public static final String DEFAULT_SESSION_EXECUTABLE = "/usr/bin/amadeos-session";
 
     private SessionCommand() {
     }

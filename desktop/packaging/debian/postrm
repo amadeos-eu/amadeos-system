@@ -1,0 +1,14 @@
+#!/bin/sh
+# amade-desktop: forget the enablement state of the display manager when the package is purged.
+set -e
+
+if [ "$1" = "purge" ]; then
+    if command -v deb-systemd-helper >/dev/null 2>&1; then
+        deb-systemd-helper purge amadeos-dm.service >/dev/null || true
+        deb-systemd-helper unmask amadeos-dm.service >/dev/null || true
+    fi
+    rmdir /etc/amadeos/autostart.d /etc/amadeos 2>/dev/null || true
+fi
+if [ -d /run/systemd/system ]; then
+    systemctl daemon-reload >/dev/null 2>&1 || true
+fi

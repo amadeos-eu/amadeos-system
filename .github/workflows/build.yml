@@ -53,6 +53,17 @@ jobs:
             if [ -f $module/packaging/$name.desktop ]; then
               grep -q "usr/share/applications/$name.desktop" contents.txt || { echo "missing in $name: menu entry"; exit 1; }
             fi
+            # Everything from packaging/root is in the package, the files under etc/ as conffiles.
+            if [ -d $module/packaging/root ]; then
+              rm -rf control-$name && dpkg-deb --control "$deb" control-$name
+              (cd $module/packaging/root && find . -type f) | while read -r f; do
+                grep -q " ${f}\$" contents.txt || { echo "missing in $name: $f"; exit 1; }
+                case "$f" in ./etc/*) grep -qx "${f#.}" control-$name/conffiles || { echo "not a conffile in $name: $f"; exit 1; } ;; esac
+              done
+              for script in $module/packaging/debian/*; do
+                test -x control-$name/$(basename $script) || { echo "missing in $name: $(basename $script)"; exit 1; }
+              done
+            fi
           done
       - name: Upload the Debian packages
         uses: actions/upload-artifact@v7

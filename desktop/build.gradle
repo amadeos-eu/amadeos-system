@@ -34,16 +34,20 @@ debian = [
     section    : 'x11',
     javaOptions: '--enable-native-access=ALL-UNNAMED',
     // What the scripts of the desktop call: Xorg and xauth (display manager), xset, xmodmap, xrdb,
-    // xsetroot (input settings, session), xprop (session), chvt (kbd), mcookie (util-linux), the
+    // xsetroot (input settings, session), xprop (session), chvt (kbd), mcookie (util-linux, essential), the
     // MIT-SCREEN-SAVER library (screen saver), PAM with logind sessions, NetworkManager and polkit
     // for the network cell of the front panel.
-    depends    : ['xserver-xorg', 'xauth', 'x11-xserver-utils', 'x11-utils', 'kbd', 'util-linux', 'libxss1',
-                  'libpam-systemd', 'network-manager', 'polkitd'],
-    recommends : ['xterm'],
+    depends    : ['xserver-xorg', 'xauth', 'x11-xserver-utils', 'x11-utils', 'kbd', 'libxss1', 'libpam-systemd',
+                  'network-manager', 'polkitd'],
+    // xterm: the fallback of a failed session; xinit: startx without the display manager (amadeos-session
+    // is registered as x-session-manager).
+    recommends : ['xterm', 'xinit'],
     summary    : 'Window manager, front panel, display manager and settings of amadeOS',
     description: '''The desktop of amadeOS in the style of CDE: a reparenting X11 window manager
 with Motif frames and four workspaces, the front panel with clock, workspace
 switcher and drawers, the display manager with its login greeter (PAM), the
 screen lock and screen saver, the Style Manager and the input settings tool.
-Start a component with amade-desktop <dm|wm|panel|style|screen|input|lock>.'''
+Start a component with amade-desktop <dm|wm|panel|style|screen|input|lock>.
+The package enables amadeos-dm.service, which starts Xorg and the greeter at
+boot; amadeos-session runs the desktop session of a logged-in user.'''
 ]

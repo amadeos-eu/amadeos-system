@@ -1,0 +1,7 @@
+// amadeOS: members of netdev (the live user is one) may switch networks, join WLANs and store their
+// passwords system-wide without a password prompt, from the front panel's network cell or nmcli/nmtui.
+polkit.addRule(function (action, subject) {
+    if (action.id.indexOf("org.freedesktop.NetworkManager.") === 0 && subject.isInGroup("netdev")) {
+        return polkit.Result.YES;
+    }
+});

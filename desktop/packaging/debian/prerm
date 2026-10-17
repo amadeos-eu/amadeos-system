@@ -1,0 +1,12 @@
+#!/bin/sh
+# amade-desktop: on removal the display manager is no longer enabled.
+set -e
+
+if [ "$1" = "remove" ]; then
+    update-alternatives --remove x-session-manager /usr/bin/amadeos-session
+    if command -v deb-systemd-helper >/dev/null 2>&1; then
+        deb-systemd-helper disable amadeos-dm.service >/dev/null || true
+    else
+        systemctl disable amadeos-dm.service >/dev/null 2>&1 || true
+    fi
+fi

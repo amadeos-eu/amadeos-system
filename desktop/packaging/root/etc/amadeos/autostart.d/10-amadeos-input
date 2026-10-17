@@ -1,0 +1,7 @@
+#!/bin/sh
+# Applies the keyboard, mouse and bell settings of the Style Manager (~/.config/amadeos/input.conf)
+# at login with xset, xmodmap and xrdb.
+AMADEOS_JAR="${AMADEOS_JAR:-/opt/amade-desktop/amade-desktop.jar}"
+JAVA_BIN="${JAVA_HOME:+$JAVA_HOME/bin/java}"
+JAVA_BIN="${JAVA_BIN:-$(command -v java)}"
+exec "$JAVA_BIN" -jar "$AMADEOS_JAR" input >> "${HOME:-/tmp}/.amadeos-input.log" 2>&1

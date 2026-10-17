@@ -1,0 +1,3 @@
+# Drop-in autostart directory for amadeOS desktop session.
+# Executable files (.sh or binaries) placed here will be executed concurrently at session startup.
+

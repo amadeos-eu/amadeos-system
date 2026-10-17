@@ -1,0 +1,24 @@
+[Unit]
+Description=amadeOS Java Display Manager & Login Greeter
+Documentation=https://github.com/datazuul/amade-system
+After=systemd-user-sessions.service plymouth-quit-wait.service
+After=getty.target systemd-logind.service
+Conflicts=getty@tty7.service
+Wants=systemd-logind.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/amadeos-dm
+Restart=always
+RestartSec=2s
+StandardOutput=journal+console
+StandardError=journal+console
+EnvironmentFile=-/etc/default/locale
+Environment=DISPLAY=:0
+Environment=LANG=de_DE.UTF-8
+Environment=LC_ALL=de_DE.UTF-8
+
+[Install]
+Alias=display-manager.service
+WantedBy=graphical.target multi-user.target
+
