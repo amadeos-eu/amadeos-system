@@ -57,6 +57,8 @@ public final class AmadeDesktopPanel extends JFrame {
     public static final int DOCK_HEIGHT = 85;
 
     /** The desktop help, installed with the image and shown in amade-web. */
+    /** The CUPS web interface, where printers are added and configured. */
+    private static final String CUPS_ADMIN = "http://localhost:631/admin";
     private static final String DESKTOP_HELP = "/usr/share/doc/amadeos/help/index.html";
     private static java.nio.channels.FileLock panelLock = null;
 
@@ -240,16 +242,15 @@ public final class AmadeDesktopPanel extends JFrame {
         rightSlots = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         rightSlots.setBackground(initialTheme.base());
 
-        // Slot 8: Printer Manager (replaces Memory widget, with drawer ▲)
-        DrawerDockWidget printerDrawer = createCategoryDrawer(
-                "printer", "Printer Manager", "printer",
-                XdgCategory.PRINTING,
-                e -> launchProcess("xterm", "-title", "Printer Queue", "-e", "sh", "-c", "lpstat -p -d 2>/dev/null || echo 'No CUPS printers configured.'; echo ''; lpq 2>/dev/null; exec sh"),
-                List.of(
-                        new DrawerTool("Print Queue & Status", "printer", e -> launchProcess("xterm", "-title", "Printer Queue", "-e", "sh", "-c", "lpq; lpstat -o; exec sh")),
-                        new DrawerTool("CUPS Web Administration", "window", e -> launchProcess("xdg-open", "http://localhost:631/")),
-                        new DrawerTool("Printer Settings", "printer", e -> launchProcess("system-config-printer"))
-                ),
+        // Slot 8: Printers (with drawer ▲): amade-print with the printers and their jobs, the other installed
+        // Printing applications, and the CUPS web interface for adding and configuring printers
+        List<DrawerTool> printerTools = new ArrayList<>(xdgTools(XdgCategory.PRINTING));
+        printerTools.add(new DrawerTool("Add or Configure Printers", "printer",
+                e -> launchProcess("xdg-open", CUPS_ADMIN)));
+        DrawerDockWidget printerDrawer = new DrawerDockWidget(
+                "printer", "Print Manager", "printer",
+                e -> launchProcess("amade-print"),
+                printerTools,
                 true
         );
         widgets.add(printerDrawer);
@@ -266,7 +267,7 @@ public final class AmadeDesktopPanel extends JFrame {
                         new DrawerTool("Terminal (xterm)", "terminal", e -> launchProcess("xterm")),
                         new DrawerTool("Root Console (sudo)", "terminal", e -> launchProcess("xterm", "-title", "Root Shell", "-e", "sudo", "sh")),
                         new DrawerTool("Session Diagnostics & Logs", "diagnostics", e -> showLogViewerDialog(this)),
-                        new DrawerTool("Hardware & System Info", "diagnostics", e -> launchProcess("xterm", "-title", "System Info", "-e", "sh", "-c", "uname -a; free -h; lscpu | head -n 15; exec sh"))
+                        new DrawerTool("Hardware & System Info", "diagnostics", e -> launchProcess("amade-sysinfo"))
                 ),
                 true
         );
