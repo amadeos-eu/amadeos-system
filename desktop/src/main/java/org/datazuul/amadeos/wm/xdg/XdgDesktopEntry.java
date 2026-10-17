@@ -1,6 +1,7 @@
 package org.datazuul.amadeos.wm.xdg;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -26,6 +27,7 @@ public record XdgDesktopEntry(
         boolean hidden,
         List<String> onlyShowIn,
         List<String> notShowIn,
+        String tryExec,
         Path filePath
 ) {
     private static final Logger LOGGER = Logger.getLogger(XdgDesktopEntry.class.getName());
@@ -37,6 +39,7 @@ public record XdgDesktopEntry(
         comment = Objects.requireNonNullElse(comment, "");
         icon = Objects.requireNonNullElse(icon, "window");
         exec = Objects.requireNonNullElse(exec, "");
+        tryExec = Objects.requireNonNullElse(tryExec, "");
         categories = (categories != null) ? List.copyOf(categories) : List.of();
         mimeTypes = (mimeTypes != null) ? List.copyOf(mimeTypes) : List.of();
         onlyShowIn = (onlyShowIn != null) ? List.copyOf(onlyShowIn) : List.of();
@@ -80,6 +83,36 @@ public record XdgDesktopEntry(
             }
         }
         return true;
+    }
+
+    /**
+     * Whether the program of this entry is installed: TryExec if given (desktop entry spec), else the
+     * first word of Exec. Debian's vim.desktop, for example, comes with vim-common although vim-tiny
+     * provides no /usr/bin/vim.
+     */
+    public boolean isInstalled() {
+        String program = !tryExec.isBlank() ? tryExec.strip() : firstWord(exec);
+        return program.isEmpty() || isExecutable(program);
+    }
+
+    private static String firstWord(String exec) {
+        List<String> tokens = tokenize(exec);
+        return tokens.isEmpty() ? "" : tokens.get(0);
+    }
+
+    /** Whether {@code program} (a path, or a name looked up in PATH) is an executable file. */
+    static boolean isExecutable(String program) {
+        if (program.contains("/")) {
+            return Files.isExecutable(Path.of(program));
+        }
+        String pathEnv = System.getenv("PATH");
+        String searchPath = pathEnv != null && !pathEnv.isBlank() ? pathEnv : "/usr/local/bin:/usr/bin:/bin";
+        for (String dir : searchPath.split(":")) {
+            if (!dir.isEmpty() && Files.isExecutable(Path.of(dir, program))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

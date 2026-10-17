@@ -10,12 +10,13 @@ import javax.swing.JComponent;
 import javax.swing.JPanel;
 import org.datazuul.amadeos.commons.theme.DesktopTheme;
 import org.datazuul.amadeos.wm.panel.widget.AbstractDockWidget;
+import org.datazuul.amadeos.wm.panel.widget.AbstractDockWidget.MotifBevelBorder;
 import org.datazuul.amadeos.wm.panel.widget.CdePanelChrome;
 
 /**
  * Front panel status slot: up to four small indicators in a 2x2 grid below a plain tab, like the four
- * workspace buttons of the switcher. With fewer cells available the grid shrinks, so a single cell uses
- * the whole button plate.
+ * workspace buttons of the switcher. Free places stay as sunken empty bays, so a single cell takes a
+ * quarter of the button plate and the room for more indicators is visible.
  */
 public final class StatusDockWidget extends AbstractDockWidget {
     static final int MAX_CELLS = 4;
@@ -23,6 +24,7 @@ public final class StatusDockWidget extends AbstractDockWidget {
     private final List<StatusCell> cells;
     private final JPanel slotPanel;
     private final JPanel grid;
+    private int shownCells;
 
     public StatusDockWidget(List<StatusCell> cells) {
         super("status");
@@ -56,16 +58,23 @@ public final class StatusDockWidget extends AbstractDockWidget {
     public void relayout() {
         grid.removeAll();
         List<StatusCell> shown = cells.stream().filter(StatusCell::available).toList();
-        int columns = shown.size() <= 1 ? 1 : 2;
-        int rows = shown.size() <= 2 ? 1 : 2;
-        grid.setLayout(new GridLayout(rows, columns, 2, 2));
+        grid.setLayout(new GridLayout(2, 2, 2, 2));
         for (StatusCell cell : shown) grid.add(cell.component());
+        for (int i = shown.size(); i < MAX_CELLS; i++) grid.add(emptyBay());
+        shownCells = shown.size();
         grid.revalidate();
         grid.repaint();
     }
 
     int shownCells() {
-        return grid.getComponentCount();
+        return shownCells;
+    }
+
+    private static JComponent emptyBay() {
+        JPanel bay = new JPanel();
+        bay.setOpaque(false);
+        bay.setBorder(new MotifBevelBorder(false, 1));
+        return bay;
     }
 
     @Override

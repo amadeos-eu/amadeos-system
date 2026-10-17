@@ -108,6 +108,47 @@ class XdgDesktopEntryTest {
     }
 
     @Test
+    void testEntryOfMissingProgramIsNotInstalled() throws IOException {
+        String content = """
+                [Desktop Entry]
+                Type=Application
+                Name=Vim
+                Exec=amadeos-test-no-such-program %F
+                Terminal=true
+                """;
+
+        Optional<XdgDesktopEntry> opt = XdgDesktopEntryParser.parse(
+                new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8)),
+                "vim.desktop",
+                null
+        );
+
+        assertTrue(opt.isPresent());
+        assertFalse(opt.get().isInstalled());
+    }
+
+    @Test
+    void testTryExecDecidesWhetherInstalled() throws IOException {
+        String content = """
+                [Desktop Entry]
+                Type=Application
+                Name=Shell Wrapper
+                TryExec=/bin/sh
+                Exec=amadeos-test-no-such-program
+                """;
+
+        Optional<XdgDesktopEntry> opt = XdgDesktopEntryParser.parse(
+                new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8)),
+                "wrapper.desktop",
+                null
+        );
+
+        assertTrue(opt.isPresent());
+        assertEquals("/bin/sh", opt.get().tryExec());
+        assertTrue(opt.get().isInstalled());
+    }
+
+    @Test
     void testNonApplicationTypeIgnored() throws IOException {
         String content = """
                 [Desktop Entry]
