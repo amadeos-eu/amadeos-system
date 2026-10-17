@@ -10,7 +10,8 @@ debian = [
     javaOptions: '--enable-native-access=ALL-UNNAMED',
     // NetworkManager and polkit for the network cell.
     depends    : ['network-manager', 'polkitd'],
-    recommends : ['amade-wm'],
+    // The window manager, and the programs of the Tools drawer and the Printers slot.
+    recommends : ['amade-wm', 'amade-logviewer', 'amade-sysinfo', 'amade-print', 'amade-style'],
     provides   : ['amade-panel'],
     conflicts  : ['amade-desktop'],
     replaces   : ['amade-desktop'],

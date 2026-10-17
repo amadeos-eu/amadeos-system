@@ -33,7 +33,6 @@ import javax.swing.JTabbedPane;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
-import org.datazuul.amadeos.base.xdg.XdgDirectories;
 import org.datazuul.amadeos.panel.cde.widget.AbstractDockWidget;
 import org.datazuul.amadeos.panel.cde.widget.CalendarDockWidget;
 import org.datazuul.amadeos.panel.cde.widget.CdePanelChrome;
@@ -269,7 +268,7 @@ public final class AmadeDesktopPanel extends JFrame {
                         new DrawerTool("Application Manager", "app-manager", e -> showApplicationManagerDialog(this)),
                         new DrawerTool("Terminal (xterm)", "terminal", e -> launchProcess("xterm")),
                         new DrawerTool("Root Console (sudo)", "terminal", e -> launchProcess("xterm", "-title", "Root Shell", "-e", "sudo", "sh")),
-                        new DrawerTool("Session Diagnostics & Logs", "diagnostics", e -> showLogViewerDialog(this)),
+                        new DrawerTool("Session Diagnostics & Logs", "diagnostics", e -> launchProcess("amade-logviewer")),
                         new DrawerTool("Hardware & System Info", "diagnostics", e -> launchProcess("amade-sysinfo"))
                 ),
                 true
@@ -514,10 +513,6 @@ public final class AmadeDesktopPanel extends JFrame {
 
     private void openDesktopHelp() {
         launchProcess("amade-web", DESKTOP_HELP);
-    }
-
-    private void showLogViewerDialog(JFrame parent) {
-        new LogViewerDialog(parent, () -> openInFileManager(XdgDirectories.amadeosLogDir().toString())).setVisible(true);
     }
 
     private void showApplicationManagerDialog(JFrame parent) {

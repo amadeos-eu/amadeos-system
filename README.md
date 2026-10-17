@@ -18,6 +18,7 @@ multi-project: one module and one Debian package per component. The standalone a
 | `dm` | `amade-dm` | The display manager: `amadeos-dm.service` starts Xorg and the login greeter, which authenticates through PAM in a root worker and starts the session (`amade-dm [display]`; `amade-dm greeter` shows the greeter alone) |
 | `session` | `amade-session` | The X session (`amadeos-session`: window manager under supervision, autostart scripts, then the panel), the screen lock (`amade-session lock`, wrapped by `amadeos-lock`) and the screen saver with idle lock (`amade-session screen`) |
 | `style` | `amade-style` | The Style Manager (CDE's dtstyle: Color, Backdrop, Keyboard, Mouse, Beep, Screen) and the input settings tool (`amade-style input`, run at login) |
+| `logviewer` | `amade-logviewer` | Session Diagnostics & Logs: the session, window manager and application logs, the display manager's logs and the journal of this boot, one at a time with Follow; started from the panel's Tools drawer |
 | `print` | `amade-print` | Print manager: CUPS printers with their state, the jobs of each printer (cancel, hold, release), pause and resume printers, default printer, test page, CUPS administration for adding printers |
 | `sysinfo` | `amade-sysinfo` | System information: operating system, processor, memory, storage, graphics, network and battery on one page; copy or save as text |
 
@@ -29,7 +30,9 @@ maintainer scripts.
 ## The desktop
 
 The desktop is the five packages `amade-dm`, `amade-session`, `amade-wm`, `amade-panel-cde` and
-`amade-style`, each a jar under `/opt/<package>/` with the launcher `/usr/bin/<package>`. `amade-dm`
+`amade-style`, each a jar under `/opt/<package>/` with the launcher `/usr/bin/<package>`; the programs
+of the Tools drawer (`amade-logviewer`, `amade-sysinfo`) and `amade-print` are packages of their own
+that the panel starts. `amade-dm`
 depends on `amade-session`, which depends on `amade-wm` and on `amade-panel`. `amade-panel` is a virtual
 package: `amade-panel-cde` provides it and registers `/usr/bin/amade-panel` as an alternative, and
 `amadeos-session` starts that. A second panel (say a taskbar) provides `amade-panel` the same way and
