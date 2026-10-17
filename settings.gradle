@@ -1,8 +1,10 @@
 rootProject.name = 'amade-system'
 
 // System components of amadeOS, one Debian package per module.
+include 'desktop'
 include 'print'
 include 'sysinfo'
+include 'desktop'
 
 // Develop against a local amade-commons checkout next to this one; without it, the version from
 // JitPack given in build.gradle is used.
