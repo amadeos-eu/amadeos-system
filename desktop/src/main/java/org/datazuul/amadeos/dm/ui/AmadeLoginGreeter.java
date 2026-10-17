@@ -15,7 +15,11 @@ import java.awt.Toolkit;
 import java.awt.Component;
 import java.net.InetAddress;
 import java.nio.file.Path;
+import java.time.DateTimeException;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 import java.util.Optional;
@@ -36,12 +40,14 @@ import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import org.datazuul.amadeos.commons.i18n.Language;
 import org.datazuul.amadeos.commons.theme.DesktopTheme;
+import org.datazuul.amadeos.dm.session.SystemTimeZone;
 import org.datazuul.amadeos.dm.session.UserAccount;
 import org.datazuul.amadeos.wm.theme.ThemeManager;
 
 public final class AmadeLoginGreeter extends JFrame {
     public interface LoginCallback {
-        void onLogin(String username, String password, String sessionType, Language language);
+        /** @param timeZone the zone chosen for the system, e.g. {@code Europe/Berlin} */
+        void onLogin(String username, String password, String sessionType, Language language, String timeZone);
     }
 
     private static final DateTimeFormatter CLOCK_FMT = DateTimeFormatter.ofPattern("EEE, MMM dd  HH:mm:ss");
@@ -52,6 +58,7 @@ public final class AmadeLoginGreeter extends JFrame {
     private final JPasswordField passField;
     private final JComboBox<String> sessionCombo;
     private final JComboBox<Language> languageCombo;
+    private final JComboBox<String> timeZoneCombo;
     private final JLabel statusLabel;
     private final JLabel clockLabel;
     private final JButton loginBtn;
@@ -146,6 +153,18 @@ public final class AmadeLoginGreeter extends JFrame {
             }
         });
         languageCombo.setToolTipText("Language of the desktop and its applications");
+        this.timeZoneCombo = new JComboBox<>(SystemTimeZone.SYSTEM.available().toArray(new String[0]));
+        timeZoneCombo.setRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index,
+                                                          boolean selected, boolean focus) {
+                Object text = value instanceof String zone ? describeTimeZone(zone) : value;
+                return super.getListCellRendererComponent(list, text, index, selected, focus);
+            }
+        });
+        timeZoneCombo.setPrototypeDisplayValue("America/Argentina/Buenos_Aires");
+        timeZoneCombo.setMaximumRowCount(16);
+        timeZoneCombo.setToolTipText("Time zone of the computer's clock; set for the whole system at login");
         this.statusLabel = new JLabel("Please enter your password to begin session.", SwingConstants.CENTER);
         this.loginBtn = createMotifButton("  Log In  ", theme);
 
@@ -157,6 +176,7 @@ public final class AmadeLoginGreeter extends JFrame {
             public void windowOpened(java.awt.event.WindowEvent e) {
                 applyKeyboardLayout("de");
                 preselectLanguage();
+                preselectTimeZone();
                 passField.requestFocusInWindow();
             }
         });
@@ -189,7 +209,7 @@ public final class AmadeLoginGreeter extends JFrame {
             }
         };
         card.setBackground(theme.base());
-        card.setPreferredSize(new Dimension(480, 375));
+        card.setPreferredSize(new Dimension(480, 415));
         card.setBorder(BorderFactory.createEmptyBorder(12, 16, 14, 16));
         return card;
     }
@@ -286,8 +306,19 @@ public final class AmadeLoginGreeter extends JFrame {
         });
         formPanel.add(keyboardCombo, gbc);
 
+        // Time zone row: the display manager runs as root, so this is where the system's zone is set
+        gbc.gridx = 0; gbc.gridy = 5; gbc.weightx = 0.3;
+        JLabel zoneLabel = new JLabel("Time Zone:", SwingConstants.RIGHT);
+        zoneLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 12));
+        zoneLabel.setForeground(theme.textActive());
+        zoneLabel.setLabelFor(timeZoneCombo);
+        formPanel.add(zoneLabel, gbc);
+
+        gbc.gridx = 1; gbc.gridy = 5; gbc.weightx = 0.7;
+        formPanel.add(timeZoneCombo, gbc);
+
         // Recessed status message box
-        gbc.gridx = 0; gbc.gridy = 5; gbc.gridwidth = 2;
+        gbc.gridx = 0; gbc.gridy = 6; gbc.gridwidth = 2;
         gbc.insets = new Insets(10, 4, 4, 4);
         JPanel statusPlate = new JPanel(new BorderLayout()) {
             @Override
@@ -346,6 +377,7 @@ public final class AmadeLoginGreeter extends JFrame {
         String password = new String(passField.getPassword());
         String sessionType = (String) sessionCombo.getSelectedItem();
         Language language = (Language) languageCombo.getSelectedItem();
+        String timeZone = (String) timeZoneCombo.getSelectedItem();
 
         if (username.isEmpty()) {
             setStatus("Please enter a username.", true);
@@ -359,7 +391,7 @@ public final class AmadeLoginGreeter extends JFrame {
         // Execute authentication on background thread so UI remains responsive
         new Thread(() -> {
             try {
-                loginCallback.onLogin(username, password, sessionType, language);
+                loginCallback.onLogin(username, password, sessionType, language, timeZone);
             } finally {
                 SwingUtilities.invokeLater(() -> loginBtn.setEnabled(true));
             }
@@ -391,9 +423,35 @@ public final class AmadeLoginGreeter extends JFrame {
         languageCombo.setSelectedItem(users.orElseGet(() -> LoginLanguage.systemDefault(System.getenv())));
     }
 
+    /** Selects the zone the system has now (an alias such as {@code Etc/UTC} is added to the list). */
+    private void preselectTimeZone() {
+        String zone = SystemTimeZone.SYSTEM.current().orElseGet(() -> ZoneId.systemDefault().getId());
+        boolean listed = false;
+        for (int i = 0; i < timeZoneCombo.getItemCount() && !listed; i++) {
+            listed = zone.equals(timeZoneCombo.getItemAt(i));
+        }
+        if (!listed) {
+            timeZoneCombo.insertItemAt(zone, 0);
+        }
+        timeZoneCombo.setSelectedItem(zone);
+    }
+
+    /** {@code Europe/Berlin} as "Europe/Berlin  (UTC+02:00)", with the offset of today. */
+    static String describeTimeZone(String zone) {
+        String name = zone.replace('_', ' ');
+        try {
+            ZoneOffset offset = ZoneId.of(zone).getRules().getOffset(Instant.now());
+            return name + "  (UTC" + (offset.getTotalSeconds() == 0 ? "" : offset.getId()) + ")";
+        } catch (DateTimeException e) {
+            // The JDK's time zone data may not know a zone the system has.
+            return name;
+        }
+    }
+
     public void resetFields() {
         SwingUtilities.invokeLater(() -> {
             preselectLanguage();
+            preselectTimeZone();
             passField.setText("");
             statusLabel.setText("Please enter your password to begin session.");
             statusLabel.setForeground(new Color(0x33, 0x33, 0x33));
