@@ -2,22 +2,26 @@ package org.datazuul.amadeos.wm.ui;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
-import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
+import java.awt.event.KeyEvent;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.logging.Logger;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
+import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.KeyStroke;
+import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import org.datazuul.amadeos.commons.theme.DesktopTheme;
+import org.datazuul.amadeos.wm.theme.IconManager;
 import org.datazuul.amadeos.wm.theme.ThemeManager;
 
 /**
@@ -68,13 +72,13 @@ public final class SessionDialogHelper {
             grid.setBackground(t.base());
             grid.setBorder(BorderFactory.createEmptyBorder(8, 16, 8, 16));
 
-            JButton logoutBtn = new JButton("<html><center><b>Log Out</b><br><small>Restart desktop session</small></center></html>");
+            JButton logoutBtn = actionButton("logout", "Log Out", "Restart desktop session");
             logoutBtn.addActionListener(e -> requestSessionAction("restart"));
 
-            JButton shellBtn = new JButton("<html><center><b>Exit to Shell</b><br><small>Drop to tty1 console</small></center></html>");
+            JButton shellBtn = actionButton("terminal", "Exit to Shell", "Drop to tty1 console");
             shellBtn.addActionListener(e -> requestSessionAction("shell"));
 
-            JButton shutdownBtn = new JButton("<html><center><b>Shut Down</b><br><small>Power off computer</small></center></html>");
+            JButton shutdownBtn = actionButton("shutdown", "Shut Down", "Power off computer");
             shutdownBtn.addActionListener(e -> {
                 int confirm = JOptionPane.showConfirmDialog(
                         dialog,
@@ -87,7 +91,7 @@ public final class SessionDialogHelper {
                 }
             });
 
-            JButton rebootBtn = new JButton("<html><center><b>Reboot</b><br><small>Restart computer</small></center></html>");
+            JButton rebootBtn = actionButton("reboot", "Reboot", "Restart computer");
             rebootBtn.addActionListener(e -> {
                 int confirm = JOptionPane.showConfirmDialog(
                         dialog,
@@ -113,13 +117,28 @@ public final class SessionDialogHelper {
             cancelBtn.addActionListener(e -> dialog.dispose());
             footer.add(cancelBtn);
             dialog.add(footer, BorderLayout.SOUTH);
+            dialog.getRootPane().setDefaultButton(cancelBtn);
+            dialog.getRootPane().registerKeyboardAction(e -> dialog.dispose(),
+                    KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), JComponent.WHEN_IN_FOCUSED_WINDOW);
 
-            dialog.setPreferredSize(new Dimension(520, 260));
             dialog.pack();
             // Centred on the screen: the parent is usually the front panel at the bottom edge
             dialog.setLocationRelativeTo(null);
             dialog.setVisible(true);
         });
+    }
+
+    /** A large session action button: its icon above the action and a short explanation. */
+    private static JButton actionButton(String iconKey, String action, String explanation) {
+        JButton button = new JButton(
+                "<html><center><b>" + action + "</b><br><small>" + explanation + "</small></center></html>",
+                IconManager.getIcon(iconKey, 48));
+        button.setVerticalTextPosition(SwingConstants.BOTTOM);
+        button.setHorizontalTextPosition(SwingConstants.CENTER);
+        button.setIconTextGap(6);
+        button.setBorder(BorderFactory.createCompoundBorder(button.getBorder(),
+                BorderFactory.createEmptyBorder(8, 16, 8, 16)));
+        return button;
     }
 
     public static void lockScreen(Component parent) {
