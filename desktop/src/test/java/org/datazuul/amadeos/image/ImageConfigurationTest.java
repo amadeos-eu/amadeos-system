@@ -19,23 +19,21 @@ class ImageConfigurationTest {
     private static final Path BUILD_SCRIPT = Path.of("scripts/build-image.sh");
 
     /**
-     * The hooks exist once, in config/hooks/normal (current Debian live-build runs
-     * config/hooks/normal/*.chroot); config/hooks/*.chroot, which live-build 3.x on Ubuntu hosts runs,
-     * are links to them, so the image does not depend on which live-build version built it.
+     * The hooks exist once, in config/hooks/normal, where current Debian live-build runs them. live-build
+     * 3.x on Ubuntu hosts runs config/hooks/*.chroot instead, so the build script links the hooks there
+     * in its copy of the configuration; the repository keeps no second copy.
      */
     @Test
-    void hooksExistOnceAndAreLinkedForLiveBuild3() throws IOException {
+    void hooksExistOnceAndTheBuildScriptLinksThemForLiveBuild3() throws IOException {
         List<Path> normal = chrootHooks(HOOKS.resolve("normal"));
-        List<Path> topLevel = chrootHooks(HOOKS);
         assertFalse(normal.isEmpty(), "expected hooks in " + HOOKS.resolve("normal"));
-        assertEquals(names(normal), names(topLevel), "config/hooks must link every hook of config/hooks/normal");
+        assertEquals(List.of(), chrootHooks(HOOKS), "hooks belong in config/hooks/normal only");
         for (Path hook : normal) {
-            assertTrue(Files.isRegularFile(hook, java.nio.file.LinkOption.NOFOLLOW_LINKS), hook + " must be the file");
-            Path link = HOOKS.resolve(hook.getFileName());
-            assertTrue(Files.isSymbolicLink(link), link + " must be a link to " + hook);
-            assertEquals(Path.of("normal").resolve(hook.getFileName()), Files.readSymbolicLink(link),
-                    link + " must point to the hook in normal/ by a relative path");
+            assertTrue(Files.isExecutable(hook), hook + " must be executable (git update-index --chmod=+x)");
         }
+        String script = Files.readString(BUILD_SCRIPT);
+        assertTrue(script.contains("ln -s \"normal/$(basename \"$hook\")\" \"$BUILD_ROOT/config/hooks/"),
+                BUILD_SCRIPT + " must link config/hooks/normal/*.chroot into config/hooks for live-build 3.0");
     }
 
     /** The package list is the only list of packages; the hook must not install a second copy. */
