@@ -1,5 +1,7 @@
 package org.datazuul.amadeos.wm.x11;
 
+import org.datazuul.amadeos.base.x11.LibX11;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -13,8 +15,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.datazuul.amadeos.wm.WindowGeometry;
 import org.datazuul.amadeos.wm.decoration.FrameWindow;
-import org.datazuul.amadeos.wm.panel.X11EwmhHelper;
-import org.datazuul.amadeos.wm.process.LaunchFeedback;
+import org.datazuul.amadeos.base.x11.X11EwmhHelper;
+import org.datazuul.amadeos.base.x11.LaunchFeedback;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -336,7 +338,7 @@ class X11WindowManagerIntegrationTest {
     @Test
     void testMinimizeAndRestoreWindow() throws Exception {
         try (X11WindowManagerService wm = X11WindowManagerService.open(display);
-             org.datazuul.amadeos.wm.panel.X11EwmhHelper helper = org.datazuul.amadeos.wm.panel.X11EwmhHelper.open(display)) {
+             org.datazuul.amadeos.base.x11.X11EwmhHelper helper = org.datazuul.amadeos.base.x11.X11EwmhHelper.open(display)) {
             Process client = new ProcessBuilder("xmessage", "-display", display, "-buttons", "OK:0", "MinRestoreTest").start();
             try {
                 Thread.sleep(500);
@@ -370,7 +372,7 @@ class X11WindowManagerIntegrationTest {
     @Test
     void testClientMessageWmChangeStateMinimizesWindow() throws Exception {
         try (X11WindowManagerService wm = X11WindowManagerService.open(display);
-             org.datazuul.amadeos.wm.panel.X11EwmhHelper helper = org.datazuul.amadeos.wm.panel.X11EwmhHelper.open(display)) {
+             org.datazuul.amadeos.base.x11.X11EwmhHelper helper = org.datazuul.amadeos.base.x11.X11EwmhHelper.open(display)) {
             Process client = new ProcessBuilder("xmessage", "-display", display, "-buttons", "OK:0", "ChangeStateTest").start();
             try {
                 Thread.sleep(500);
@@ -397,7 +399,7 @@ class X11WindowManagerIntegrationTest {
     @Test
     void testDockWindowIsNotDecoratedAndReservesBottomStrut() throws Exception {
         try (X11WindowManagerService wm = X11WindowManagerService.open(display);
-             org.datazuul.amadeos.wm.panel.X11EwmhHelper helper = org.datazuul.amadeos.wm.panel.X11EwmhHelper.open(display)) {
+             org.datazuul.amadeos.base.x11.X11EwmhHelper helper = org.datazuul.amadeos.base.x11.X11EwmhHelper.open(display)) {
             // Create a native dock window
             LibX11 x11 = LibX11.INSTANCE;
             com.sun.jna.NativeLong dockWin = x11.XCreateSimpleWindow(

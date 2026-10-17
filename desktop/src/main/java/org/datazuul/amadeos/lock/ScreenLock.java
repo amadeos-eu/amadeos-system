@@ -10,8 +10,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
-import org.datazuul.amadeos.dm.pam.PamAuthenticator;
-import org.datazuul.amadeos.wm.x11.LibX11;
+import org.datazuul.amadeos.base.pam.PamAuthenticator;
+import org.datazuul.amadeos.base.x11.LibX11;
 
 /**
  * The screen lock process ({@code amadeos.jar lock}, usually started through

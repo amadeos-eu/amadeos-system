@@ -1,10 +1,10 @@
-// Shared build of all modules: Java 25, amade-commons, JUnit 5, a fat jar per module and the tasks
-// `deb` (a Debian package) and `installToAmadeOs` (that package into ../amadeos/config/packages.chroot).
-// Each module sets mainClass and the `debian` block in its own build.gradle.
+// Shared build of all modules: Java 25, amade-commons, JUnit 5, a fat jar per application module and
+// the tasks `deb` (a Debian package) and `installToAmadeOs` (that package into
+// ../amadeos/config/packages.chroot). Each application module sets mainClass and the `debian` block in its
+// own build.gradle; `base` is the library the desktop modules share and has no package of its own.
 
 subprojects {
     apply plugin: 'java'
-    apply plugin: 'application'
 
     group = 'org.datazuul.amadeos'
     version = '0.1.0'
@@ -35,6 +35,11 @@ subprojects {
         systemProperty 'user.language', 'en'
         systemProperty 'user.country', 'US'
     }
+}
+
+// The application modules: a main class, a fat jar and a Debian package each.
+configure(subprojects.findAll { it.name != 'base' }) {
+    apply plugin: 'application'
 
     ext.debian = [:]
     // The SLF4J binding of the module's jar; the desktop logs through java.util.logging instead.

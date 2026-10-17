@@ -8,8 +8,8 @@ import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
 import java.util.Objects;
 import java.util.Optional;
-import org.datazuul.amadeos.wm.x11.LibC;
-import org.datazuul.amadeos.wm.x11.LibX11;
+import org.datazuul.amadeos.base.x11.LibC;
+import org.datazuul.amadeos.base.x11.LibX11;
 
 /**
  * Encapsulates an X11 server-side decoration frame window wrapping a reparented client window.

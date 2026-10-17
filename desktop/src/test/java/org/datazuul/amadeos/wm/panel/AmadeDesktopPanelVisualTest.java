@@ -1,5 +1,7 @@
 package org.datazuul.amadeos.wm.panel;
 
+import org.datazuul.amadeos.base.x11.X11EwmhHelper;
+
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.File;

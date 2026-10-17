@@ -8,7 +8,7 @@ import java.awt.Rectangle;
 import java.awt.RenderingHints;
 
 import org.datazuul.amadeos.commons.theme.DesktopTheme;
-import org.datazuul.amadeos.wm.theme.ThemeManager;
+import org.datazuul.amadeos.base.theme.ThemeManager;
 
 public final class MotifDecorationTheme implements DecorationTheme {
     public static final String NAME = "Motif";

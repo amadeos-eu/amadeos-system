@@ -2,7 +2,7 @@ package org.datazuul.amadeos.lock;
 
 import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
-import org.datazuul.amadeos.wm.x11.LibX11;
+import org.datazuul.amadeos.base.x11.LibX11;
 
 /**
  * The session-wide lock state is the ownership of the X selection {@code _AMADEOS_LOCK}.

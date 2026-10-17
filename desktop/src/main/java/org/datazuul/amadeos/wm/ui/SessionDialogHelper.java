@@ -21,8 +21,8 @@ import javax.swing.KeyStroke;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import org.datazuul.amadeos.commons.theme.DesktopTheme;
-import org.datazuul.amadeos.wm.theme.IconManager;
-import org.datazuul.amadeos.wm.theme.ThemeManager;
+import org.datazuul.amadeos.base.theme.IconManager;
+import org.datazuul.amadeos.base.theme.ThemeManager;
 
 /**
  * Helper providing authentic Motif session power dialogs, logout triggers, and screen lock integration.

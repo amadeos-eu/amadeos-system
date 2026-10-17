@@ -11,8 +11,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.datazuul.amadeos.commons.i18n.Language;
-import org.datazuul.amadeos.dm.pam.PamAuthenticator;
-import org.datazuul.amadeos.wm.x11.LibC;
+import org.datazuul.amadeos.base.pam.PamAuthenticator;
+import org.datazuul.amadeos.base.x11.LibC;
 
 /**
  * Runs one login session: started by the display manager as a separate root process

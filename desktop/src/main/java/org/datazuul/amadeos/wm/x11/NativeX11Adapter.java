@@ -1,5 +1,7 @@
 package org.datazuul.amadeos.wm.x11;
 
+import org.datazuul.amadeos.base.x11.LibX11;
+
 import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
 import java.util.function.Function;

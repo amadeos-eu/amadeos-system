@@ -4,8 +4,8 @@ import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
 import com.sun.jna.ptr.IntByReference;
 import org.datazuul.amadeos.lock.LockSelection;
-import org.datazuul.amadeos.wm.x11.LibX11;
-import org.datazuul.amadeos.wm.x11.LibXss;
+import org.datazuul.amadeos.base.x11.LibX11;
+import org.datazuul.amadeos.base.x11.LibXss;
 
 /**
  * Asks the X server how long the session has been idle and whether the screen is locked.

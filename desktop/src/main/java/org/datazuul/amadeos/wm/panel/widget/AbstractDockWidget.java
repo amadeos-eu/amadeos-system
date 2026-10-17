@@ -10,7 +10,7 @@ import javax.swing.JComponent;
 import javax.swing.JPanel;
 import javax.swing.border.AbstractBorder;
 import org.datazuul.amadeos.commons.theme.DesktopTheme;
-import org.datazuul.amadeos.wm.theme.ThemeManager;
+import org.datazuul.amadeos.base.theme.ThemeManager;
 
 public abstract class AbstractDockWidget implements DockWidget {
     private final String id;

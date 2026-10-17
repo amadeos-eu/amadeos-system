@@ -1,9 +1,9 @@
 package org.datazuul.amadeos.style;
 
 import org.datazuul.amadeos.commons.theme.DesktopTheme;
-import org.datazuul.amadeos.wm.panel.X11EwmhHelper;
-import org.datazuul.amadeos.wm.theme.IconManager;
-import org.datazuul.amadeos.wm.theme.ThemeManager;
+import org.datazuul.amadeos.base.x11.X11EwmhHelper;
+import org.datazuul.amadeos.base.theme.IconManager;
+import org.datazuul.amadeos.base.theme.ThemeManager;
 
 import javax.swing.BorderFactory;
 import javax.swing.DefaultListCellRenderer;

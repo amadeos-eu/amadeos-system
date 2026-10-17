@@ -15,7 +15,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.Locale;
 import java.util.List;
-import org.datazuul.amadeos.wm.process.ProcessLauncher;
+import org.datazuul.amadeos.base.process.ProcessLauncher;
 import javax.swing.JComponent;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
@@ -23,7 +23,6 @@ import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.Timer;
 import org.datazuul.amadeos.commons.theme.DesktopTheme;
-import org.datazuul.amadeos.wm.theme.ThemeManager;
 
 /**
  * Authentic CDE Workstation Front Panel Calendar Dock Widget:

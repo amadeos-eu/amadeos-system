@@ -3,7 +3,8 @@
 The desktop of amadeOS: window manager, front panel, display manager with login greeter, screen lock,
 screen saver, Style Manager and the input settings tool. All of it is one jar, started through
 `/usr/bin/amade-desktop <component>`; the first argument selects the component
-(`AmadeOsLauncher`).
+(`AmadeOsLauncher`). What the components share (the X11, PAM, XDG, theme and process helpers) is the
+module [`base`](../base), bundled into the jar.
 
 | Component | Argument | What it does |
 |---|---|---|
@@ -68,7 +69,7 @@ Update the slot list in the Help dialog ("Front Panel Overview") as well.
 ### Icons
 
 Panel and desktop icons are looked up by **icon key** in `IconManager`
-(`src/main/java/org/datazuul/amadeos/wm/theme/`). Each key maps to a list of Freedesktop icon names
+(`../base/src/main/java/org/datazuul/amadeos/base/theme/`). Each key maps to a list of Freedesktop icon names
 (`FREEDESKTOP_NAMES`). The current icon theme (default: NsCDE) is searched for each name in turn, then
 its inherited themes and `hicolor`; the first match wins. If nothing is found, a simple icon is drawn in
 code (`generatePixmaps`).

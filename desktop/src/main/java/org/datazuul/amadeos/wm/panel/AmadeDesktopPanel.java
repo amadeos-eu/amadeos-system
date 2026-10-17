@@ -1,5 +1,7 @@
 package org.datazuul.amadeos.wm.panel;
 
+import org.datazuul.amadeos.base.x11.X11EwmhHelper;
+
 import com.sun.jna.Native;
 import java.awt.BorderLayout;
 import java.awt.Cursor;
@@ -31,7 +33,7 @@ import javax.swing.JTabbedPane;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
-import org.datazuul.amadeos.wm.XdgDirectories;
+import org.datazuul.amadeos.base.xdg.XdgDirectories;
 import org.datazuul.amadeos.wm.panel.widget.AbstractDockWidget;
 import org.datazuul.amadeos.wm.panel.widget.CalendarDockWidget;
 import org.datazuul.amadeos.wm.panel.widget.CdePanelChrome;
@@ -40,15 +42,15 @@ import org.datazuul.amadeos.wm.panel.widget.DockWidget;
 import org.datazuul.amadeos.wm.panel.widget.DrawerDockWidget;
 import org.datazuul.amadeos.wm.panel.widget.DrawerDockWidget.DrawerTool;
 import org.datazuul.amadeos.wm.panel.widget.WorkspaceSwitcherDockWidget;
-import org.datazuul.amadeos.net.NmcliNetworkService;
+import org.datazuul.amadeos.base.net.NmcliNetworkService;
 import org.datazuul.amadeos.wm.panel.status.NetworkCell;
 import org.datazuul.amadeos.wm.panel.status.StatusDockWidget;
 import org.datazuul.amadeos.commons.theme.DesktopTheme;
-import org.datazuul.amadeos.wm.theme.IconManager;
-import org.datazuul.amadeos.wm.theme.ThemeManager;
-import org.datazuul.amadeos.wm.xdg.XdgApplicationManager;
-import org.datazuul.amadeos.wm.xdg.XdgCategory;
-import org.datazuul.amadeos.wm.xdg.XdgDesktopEntry;
+import org.datazuul.amadeos.base.theme.IconManager;
+import org.datazuul.amadeos.base.theme.ThemeManager;
+import org.datazuul.amadeos.base.xdg.XdgApplicationManager;
+import org.datazuul.amadeos.base.xdg.XdgCategory;
+import org.datazuul.amadeos.base.xdg.XdgDesktopEntry;
 
 public final class AmadeDesktopPanel extends JFrame {
     private static final Logger LOGGER = Logger.getLogger(AmadeDesktopPanel.class.getName());
@@ -469,7 +471,7 @@ public final class AmadeDesktopPanel extends JFrame {
 
     private void launchProcess(String... cmd) {
         try {
-            org.datazuul.amadeos.wm.process.ProcessLauncher.start(java.util.List.of(cmd));
+            org.datazuul.amadeos.base.process.ProcessLauncher.start(java.util.List.of(cmd));
             launched();
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this, "Failed to launch " + cmd[0] + ": " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);

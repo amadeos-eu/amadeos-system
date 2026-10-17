@@ -22,6 +22,22 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 class StyleManagerTest {
+
+    /** A Concave-like CDE pattern: the four shading symbols, one of them keyed by a backslash as in SkyDark.pm. */
+    private static final String SHADED = """
+            /* XPM */
+            static char * shaded[] = {
+            /* width height ncolors cpp [x_hot y_hot] */
+            "4 2 4 1 0 0",
+            /* colors */
+            "\\    s bottomShadowColor m black c #636363636363",
+            ".    s selectColor m white c #737373737373",
+            "X    s background    m black c #949494949494",
+            "o    s topShadowColor m white c #bdbdbdbdbdbd",
+            /* pixels */
+            "\\.Xo",
+            "oX.\\"};
+            """;
     @TempDir
     Path dir;
 
@@ -126,15 +142,14 @@ class StyleManagerTest {
     @Test
     void choosingACdePatternSwitchesTheBackdropToTile() throws Exception {
         assumeFalse(GraphicsEnvironment.isHeadless());
-        java.nio.file.Files.writeString(dir.resolve("Pebbles.pm"),
-                org.datazuul.amadeos.wm.theme.backdrop.BackdropsTest.SHADED);
-        String previous = System.getProperty(org.datazuul.amadeos.wm.theme.backdrop.Backdrops.DIR_PROPERTY);
-        System.setProperty(org.datazuul.amadeos.wm.theme.backdrop.Backdrops.DIR_PROPERTY, dir.toString());
+        java.nio.file.Files.writeString(dir.resolve("Pebbles.pm"), SHADED);
+        String previous = System.getProperty(org.datazuul.amadeos.base.theme.backdrop.Backdrops.DIR_PROPERTY);
+        System.setProperty(org.datazuul.amadeos.base.theme.backdrop.Backdrops.DIR_PROPERTY, dir.toString());
         try {
             pebblesSelectsTile();
         } finally {
-            if (previous == null) System.clearProperty(org.datazuul.amadeos.wm.theme.backdrop.Backdrops.DIR_PROPERTY);
-            else System.setProperty(org.datazuul.amadeos.wm.theme.backdrop.Backdrops.DIR_PROPERTY, previous);
+            if (previous == null) System.clearProperty(org.datazuul.amadeos.base.theme.backdrop.Backdrops.DIR_PROPERTY);
+            else System.setProperty(org.datazuul.amadeos.base.theme.backdrop.Backdrops.DIR_PROPERTY, previous);
         }
     }
 
@@ -144,11 +159,11 @@ class StyleManagerTest {
             try {
                 javax.swing.JList<?> list = find(dialog.getContentPane(), javax.swing.JList.class);
                 javax.swing.JComboBox<?> scale = find(dialog.getContentPane(), javax.swing.JComboBox.class);
-                scale.setSelectedItem(org.datazuul.amadeos.wm.theme.WallpaperManager.ScaleMode.FILL);
+                scale.setSelectedItem(org.datazuul.amadeos.base.theme.WallpaperManager.ScaleMode.FILL);
                 for (int i = 0; i < list.getModel().getSize(); i++) {
                     if (list.getModel().getElementAt(i).toString().equals("Pebbles")) list.setSelectedIndex(i);
                 }
-                assertEquals(org.datazuul.amadeos.wm.theme.WallpaperManager.ScaleMode.TILE, scale.getSelectedItem());
+                assertEquals(org.datazuul.amadeos.base.theme.WallpaperManager.ScaleMode.TILE, scale.getSelectedItem());
             } finally {
                 dialog.dispose();
             }

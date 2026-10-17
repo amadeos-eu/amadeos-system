@@ -1,5 +1,8 @@
 package org.datazuul.amadeos.wm.x11;
 
+import org.datazuul.amadeos.base.x11.LibX11;
+import org.datazuul.amadeos.base.x11.LibXkb;
+
 import com.sun.jna.Memory;
 import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
@@ -29,14 +32,13 @@ import org.datazuul.amadeos.wm.decoration.ResizeDirection;
 import org.datazuul.amadeos.wm.decoration.WindowButton;
 import org.datazuul.amadeos.lock.LockLauncher;
 import org.datazuul.amadeos.lock.LockSelection;
-import org.datazuul.amadeos.sound.BellPlayer;
+import org.datazuul.amadeos.base.sound.BellPlayer;
 import org.datazuul.amadeos.wm.menu.DesktopMenuActions;
 import org.datazuul.amadeos.wm.menu.DesktopRootMenu;
-import org.datazuul.amadeos.wm.panel.AmadeDesktopPanel;
-import org.datazuul.amadeos.wm.process.LaunchFeedback;
+import org.datazuul.amadeos.base.x11.LaunchFeedback;
 import org.datazuul.amadeos.commons.theme.DesktopTheme;
-import org.datazuul.amadeos.wm.theme.ThemeManager;
-import org.datazuul.amadeos.wm.theme.WallpaperManager;
+import org.datazuul.amadeos.base.theme.ThemeManager;
+import org.datazuul.amadeos.base.theme.WallpaperManager;
 import org.datazuul.amadeos.wm.ui.SessionDialogHelper;
 
 public final class X11WindowManagerService implements AutoCloseable {
@@ -727,12 +729,8 @@ public final class X11WindowManagerService implements AutoCloseable {
         if (dockWindows.contains(win)) {
             return true;
         }
-        String title = fetchWindowTitle(win);
-        // Fallback for a panel that could not set its window type; other windows mentioning the
-        // front panel in their title (e.g. the help) must still get a frame.
-        if (AmadeDesktopPanel.WINDOW_TITLE.equals(title)) {
-            return true;
-        }
+        // A dock says so with _NET_WM_WINDOW_TYPE_DOCK (the front panel sets it before it maps its
+        // window); the window manager knows no panel by name, so any panel can take its place.
         PointerByReference actualTypeRet = new PointerByReference();
         IntByReference actualFormatRet = new IntByReference();
         com.sun.jna.ptr.NativeLongByReference nitemsRet = new com.sun.jna.ptr.NativeLongByReference();

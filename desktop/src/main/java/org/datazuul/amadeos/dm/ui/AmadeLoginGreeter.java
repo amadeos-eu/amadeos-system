@@ -42,7 +42,7 @@ import org.datazuul.amadeos.commons.i18n.Language;
 import org.datazuul.amadeos.commons.theme.DesktopTheme;
 import org.datazuul.amadeos.dm.session.SystemTimeZone;
 import org.datazuul.amadeos.dm.session.UserAccount;
-import org.datazuul.amadeos.wm.theme.ThemeManager;
+import org.datazuul.amadeos.base.theme.ThemeManager;
 
 public final class AmadeLoginGreeter extends JFrame {
     public interface LoginCallback {

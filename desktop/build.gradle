@@ -8,8 +8,8 @@ application {
 slf4jBinding = 'org.slf4j:slf4j-jdk14:2.0.17'
 
 dependencies {
-    // Xlib, Xss and libc through JNA.
-    implementation 'net.java.dev.jna:jna:5.14.0'
+    // The X11, PAM, XDG, theme and process helpers shared by the desktop modules (JNA comes with them).
+    implementation project(':base')
 }
 
 configurations.configureEach {
