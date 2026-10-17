@@ -7,7 +7,6 @@ import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridLayout;
-import java.awt.Insets;
 import java.awt.RenderingHints;
 import java.awt.event.ActionListener;
 import java.io.IOException;
@@ -25,31 +24,41 @@ import javax.swing.SwingUtilities;
 import javax.swing.ButtonModel;
 import javax.swing.JButton;
 import javax.swing.JComponent;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import org.datazuul.amadeos.commons.i18n.Language;
 import org.datazuul.amadeos.commons.i18n.LocaleResolution;
 import org.datazuul.amadeos.commons.i18n.LocaleStore;
 import org.datazuul.amadeos.commons.i18n.Messages;
 import org.datazuul.amadeos.commons.theme.DesktopTheme;
+import org.datazuul.amadeos.base.theme.backdrop.MotifColors;
 
 /**
- * Authentic CDE 4-way Workspace Switcher & Session Control Pad:
- * - Raised outer plateau block on the main panel layer.
- * - Left pillar: Flat lock button with authentic carved CDE padlock symbol, below it the desktop language
- *   (a carved code such as "DE" that opens the language menu).
- * - Center tray: Sunken 3D teal/slate tray holding 2x2 grid of workspace buttons ("One", "Two", "Three", "Four").
- * - Right pillar: Mail/activity LED indicator slit at top, flat "EXIT" button at bottom.
+ * The CDE workspace switch, the raised box in the middle of the Front Panel:
+ * <ul>
+ * <li>Left column: the carved padlock (lock the screen), below it the desktop language (a carved code
+ *     such as "DE" that opens the language menu; CDE left this corner empty).</li>
+ * <li>Middle: the four workspace buttons "One" to "Four" in two rows, straight on the panel colour with
+ *     gaps between them, as in CDE. Each button is a Motif push button filled with its workspace's colour
+ *     from the theme ({@link DesktopTheme#workspaceColor(int)}: blue-grey, dialog colour, teal and rose in
+ *     the default palette), with its label in the Motif foreground of that colour; the current workspace
+ *     is the one pressed in.</li>
+ * <li>Right column: the busy light (a sunken slit with yellow dashes) at the top, "EXIT" in an etched box
+ *     at the bottom.</li>
+ * </ul>
  */
 public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
     private static final Logger LOGGER = Logger.getLogger(WorkspaceSwitcherDockWidget.class.getName());
     static final String DESKTOP_TEXTS = "org.datazuul.amadeos.i18n.desktop";
+    /** Width of the switch box: two 96px buttons with CDE's gaps between the lock and EXIT columns. */
+    static final int PAD_WIDTH = 270;
+    /** Thickness of a workspace button's Motif bevel. */
+    private static final int BEVEL = 2;
+    static final String[] WORKSPACE_NAMES = {"One", "Two", "Three", "Four"};
     private final JPanel pad;
     private final JPanel leftPillar;
-    private final JPanel centerTray;
     private final JPanel rightPillar;
     private final JPanel grid;
-    final JButton[] workspaceButtons = new JButton[4];
+    final WorkspaceButton[] workspaceButtons = new WorkspaceButton[4];
     final FlatLockButton lockBtn;
     final LanguageButton languageBtn;
     private final LocaleStore locales;
@@ -95,7 +104,7 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
                 g.drawLine(w - 1, 0, w - 1, h - 1);
             }
         };
-        pad.setPreferredSize(new Dimension(220, CdePanelChrome.SLOT_HEIGHT));
+        pad.setPreferredSize(new Dimension(PAD_WIDTH, CdePanelChrome.SLOT_HEIGHT));
         pad.setBackground(currentTheme.base());
 
         // 2. Left Pillar: Flat Lock Button
@@ -112,44 +121,14 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
 
         pad.add(leftPillar, BorderLayout.WEST);
 
-        // 3. Center Tray: Sunken 3D Teal/Slate Workspace Box
-        centerTray = new JPanel(new BorderLayout()) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                DesktopTheme t = currentTheme;
-                int w = getWidth();
-                int h = getHeight();
-
-                // Sunken 3D bezel around teal tray
-                g.setColor(t.darkShadow());
-                g.drawLine(0, 0, w - 1, 0);
-                g.drawLine(0, 1, w - 1, 1);
-                g.drawLine(0, 0, 0, h - 1);
-                g.drawLine(1, 0, 1, h - 1);
-
-                g.setColor(t.highlight());
-                g.drawLine(0, h - 1, w - 1, h - 1);
-                g.drawLine(w - 1, 0, w - 1, h - 1);
-                g.setColor(t.softHighlight());
-                g.drawLine(1, h - 2, w - 2, h - 2);
-                g.drawLine(w - 2, 1, w - 2, h - 2);
-            }
-        };
-        centerTray.setBackground(currentTheme.activeTitleBg());
-        centerTray.setBorder(BorderFactory.createEmptyBorder(2, 2, 2, 2));
-
-        grid = new JPanel(new GridLayout(2, 2, 2, 2));
+        // 3. Middle: the 2x2 workspace buttons straight on the panel colour, with CDE's gaps
+        grid = new JPanel(new GridLayout(2, 2, 8, 8));
         grid.setOpaque(false);
+        grid.setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 6));
 
-        String[] wsNames = {"One", "Two", "Three", "Four"};
         for (int i = 0; i < 4; i++) {
             int wsNum = i + 1;
-            JButton btn = new JButton(wsNames[i]);
-            btn.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 10));
-            btn.setFocusPainted(false);
-            btn.setMargin(new Insets(1, 2, 1, 2));
-
+            WorkspaceButton btn = new WorkspaceButton(i, WORKSPACE_NAMES[i]);
             btn.addActionListener(e -> {
                 activeWorkspace = wsNum;
                 if (this.workspaceListener != null) {
@@ -160,8 +139,7 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
             workspaceButtons[i] = btn;
             grid.add(btn);
         }
-        centerTray.add(grid, BorderLayout.CENTER);
-        pad.add(centerTray, BorderLayout.CENTER);
+        pad.add(grid, BorderLayout.CENTER);
 
         // 4. Right Pillar: Status/Mail Indicator Slit + Flat EXIT Button
         rightPillar = new JPanel(new GridLayout(2, 1, 0, 0));
@@ -189,18 +167,10 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
         }
     }
 
-    private void updateButtonAppearance(JButton btn, boolean active) {
-        DesktopTheme t = currentTheme;
+    private void updateButtonAppearance(WorkspaceButton btn, boolean active) {
         btn.setSelected(active);
-        if (active) {
-            btn.setBackground(t.activeTitleBg());
-            btn.setForeground(Color.WHITE);
-            btn.setBorder(new MotifBevelBorder(false, 2));
-        } else {
-            btn.setBackground(t.base());
-            btn.setForeground(t.textActive());
-            btn.setBorder(new MotifBevelBorder(true, 2));
-        }
+        btn.setBackground(currentTheme.workspaceColor(btn.index));
+        btn.repaint();
     }
 
     public int activeWorkspace() {
@@ -223,7 +193,6 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
     protected void updateThemeStyles(DesktopTheme theme) {
         pad.setBackground(theme.base());
         leftPillar.setBackground(theme.base());
-        centerTray.setBackground(theme.activeTitleBg());
         rightPillar.setBackground(theme.base());
 
         lockBtn.repaint();
@@ -232,6 +201,65 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
         exitBtn.repaint();
 
         updateAllButtonAppearances();
+    }
+
+    /**
+     * A workspace button: a Motif push button filled with the workspace's colour from the theme, its label
+     * in that colour's Motif foreground. Raised when the workspace is not the current one, pressed in (bevel
+     * swapped) when it is or while the mouse holds it.
+     */
+    final class WorkspaceButton extends JButton {
+        final int index;
+
+        WorkspaceButton(int index, String name) {
+            super(name);
+            this.index = index;
+            setFocusPainted(false);
+            setBorderPainted(false);
+            setContentAreaFilled(false);
+            setOpaque(false);
+            setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 11));
+            setBackground(currentTheme.workspaceColor(index));
+            setToolTipText("Workspace " + name);
+        }
+
+        /** The workspace colour the button is painted with. */
+        Color color() {
+            return getBackground();
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
+            int w = getWidth();
+            int h = getHeight();
+            ButtonModel model = getModel();
+            boolean sunken = isSelected() || (model.isArmed() && model.isPressed());
+            MotifColors colors = MotifColors.of(color());
+
+            g2.setColor(colors.background());
+            g2.fillRect(0, 0, w, h);
+            Color topLeft = sunken ? colors.bottomShadow() : colors.topShadow();
+            Color bottomRight = sunken ? colors.topShadow() : colors.bottomShadow();
+            for (int i = 0; i < BEVEL; i++) {
+                g2.setColor(topLeft);
+                g2.drawLine(i, i, w - 1 - i, i);
+                g2.drawLine(i, i, i, h - 1 - i);
+                g2.setColor(bottomRight);
+                g2.drawLine(i, h - 1 - i, w - 1 - i, h - 1 - i);
+                g2.drawLine(w - 1 - i, i, w - 1 - i, h - 1 - i);
+            }
+
+            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_GASP);
+            g2.setFont(getFont());
+            java.awt.FontMetrics fm = g2.getFontMetrics();
+            int tx = (w - fm.stringWidth(getText())) / 2 + (sunken ? 1 : 0);
+            int ty = (h - fm.getHeight()) / 2 + fm.getAscent() + (sunken ? 1 : 0);
+            g2.setColor(colors.foreground());
+            g2.drawString(getText(), tx, ty);
+            g2.dispose();
+        }
     }
 
     /**
