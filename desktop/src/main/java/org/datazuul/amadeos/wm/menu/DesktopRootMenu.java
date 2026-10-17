@@ -20,13 +20,13 @@ import javax.swing.SwingUtilities;
 import javax.swing.event.PopupMenuEvent;
 import javax.swing.event.PopupMenuListener;
 import org.datazuul.amadeos.commons.swing.AmadeUI;
-import org.datazuul.amadeos.wm.process.ProcessLauncher;
+import org.datazuul.amadeos.base.process.ProcessLauncher;
 import org.datazuul.amadeos.commons.theme.DesktopTheme;
-import org.datazuul.amadeos.wm.theme.IconManager;
-import org.datazuul.amadeos.wm.theme.ThemeManager;
-import org.datazuul.amadeos.wm.xdg.XdgApplicationManager;
-import org.datazuul.amadeos.wm.xdg.XdgCategory;
-import org.datazuul.amadeos.wm.xdg.XdgDesktopEntry;
+import org.datazuul.amadeos.base.theme.IconManager;
+import org.datazuul.amadeos.base.theme.ThemeManager;
+import org.datazuul.amadeos.base.xdg.XdgApplicationManager;
+import org.datazuul.amadeos.base.xdg.XdgCategory;
+import org.datazuul.amadeos.base.xdg.XdgDesktopEntry;
 
 /**
  * Authentic Motif/CDE Desktop Root Window Context Menu:

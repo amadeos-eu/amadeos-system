@@ -12,12 +12,16 @@ multi-project: one module and one Debian package per component. The standalone a
 
 | Module | Package | What it is |
 |---|---|---|
+| `base` | (in `amade-desktop`) | The library under the desktop modules: Xlib, Xss, Xkb, libc and PAM through JNA, the EWMH client helper and launch feedback, XDG directories and `.desktop` files, theme, icons and backdrops, the process launcher, the network service and the bell. Nothing in it depends on the other modules; they all depend on it |
 | [`desktop`](desktop/README.md) | `amade-desktop` | The desktop itself: window manager, front panel, display manager with login greeter, screen lock, screen saver, Style Manager and input settings tool (`amade-desktop <dm|wm|panel|style|screen|input|lock>`), with the systemd unit, PAM service and session scripts around them |
 | `print` | `amade-print` | Print manager: CUPS printers with their state, the jobs of each printer (cancel, hold, release), pause and resume printers, default printer, test page, CUPS administration for adding printers |
 | `sysinfo` | `amade-sysinfo` | System information: operating system, processor, memory, storage, graphics, network and battery on one page; copy or save as text |
 
 The desktop code came from the amadeos repository with its history (`git filter-repo`); that
-repository keeps the live image and its configuration. A module's `packaging/root` is a file system
+repository keeps the live image and its configuration. `base` is the first step of splitting the
+desktop into window manager, panel, display manager, session and Style Manager modules: it holds what
+they share, so that a second panel (a taskbar next to the CDE Front Panel) can be built on the same
+window manager and swapped in. A module's `packaging/root` is a file system
 tree that goes into its package (files under `etc/` as conffiles), `packaging/debian` holds its
 maintainer scripts.
 

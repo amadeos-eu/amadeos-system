@@ -2,7 +2,7 @@ package org.datazuul.amadeos.dm.session;
 
 import java.util.Objects;
 import java.util.Optional;
-import org.datazuul.amadeos.wm.x11.LibC;
+import org.datazuul.amadeos.base.x11.LibC;
 
 /**
  * The passwd entry of the user a session runs as.

@@ -10,7 +10,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.TimeUnit;
 import org.datazuul.amadeos.commons.i18n.Language;
-import org.datazuul.amadeos.wm.x11.LibC;
+import org.datazuul.amadeos.base.x11.LibC;
 
 /**
  * Used by the display manager: starts a {@link SessionWorker} process, hands it the credentials

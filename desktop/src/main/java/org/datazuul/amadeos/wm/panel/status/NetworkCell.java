@@ -33,12 +33,12 @@ import javax.swing.SwingUtilities;
 import org.datazuul.amadeos.commons.i18n.LocaleResolution;
 import org.datazuul.amadeos.commons.i18n.Messages;
 import org.datazuul.amadeos.commons.theme.DesktopTheme;
-import org.datazuul.amadeos.net.NetworkService;
-import org.datazuul.amadeos.net.NetworkService.NetworkException;
-import org.datazuul.amadeos.net.NetworkStatus;
-import org.datazuul.amadeos.net.WifiNetwork;
+import org.datazuul.amadeos.base.net.NetworkService;
+import org.datazuul.amadeos.base.net.NetworkService.NetworkException;
+import org.datazuul.amadeos.base.net.NetworkStatus;
+import org.datazuul.amadeos.base.net.WifiNetwork;
 import org.datazuul.amadeos.wm.panel.widget.AbstractDockWidget.MotifBevelBorder;
-import org.datazuul.amadeos.wm.theme.ThemeManager;
+import org.datazuul.amadeos.base.theme.ThemeManager;
 
 /**
  * Network indicator of the status slot: an Ethernet jack or the WLAN fan with the signal strength. A click

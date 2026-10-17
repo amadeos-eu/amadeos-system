@@ -21,7 +21,7 @@ import javax.swing.JPopupMenu;
 import javax.swing.event.PopupMenuEvent;
 import javax.swing.event.PopupMenuListener;
 import org.datazuul.amadeos.commons.theme.DesktopTheme;
-import org.datazuul.amadeos.wm.theme.IconManager;
+import org.datazuul.amadeos.base.theme.IconManager;
 
 /**
  * Authentic CDE Workstation Front Panel drawer module:

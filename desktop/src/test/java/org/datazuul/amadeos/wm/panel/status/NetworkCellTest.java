@@ -12,9 +12,9 @@ import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import org.datazuul.amadeos.commons.i18n.Messages;
 import org.datazuul.amadeos.commons.theme.DesktopTheme;
-import org.datazuul.amadeos.net.NetworkService;
-import org.datazuul.amadeos.net.NetworkStatus;
-import org.datazuul.amadeos.net.WifiNetwork;
+import org.datazuul.amadeos.base.net.NetworkService;
+import org.datazuul.amadeos.base.net.NetworkStatus;
+import org.datazuul.amadeos.base.net.WifiNetwork;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

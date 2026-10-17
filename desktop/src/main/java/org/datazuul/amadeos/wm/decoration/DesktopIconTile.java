@@ -11,10 +11,10 @@ import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
 import javax.swing.Icon;
 import org.datazuul.amadeos.commons.theme.DesktopTheme;
-import org.datazuul.amadeos.wm.theme.IconManager;
-import org.datazuul.amadeos.wm.theme.ThemeManager;
-import org.datazuul.amadeos.wm.x11.LibC;
-import org.datazuul.amadeos.wm.x11.LibX11;
+import org.datazuul.amadeos.base.theme.IconManager;
+import org.datazuul.amadeos.base.theme.ThemeManager;
+import org.datazuul.amadeos.base.x11.LibC;
+import org.datazuul.amadeos.base.x11.LibX11;
 
 public final class DesktopIconTile {
     public static final int TILE_WIDTH = 68;

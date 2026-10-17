@@ -50,7 +50,7 @@ public final class ScreenSaverDaemon {
             return;
         }
         // The saver window is plain Swing; give it the desktop look like every other component.
-        AmadeUI.install(org.datazuul.amadeos.wm.theme.ThemeManager.currentTheme());
+        AmadeUI.install(org.datazuul.amadeos.base.theme.ThemeManager.currentTheme());
         ScreenSaverDaemon daemon = new ScreenSaverDaemon(monitor, ScreenSettingsStore.user(), LockLauncher::lockScreen);
         Runtime.getRuntime().addShutdownHook(new Thread(monitor::close));
         daemon.run();

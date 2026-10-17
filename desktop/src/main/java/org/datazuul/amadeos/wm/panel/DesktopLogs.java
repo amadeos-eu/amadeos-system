@@ -11,8 +11,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
-import org.datazuul.amadeos.wm.XdgDirectories;
-import org.datazuul.amadeos.wm.process.ProcessLauncher;
+import org.datazuul.amadeos.base.xdg.XdgDirectories;
+import org.datazuul.amadeos.base.process.ProcessLauncher;
 
 /**
  * The logs the Tools drawer's viewer offers: the session and window manager logs and the per-application

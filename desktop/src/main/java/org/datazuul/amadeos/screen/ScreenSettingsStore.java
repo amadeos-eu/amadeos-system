@@ -1,7 +1,7 @@
 package org.datazuul.amadeos.screen;
 
 import org.datazuul.amadeos.commons.config.PropertiesFile;
-import org.datazuul.amadeos.wm.XdgDirectories;
+import org.datazuul.amadeos.base.xdg.XdgDirectories;
 
 import java.io.IOException;
 import java.nio.file.Files;

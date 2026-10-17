@@ -1,6 +1,6 @@
 package org.datazuul.amadeos.wm.panel.widget;
 
-import org.datazuul.amadeos.wm.XdgDirectories;
+import org.datazuul.amadeos.base.xdg.XdgDirectories;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;

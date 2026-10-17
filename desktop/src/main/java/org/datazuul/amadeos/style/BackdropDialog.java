@@ -2,9 +2,9 @@ package org.datazuul.amadeos.style;
 
 import org.datazuul.amadeos.commons.swing.AmadeUI;
 import org.datazuul.amadeos.commons.theme.DesktopTheme;
-import org.datazuul.amadeos.wm.theme.WallpaperManager;
-import org.datazuul.amadeos.wm.theme.WallpaperManager.ScaleMode;
-import org.datazuul.amadeos.wm.theme.WallpaperManager.WallpaperItem;
+import org.datazuul.amadeos.base.theme.WallpaperManager;
+import org.datazuul.amadeos.base.theme.WallpaperManager.ScaleMode;
+import org.datazuul.amadeos.base.theme.WallpaperManager.WallpaperItem;
 
 import javax.swing.BorderFactory;
 import javax.swing.DefaultListModel;

@@ -4,7 +4,7 @@ import org.datazuul.amadeos.commons.swing.AmadeUI;
 import org.datazuul.amadeos.input.InputApplier;
 import org.datazuul.amadeos.input.InputSettingsStore;
 import org.datazuul.amadeos.screen.ScreenSettingsStore;
-import org.datazuul.amadeos.wm.theme.ThemeManager;
+import org.datazuul.amadeos.base.theme.ThemeManager;
 
 import javax.swing.AbstractButton;
 import javax.swing.BorderFactory;
