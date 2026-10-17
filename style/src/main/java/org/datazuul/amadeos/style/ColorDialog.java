@@ -34,7 +34,7 @@ final class ColorDialog extends StyleDialog {
     private static final Logger LOGGER = Logger.getLogger(ColorDialog.class.getName());
 
     private final JList<DesktopTheme> themes = new JList<>(ThemeManager.availableThemes().toArray(DesktopTheme[]::new));
-    private final JPanel palette = new JPanel(new GridLayout(2, 5, 6, 6));
+    private final JPanel palette = new JPanel(new GridLayout(2, 7, 6, 6));
     private final JComboBox<IconManager.IconThemeInfo> iconThemes;
     private final JPanel iconPreview = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 6));
 
@@ -101,9 +101,11 @@ final class ColorDialog extends StyleDialog {
         DesktopTheme t = themes.getSelectedValue() != null ? themes.getSelectedValue() : ThemeManager.currentTheme();
         palette.removeAll();
         Color[] colors = {t.base(), t.activeTitleBg(), t.inactiveTitleBg(), t.highlight(), t.softHighlight(),
-                t.sunkenBg(), t.shadow(), t.darkShadow(), t.textActive(), t.textInactive()};
+                t.sunkenBg(), t.shadow(), t.darkShadow(), t.textActive(), t.textInactive(),
+                t.workspaceColor(0), t.workspaceColor(1), t.workspaceColor(2), t.workspaceColor(3)};
         String[] names = {"Base", "Active title", "Inactive title", "Highlight", "Soft highlight",
-                "Sunken", "Shadow", "Dark shadow", "Text", "Inactive text"};
+                "Sunken", "Shadow", "Dark shadow", "Text", "Inactive text",
+                "Workspace One", "Workspace Two", "Workspace Three", "Workspace Four"};
         for (int i = 0; i < colors.length; i++) palette.add(chip(colors[i], names[i]));
         palette.revalidate();
         palette.repaint();

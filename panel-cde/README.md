@@ -5,6 +5,11 @@ buttons, the network cell and drawers that list the installed applications from 
 The Tools drawer holds the terminals, the Style Manager, help and the log viewer. Programs started from
 the panel log to `~/.cache/amadeos/logs/<program>.log`.
 
+The workspace switch in the middle follows CDE's palettes: each of the four buttons "One" to "Four" is
+filled with its workspace's colour from the theme (`DesktopTheme.workspaceColor(i)`; blue-grey, dialog
+colour, teal and rose in Warm Motif), its label in the Motif foreground of that colour, and the current
+workspace is the button pressed in. Custom themes set `workspace1` to `workspace4` in `theme.properties`.
+
 The package provides `amade-panel` and registers `/usr/bin/amade-panel-cde` as the alternative
 `/usr/bin/amade-panel`, which `amadeos-session` starts. Another panel package provides `amade-panel` the
 same way; the window manager treats any `_NET_WM_WINDOW_TYPE_DOCK` window as the panel. The panel talks
