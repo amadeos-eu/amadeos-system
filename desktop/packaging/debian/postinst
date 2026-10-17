@@ -1,0 +1,20 @@
+#!/bin/sh
+# amade-desktop: enable the display manager so the system boots into the login greeter.
+set -e
+
+if [ "$1" = "configure" ]; then
+    if command -v deb-systemd-helper >/dev/null 2>&1; then
+        deb-systemd-helper enable amadeos-dm.service >/dev/null || true
+    else
+        systemctl enable amadeos-dm.service >/dev/null 2>&1 || true
+    fi
+    # startx without the display manager: Xsession starts x-session-manager (Debian's alternatives system).
+    update-alternatives --install /usr/bin/x-session-manager x-session-manager /usr/bin/amadeos-session 50
+    # Boot into the graphical session (Debian's default, but not of every minimal installation).
+    systemctl set-default graphical.target >/dev/null 2>&1 || true
+    # Not in a chroot (image build, container): tell the running systemd about the unit. The display
+    # manager is not started here; it starts at the next boot or with systemctl start amadeos-dm.service.
+    if [ -d /run/systemd/system ]; then
+        systemctl daemon-reload >/dev/null 2>&1 || true
+    fi
+fi

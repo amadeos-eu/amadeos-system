@@ -28,9 +28,9 @@ import org.datazuul.amadeos.wm.x11.LibC;
 public final class SessionWorker {
     private static final Logger LOGGER = Logger.getLogger(SessionWorker.class.getName());
     static final String RUNNER_LOG = "/var/log/amadeos-session-runner.log";
-    // Developing with the amadeos repository checked out next to amade-system (the module directory is the working
-    // directory of gradlew :desktop:run).
-    private static final String DEV_SESSION_EXECUTABLE = "../../amadeos/config/includes.chroot/usr/local/bin/amadeos-session";
+    // Developing without the package installed: the script from the source tree (the module directory is the
+    // working directory of gradlew :desktop:run and of run-greeter.sh).
+    private static final String DEV_SESSION_EXECUTABLE = "packaging/root/usr/bin/amadeos-session";
 
     private SessionWorker() {
     }

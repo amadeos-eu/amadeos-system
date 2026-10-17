@@ -15,7 +15,7 @@ import org.datazuul.amadeos.wm.x11.LibX11;
 
 /**
  * The screen lock process ({@code amadeos.jar lock}, usually started through
- * {@code /usr/local/bin/amadeos-lock}).
+ * {@code /usr/bin/amadeos-lock}).
  *
  * <ol>
  *   <li>Takes the {@code _AMADEOS_LOCK} selection, so there is exactly one lock and every

@@ -13,16 +13,31 @@ screen saver, Style Manager and the input settings tool. All of it is one jar, s
 | **Style Manager** | `style` | The controls of CDE's dtstyle. Color (palette and icon theme), Backdrop, Keyboard, Mouse, Beep and Screen work; Font, Window and Startup are shown but not yet available. Writes `~/.config/amadeos/theme.conf`, which the window manager, the panel and every amade application follow. |
 | **Input settings** | `input` | Applies keyboard repeat and click, mouse handedness, double-click time and acceleration, and the bell from `~/.config/amadeos/input.conf` with `xset`, `xmodmap` and `xrdb`; run at login (`/etc/amadeos/autostart.d/10-amadeos-input`) and on Apply in the Style Manager. |
 | **Screen saver** | `screen` | CDE's dtscreen: uses the X server's idle counter (MIT-SCREEN-SAVER, `libxss1`), shows a saver module (Qix, Swarm, Starfield, Floating Logo, Blank) and locks the screen after the configured time. Started by `/etc/amadeos/autostart.d/50-amadeos-screen`; settings in `~/.config/amadeos/screen.conf`. |
-| **Screen lock** | `lock` | Grabs keyboard and mouse and asks for the user's password (PAM). `packaging/amadeos-lock` is the wrapper that locks again if the lock process dies; the panel's lock button and the screen saver start it. |
+| **Screen lock** | `lock` | Grabs keyboard and mouse and asks for the user's password (PAM). `/usr/bin/amadeos-lock` is the wrapper that locks again if the lock process dies; the panel's lock button and the screen saver start it. |
 
 Language: English, Deutsch, Français, Español, Italiano, chosen in the greeter or with the panel's
 language button; both write `~/.config/amadeos/locale.conf`. The texts are in
 `src/main/resources/org/datazuul/amadeos/i18n/desktop*.properties`.
 
-The shell scripts and system files around these components (`amadeos-session`, `amadeos-dm`, the
-systemd unit, PAM and polkit configuration, autostart scripts) still come from the
-[amadeos](https://github.com/datazuul/amadeos) repository (`config/includes.chroot`); they move into this
-package next.
+## What the package installs
+
+`packaging/root` mirrors the file system and goes into the package as it is; the files under `etc/`
+are conffiles. `packaging/debian` holds the maintainer scripts.
+
+| Path | What it is |
+|---|---|
+| `/opt/amade-desktop/amade-desktop.jar`, `/usr/bin/amade-desktop` | The jar and its launcher (`amade-desktop <component>`). |
+| `/usr/bin/amadeos-dm` | Starts Xorg on VT 7 with an authorization cookie and the display manager; applies the keyboard layout of `/etc/default/keyboard`. |
+| `/usr/lib/systemd/system/amadeos-dm.service` | The unit around it, alias `display-manager.service`; the package's postinst enables it and sets `graphical.target` as the default target. |
+| `/etc/pam.d/amadeos-dm` | The PAM service of the greeter and the screen lock. |
+| `/usr/bin/amadeos-session` | The session of a logged-in user: window manager under supervision, the autostart scripts, then the front panel. Settings in `/etc/amadeos/session.conf`, overridden by `~/.config/amadeos/session.conf`. |
+| `/etc/amadeos/autostart.d/` | Run at the start of every session: `10-amadeos-input` (input settings), `50-amadeos-screen` (screen saver). Users add their own in `~/.config/amadeos/autostart.d`. |
+| `/usr/bin/amadeos-lock` | The screen lock wrapper, locking again if the lock process dies. |
+| `/usr/share/polkit-1/rules.d/50-amadeos-network.rules` | Members of `netdev` manage NetworkManager connections without a password (network cell of the panel). |
+| `x-session-manager` | The postinst registers `amadeos-session` as an alternative, so `startx` without the display manager (Xsession) starts the desktop too. |
+
+What belongs to the live image alone (the live user's password, `/etc/X11/Xwrapper.config`, live-config)
+stays in the [amadeos](https://github.com/datazuul/amadeos) repository.
 
 ## Developing
 

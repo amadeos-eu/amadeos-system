@@ -1,6 +1,8 @@
 # Build output
 build/
-bin/
+# Eclipse output directories (not packaging/root/usr/bin)
+/bin/
+/*/bin/
 *.deb
 
 # Java & Gradle

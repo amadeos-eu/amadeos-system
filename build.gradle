@@ -110,6 +110,41 @@ exec /usr/bin/java ${javaOptions}-jar /opt/${packageName}/${packageName}.jar "\$
                     into docDir
                     rename { 'copyright' }
                 }
+                // Scripts and system files of the module (packaging/root mirrors the file system: usr/bin,
+                // etc/..., usr/lib/systemd/system). Everything under etc/ is a conffile, so dpkg keeps the
+                // administrator's changes on upgrades.
+                def rootTree = file('packaging/root')
+                def conffiles = []
+                if (rootTree.isDirectory()) {
+                    copy {
+                        from rootTree
+                        into stagingDir
+                    }
+                    fileTree(new File(rootTree, 'etc')).visit { details ->
+                        if (!details.isDirectory()) conffiles << "/etc/${details.relativePath.pathString}"
+                    }
+                }
+                if (conffiles) new File(debianDir, 'conffiles').text = conffiles.sort().join('\n') + '\n'
+                // Debian permissions whatever the umask of the checkout: directories 0755, files 0644 or 0755.
+                fileTree(stagingDir).visit { details ->
+                    def executable = details.isDirectory() || details.file.canExecute()
+                    java.nio.file.Files.setPosixFilePermissions(details.file.toPath(),
+                            java.nio.file.attribute.PosixFilePermissions.fromString(executable ? 'rwxr-xr-x' : 'rw-r--r--'))
+                }
+                java.nio.file.Files.setPosixFilePermissions(stagingDir.toPath(),
+                        java.nio.file.attribute.PosixFilePermissions.fromString('rwxr-xr-x'))
+                // Maintainer scripts (postinst, prerm, postrm, preinst) from packaging/debian.
+                def maintainerScripts = file('packaging/debian')
+                if (maintainerScripts.isDirectory()) {
+                    copy {
+                        from maintainerScripts
+                        into debianDir
+                    }
+                    ['preinst', 'postinst', 'prerm', 'postrm'].each { name ->
+                        def script = new File(debianDir, name)
+                        if (script.exists()) script.setExecutable(true, false)
+                    }
+                }
 
                 def depends = (['openjdk-25-jre | java-runtime (>= 25)'] + (deb.depends ?: [])).join(', ')
                 def control = """Package: ${packageName}
