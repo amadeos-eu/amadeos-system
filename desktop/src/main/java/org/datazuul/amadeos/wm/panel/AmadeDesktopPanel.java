@@ -74,6 +74,9 @@ public final class AmadeDesktopPanel extends JFrame {
         }
     }
 
+    /** The panel's window title; the window manager recognises the panel by it if the dock type is missing. */
+    public static final String WINDOW_TITLE = "amadeOS CDE Front Panel";
+
     private final X11EwmhHelper helper;
     private final List<DockWidget> widgets = new ArrayList<>();
     private final JPanel rootPanel;
@@ -112,7 +115,7 @@ public final class AmadeDesktopPanel extends JFrame {
     }
 
     public AmadeDesktopPanel(X11EwmhHelper helper) {
-        super("amadeOS CDE Front Panel");
+        super(WINDOW_TITLE);
         this.helper = Objects.requireNonNull(helper);
 
         DesktopTheme initialTheme = ThemeManager.currentTheme();
@@ -581,7 +584,7 @@ public final class AmadeDesktopPanel extends JFrame {
 
         dialog.setPreferredSize(new Dimension(520, 260));
         dialog.pack();
-        dialog.setLocationRelativeTo(parent);
+        dialog.setLocationRelativeTo(null);
         dialog.setVisible(true);
     }
 
@@ -632,7 +635,7 @@ public final class AmadeDesktopPanel extends JFrame {
 
         dialog.setPreferredSize(new Dimension(640, 400));
         dialog.pack();
-        dialog.setLocationRelativeTo(parent);
+        dialog.setLocationRelativeTo(null);
         dialog.setVisible(true);
     }
 
@@ -728,7 +731,7 @@ public final class AmadeDesktopPanel extends JFrame {
 
         dialog.setPreferredSize(new Dimension(600, 450));
         dialog.pack();
-        dialog.setLocationRelativeTo(parent);
+        dialog.setLocationRelativeTo(null);
         dialog.setVisible(true);
     }
 
@@ -789,7 +792,7 @@ public final class AmadeDesktopPanel extends JFrame {
 
         dialog.setPreferredSize(new Dimension(540, 400));
         dialog.pack();
-        dialog.setLocationRelativeTo(parent);
+        dialog.setLocationRelativeTo(null);
         dialog.setVisible(true);
     }
 

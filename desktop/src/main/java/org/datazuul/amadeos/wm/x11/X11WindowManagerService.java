@@ -32,6 +32,7 @@ import org.datazuul.amadeos.lock.LockSelection;
 import org.datazuul.amadeos.sound.BellPlayer;
 import org.datazuul.amadeos.wm.menu.DesktopMenuActions;
 import org.datazuul.amadeos.wm.menu.DesktopRootMenu;
+import org.datazuul.amadeos.wm.panel.AmadeDesktopPanel;
 import org.datazuul.amadeos.commons.theme.DesktopTheme;
 import org.datazuul.amadeos.wm.theme.ThemeManager;
 import org.datazuul.amadeos.wm.theme.WallpaperManager;
@@ -281,19 +282,9 @@ public final class X11WindowManagerService implements AutoCloseable {
         // Native Root Cursor Polish: set left_ptr arrow cursor on root window
         x11.XDefineCursor(display, new NativeLong(rootWindow), cursorDefault);
 
-        // Root Window button grab for Desktop Root Menu (Button 3)
-        x11.XGrabButton(
-                display,
-                LibX11.Button3,
-                new NativeLong(LibX11.AnyModifier),
-                new NativeLong(rootWindow),
-                1,
-                new NativeLong(LibX11.ButtonPressMask),
-                LibX11.GrabModeAsync,
-                LibX11.GrabModeAsync,
-                new NativeLong(0),
-                new NativeLong(0)
-        );
+        // No button grab on the root window for the Desktop Root Menu: a passive grab on the root also
+        // catches clicks on every window above it, so the front panel and the applications would never
+        // see their right-clicks. The ButtonPressMask selected on the root delivers bare desktop clicks.
 
         // Global shortcut: Super+L (Mod4Mask + 'l') to lock screen
         try {
@@ -678,7 +669,9 @@ public final class X11WindowManagerService implements AutoCloseable {
             return true;
         }
         String title = fetchWindowTitle(win);
-        if (title != null && (title.contains("Front Panel") || title.contains("Desktop Panel") || title.contains("amadeOS CDE"))) {
+        // Fallback for a panel that could not set its window type; other windows mentioning the
+        // front panel in their title (e.g. the help) must still get a frame.
+        if (AmadeDesktopPanel.WINDOW_TITLE.equals(title)) {
             return true;
         }
         PointerByReference actualTypeRet = new PointerByReference();
@@ -895,6 +888,25 @@ public final class X11WindowManagerService implements AutoCloseable {
             new NativeLong(LibX11.AnyModifier),
             new NativeLong(win)
         );
+    }
+
+    /** The window {@code win} is a dialog of (WM_TRANSIENT_FOR), or 0. */
+    private long transientOwner(long win) {
+        Memory parentMem = new Memory(NativeLong.SIZE);
+        if (x11.XGetTransientForHint(display, new NativeLong(win), parentMem) != 0) {
+            return parentMem.getNativeLong(0).longValue();
+        }
+        return 0;
+    }
+
+    /**
+     * Whether {@code win} is a dialog of a window without frame, like the front panel or Swing's hidden
+     * owner frame. Such dialogs are centred by the window manager, as the owner-relative position the
+     * application computes for them is meaningless.
+     */
+    private boolean hasUnmanagedOwner(long win) {
+        long owner = transientOwner(win);
+        return owner != 0 && core.registry().find(owner).isEmpty();
     }
 
     public boolean isSpecialUnmanagedWindow(long win) {
@@ -1357,19 +1369,16 @@ public final class X11WindowManagerService implements AutoCloseable {
                 }
 
                 // Check for transient window hint (dialogs/popups)
-                Memory parentMem = new Memory(NativeLong.SIZE);
-                long transientFor = 0;
-                if (x11.XGetTransientForHint(display, new NativeLong(win), parentMem) != 0) {
-                    transientFor = parentMem.getNativeLong(0).longValue();
-                }
+                long transientFor = transientOwner(win);
 
                 FrameMetrics m = theme.metrics();
-                int clientW = Math.max(100, w);
-                int clientH = Math.max(60, h);
+                // A new window fits between the top of the screen and the top of the front panel
+                int maxUsableH = Math.max(100, screenHeight - dockMarginBottom);
+                int clientW = Math.min(Math.max(100, w), m.clientWidth(screenWidth));
+                int clientH = Math.min(Math.max(60, h), m.clientHeight(maxUsableH));
                 int frameW = m.frameWidth(clientW);
                 int frameH = m.frameHeight(clientH);
 
-                int maxUsableH = Math.max(100, screenHeight - dockMarginBottom);
                 int frameX, frameY;
                 var parentRecord = (transientFor != 0) ? core.registry().find(transientFor) : Optional.<WindowRecord>empty();
                 if (parentRecord.isPresent()) {
@@ -1378,6 +1387,11 @@ public final class X11WindowManagerService implements AutoCloseable {
                     frameY = parentGeom.y() + (parentGeom.height() - frameH) / 2;
                     frameX = Math.max(10, Math.min(frameX, screenWidth - frameW - 10));
                     frameY = Math.max(10, Math.min(frameY, maxUsableH - frameH - 10));
+                } else if (transientFor != 0) {
+                    // Dialog of an unmanaged window (the front panel, or Swing's hidden owner frame):
+                    // its owner-relative position is meaningless, so centre it on the usable screen
+                    frameX = (screenWidth - frameW) / 2;
+                    frameY = (maxUsableH - frameH) / 2;
                 } else if (x > 0 || y > 0) {
                     frameX = Math.max(10, Math.min(x, screenWidth - frameW - 10));
                     frameY = Math.max(10, Math.min(y, maxUsableH - frameH - 10));
@@ -1408,6 +1422,9 @@ public final class X11WindowManagerService implements AutoCloseable {
                         }
                     }
                 }
+                // Keep the whole frame on screen and above the front panel, whatever the branch above chose
+                frameX = Math.max(0, Math.min(frameX, screenWidth - frameW));
+                frameY = Math.max(0, Math.min(frameY, maxUsableH - frameH));
                 WindowGeometry initialGeom = new WindowGeometry(frameX, frameY, clientW, clientH);
 
                 FrameWindow frame = decorateAndReparent(win, initialGeom);
@@ -1585,19 +1602,32 @@ public final class X11WindowManagerService implements AutoCloseable {
                 if (frame != null) {
                     FrameMetrics m = theme.metrics();
                     long mask = (cfg.value_mask != null) ? cfg.value_mask.longValue() : 0L;
+                    int maxUsableH = Math.max(100, screenHeight - dockMarginBottom);
                     int clientW = ((mask & LibX11.CWWidth) != 0) ? Math.max(100, cfg.width) : frame.clientWidth();
                     int clientH = ((mask & LibX11.CWHeight) != 0) ? Math.max(60, cfg.height) : frame.clientHeight();
+                    clientW = Math.min(clientW, m.clientWidth(screenWidth));
+                    clientH = Math.min(clientH, m.clientHeight(maxUsableH));
                     int frameW = m.frameWidth(clientW);
                     int frameH = m.frameHeight(clientH);
 
                     int frameX = frame.frameX();
                     int frameY = frame.frameY();
-                    if ((mask & LibX11.CWX) != 0) {
-                        frameX = cfg.x;
+                    boolean centred = hasUnmanagedOwner(win);
+                    if (centred) {
+                        // Swing moves a dialog right after mapping it; keep it centred (see MapRequest)
+                        frameX = (screenWidth - frameW) / 2;
+                        frameY = (maxUsableH - frameH) / 2;
+                    } else {
+                        if ((mask & LibX11.CWX) != 0) {
+                            frameX = cfg.x;
+                        }
+                        if ((mask & LibX11.CWY) != 0) {
+                            frameY = cfg.y;
+                        }
                     }
-                    if ((mask & LibX11.CWY) != 0) {
-                        frameY = cfg.y;
-                    }
+                    // Like new windows, the frame stays on screen and above the front panel
+                    frameX = Math.max(0, Math.min(frameX, screenWidth - frameW));
+                    frameY = Math.max(0, Math.min(frameY, maxUsableH - frameH));
 
                     frame.setBounds(frameX, frameY, frameW, frameH);
                     x11.XMoveResizeWindow(display, frame.frameWindow(), frameX, frameY, frameW, frameH);

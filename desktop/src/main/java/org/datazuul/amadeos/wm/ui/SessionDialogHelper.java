@@ -116,11 +116,8 @@ public final class SessionDialogHelper {
 
             dialog.setPreferredSize(new Dimension(520, 260));
             dialog.pack();
-            if (parent != null) {
-                dialog.setLocationRelativeTo(parent);
-            } else {
-                dialog.setLocationRelativeTo(null);
-            }
+            // Centred on the screen: the parent is usually the front panel at the bottom edge
+            dialog.setLocationRelativeTo(null);
             dialog.setVisible(true);
         });
     }

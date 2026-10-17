@@ -48,6 +48,10 @@ public final class WallpaperManager {
     /** The list entry for a plain colour without image, CDE's "NoBackdrop". */
     public static final String NO_BACKDROP = "none";
 
+    /** The backdrop of a new session: the amadeOS picture installed with the image, else the built-in one. */
+    static final String SYSTEM_WALLPAPER = "/usr/share/backgrounds/amadeos/wallpaper.png";
+    static final String CLASSPATH_WALLPAPER = "classpath:/wallpapers/default.png";
+
     public record WallpaperItem(String name, String path, boolean isClasspath) {
         /** Whether this is a CDE-style pattern that is coloured and tiled. */
         public boolean isPattern() {
@@ -64,7 +68,8 @@ public final class WallpaperManager {
     }
 
     private static final List<WallpaperChangeListener> LISTENERS = new CopyOnWriteArrayList<>();
-    private static volatile String currentWallpaperPath = null;
+    private static volatile String currentWallpaperPath =
+            new File(SYSTEM_WALLPAPER).isFile() ? SYSTEM_WALLPAPER : CLASSPATH_WALLPAPER;
     private static volatile ScaleMode currentMode = ScaleMode.FILL;
     private static volatile Color currentBgColor = new Color(0x4A, 0x69, 0x84); // Classic UNIX Slate
 
@@ -104,7 +109,7 @@ public final class WallpaperManager {
 
         // 1. Plain colour and the amadeOS default picture
         list.add(new WallpaperItem("No Backdrop (color only)", NO_BACKDROP, true));
-        list.add(new WallpaperItem("amadeOS Default (Classpath)", "classpath:/wallpapers/default.png", true));
+        list.add(new WallpaperItem("amadeOS Default (Classpath)", CLASSPATH_WALLPAPER, true));
         // The original CDE backdrops, if the amadeos-backdrops-cde package is installed
         for (java.nio.file.Path file : Backdrops.systemBackdrops()) {
             list.add(new WallpaperItem(Backdrops.displayName(file.toString()), file.toString(), false));
