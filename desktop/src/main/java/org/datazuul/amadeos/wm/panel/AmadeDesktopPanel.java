@@ -12,8 +12,6 @@ import java.awt.GridLayout;
 import java.awt.RenderingHints;
 import java.awt.Toolkit;
 import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -507,15 +505,9 @@ public final class AmadeDesktopPanel extends JFrame {
         launchProcess("amade-files", folder);
     }
 
-    /** Opens the files of the home trash (XDG trash spec), creating the folder on first use. */
+    /** Opens the trash view of amade-files, which knows where the trash is and creates it on first use. */
     private void openTrash() {
-        Path trashFiles = Path.of(System.getProperty("user.home", "/tmp"), ".local", "share", "Trash", "files");
-        try {
-            Files.createDirectories(trashFiles);
-        } catch (Exception e) {
-            LOGGER.warning("Cannot create the trash folder " + trashFiles + ": " + e.getMessage());
-        }
-        openInFileManager(trashFiles.toString());
+        openInFileManager("trash:");
     }
 
     private void openDesktopHelp() {
