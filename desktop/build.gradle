@@ -1,0 +1,66 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+group = 'org.datazuul.amadeos'
+version = '0.1.0-SNAPSHOT'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+}
+
+repositories {
+    mavenCentral()
+    maven { url 'https://jitpack.io' }
+}
+
+dependencies {
+    implementation 'net.java.dev.jna:jna:5.14.0'
+    // Desktop themes and the Motif look, shared with the amadeOS applications. The desktop does not use
+    // the Guice-based application start-up of amade-commons, so Guice stays out of the image jar.
+    // With ../amade-commons checked out, settings.gradle builds that checkout instead (composite build).
+    implementation('com.github.datazuul:amade-commons:327fe95f3e') {
+        exclude group: 'com.google.inject'
+    }
+    // amade-commons logs through SLF4J; route it into java.util.logging like the rest of the desktop.
+    runtimeOnly 'org.slf4j:slf4j-jdk14:2.0.17'
+    testImplementation platform('org.junit:junit-bom:5.10.2')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+    jvmArgs(['--enable-native-access=ALL-UNNAMED'])
+}
+
+application {
+    mainClass = 'org.datazuul.amadeos.wm.AmadeOsLauncher'
+}
+
+tasks.register('runPanel', JavaExec) {
+    group = 'application'
+    description = 'Runs the standalone CDE Front Panel on your current desktop'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.datazuul.amadeos.wm.panel.AmadeDesktopPanel'
+    jvmArgs = ['--enable-native-access=ALL-UNNAMED']
+    systemProperties = System.properties
+}
+
+tasks.named('jar') {
+    manifest {
+        attributes('Main-Class': application.mainClass.get())
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
+
+
+
+
+
+
