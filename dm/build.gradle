@@ -1,0 +1,22 @@
+// The display manager: starts Xorg (amadeos-dm), shows the login greeter, authenticates through PAM in a
+// root worker and starts amadeos-session as the user. `amade-dm [display]`, `amade-dm session-worker`,
+// `amade-dm greeter`.
+application {
+    mainClass = 'org.datazuul.amadeos.dm.DmLauncher'
+}
+
+debian = [
+    section    : 'x11',
+    javaOptions: '--enable-native-access=ALL-UNNAMED',
+    // Xorg and xauth (amadeos-dm), xset and setxkbmap (the script), chvt (kbd), mcookie (util-linux,
+    // essential), PAM with logind sessions; the session it starts.
+    depends    : ['xserver-xorg', 'xauth', 'x11-xserver-utils', 'kbd', 'libpam-systemd', 'amade-session'],
+    conflicts  : ['amade-desktop'],
+    replaces   : ['amade-desktop'],
+    summary    : 'Display manager and login greeter of amadeOS',
+    description: '''Starts Xorg at boot (amadeos-dm.service) and shows the login greeter of the amadeOS
+desktop: language and time zone of the session, power actions. Authenticates
+through PAM (/etc/pam.d/amadeos-dm) in a root worker process, opens a logind
+session and starts amadeos-session as the user. As root it sets the system
+time zone chosen in the greeter.'''
+]

@@ -1,8 +1,13 @@
 rootProject.name = 'amade-system'
 
-// System components of amadeOS, one Debian package per module; base is the library they share.
+// System components of amadeOS, one Debian package per module; base is the library the desktop
+// modules (wm, panel-cde, dm, session, style) share.
 include 'base'
-include 'desktop'
+include 'wm'
+include 'panel-cde'
+include 'dm'
+include 'session'
+include 'style'
 include 'print'
 include 'sysinfo'
 

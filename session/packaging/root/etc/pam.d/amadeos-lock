@@ -1,0 +1,5 @@
+#%PAM-1.0
+# amadeOS screen lock (amade-session lock, through amadeos-lock): the password check of the logged-in user.
+
+@include common-auth
+@include common-account

@@ -3,6 +3,10 @@
 // ../amadeos/config/packages.chroot). Each application module sets mainClass and the `debian` block in its
 // own build.gradle; `base` is the library the desktop modules share and has no package of its own.
 
+// The modules of the desktop: they build on base, log through java.util.logging and talk to X11 through
+// JNA, so they run with native access enabled.
+def desktopModules = ['wm', 'panel-cde', 'dm', 'session', 'style']
+
 subprojects {
     apply plugin: 'java'
 
@@ -42,8 +46,33 @@ configure(subprojects.findAll { it.name != 'base' }) {
     apply plugin: 'application'
 
     ext.debian = [:]
-    // The SLF4J binding of the module's jar; the desktop logs through java.util.logging instead.
+    // The SLF4J binding of the module's jar; the desktop modules log through java.util.logging instead.
     ext.slf4jBinding = 'ch.qos.logback:logback-classic:1.5.18'
+}
+
+configure(subprojects.findAll { it.name in desktopModules }) {
+    slf4jBinding = 'org.slf4j:slf4j-jdk14:2.0.17'
+
+    dependencies {
+        // The X11, PAM, XDG, theme and process helpers shared by the desktop modules (JNA comes with them).
+        implementation project(':base')
+    }
+
+    configurations.configureEach {
+        // The desktop does not use the Guice-based application start-up of amade-commons.
+        exclude group: 'com.google.inject'
+    }
+
+    application {
+        applicationDefaultJvmArgs = ['--enable-native-access=ALL-UNNAMED']
+    }
+
+    test {
+        jvmArgs '--enable-native-access=ALL-UNNAMED'
+    }
+}
+
+configure(subprojects.findAll { it.name != 'base' }) {
 
     afterEvaluate {
         def packageName = "amade-${project.name}"
@@ -63,6 +92,8 @@ configure(subprojects.findAll { it.name != 'base' }) {
                     'Enable-Native-Access': 'ALL-UNNAMED'
                 )
             }
+            // The fat jar unpacks the runtime class path, so the jars of the modules it depends on come first.
+            dependsOn configurations.runtimeClasspath
             from {
                 configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
             }
@@ -162,6 +193,9 @@ Architecture: all
 Depends: ${depends}
 """
                 if (deb.recommends) control += "Recommends: ${deb.recommends.join(', ')}\n"
+                if (deb.provides) control += "Provides: ${deb.provides.join(', ')}\n"
+                if (deb.conflicts) control += "Conflicts: ${deb.conflicts.join(', ')}\n"
+                if (deb.replaces) control += "Replaces: ${deb.replaces.join(', ')}\n"
                 control += """Maintainer: amadeOS Project <developers@datazuul.com>
 Description: ${deb.summary}
 ${deb.description.readLines().collect { ' ' + it }.join('\n')}

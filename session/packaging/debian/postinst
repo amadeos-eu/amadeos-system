@@ -1,0 +1,8 @@
+#!/bin/sh
+# amade-session: startx without the display manager starts the desktop too.
+set -e
+
+if [ "$1" = "configure" ]; then
+    # Xsession starts x-session-manager (Debian's alternatives system).
+    update-alternatives --install /usr/bin/x-session-manager x-session-manager /usr/bin/amadeos-session 50
+fi
