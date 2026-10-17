@@ -69,6 +69,17 @@ class ProcessLauncherTest {
     }
 
     @Test
+    void eachProgramHasItsOwnLogNamedAfterIt() {
+        assertEquals("firefox-esr", ProcessLauncher.logName(List.of("firefox-esr", "https://example.org")));
+        assertEquals("xterm", ProcessLauncher.logName(List.of("/usr/bin/xterm", "-e", "sudo", "sh")));
+        assertEquals("amade-files", ProcessLauncher.logName(List.of("amade-files")));
+        assertEquals("my_tool_v2.0", ProcessLauncher.logName(List.of("my tool v2.0")));
+        assertEquals("application", ProcessLauncher.logName(List.of("...")));
+        assertEquals("application", ProcessLauncher.logName(List.of()));
+        assertTrue(ProcessLauncher.logFile(List.of("xterm")).endsWith(Path.of("amadeos", "logs", "xterm.log")));
+    }
+
+    @Test
     void largeLogIsRotated() throws IOException {
         Path log = directory.resolve("apps.log");
         Files.write(log, new byte[2048]);

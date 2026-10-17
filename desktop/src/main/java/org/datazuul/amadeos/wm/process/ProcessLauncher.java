@@ -11,6 +11,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.datazuul.amadeos.wm.XdgDirectories;
 
 /**
  * Starts desktop applications detached from the panel or window manager process.
@@ -33,9 +34,12 @@ public final class ProcessLauncher {
         return start(command, new File(System.getProperty("user.home", "/tmp")));
     }
 
-    /** Starts the command and shows the busy cursor until its window appears (see {@link LaunchFeedback}). */
+    /**
+     * Starts the command, with its output in the application's own log file (see {@link #logFile(List)}),
+     * and shows the busy cursor until its window appears (see {@link LaunchFeedback}).
+     */
     public static Process start(List<String> command, File workingDirectory) throws IOException {
-        Process process = start(command, workingDirectory, logFile());
+        Process process = start(command, workingDirectory, logFile(command));
         LaunchFeedback.announce();
         return process;
     }
@@ -109,7 +113,7 @@ public final class ProcessLauncher {
         return false;
     }
 
-    /** Appends to ~/.cache/amadeos/applications.log, keeping one rotated copy; discards if unwritable. */
+    /** Appends to the log file, keeping one rotated copy ({@code .old}); discards the output if unwritable. */
     private static ProcessBuilder.Redirect outputTarget(Path log) {
         try {
             Files.createDirectories(log.getParent());
@@ -121,12 +125,20 @@ public final class ProcessLauncher {
         }
     }
 
-    static Path logFile() {
-        String cacheHome = System.getenv("XDG_CACHE_HOME");
-        Path base = cacheHome != null && !cacheHome.isBlank()
-                ? Path.of(cacheHome)
-                : Path.of(System.getProperty("user.home", "/tmp"), ".cache");
-        return base.resolve("amadeos").resolve("applications.log");
+    /**
+     * One log per application in {@code ~/.cache/amadeos/logs}, named after the program:
+     * {@code firefox-esr.log}, {@code xterm.log}, {@code amade-files.log}.
+     */
+    static Path logFile(List<String> command) {
+        return XdgDirectories.amadeosLogDir().resolve(logName(command) + ".log");
+    }
+
+    /** The program's name without directory, reduced to letters, digits, dot, dash and underscore. */
+    static String logName(List<String> command) {
+        String program = command.isEmpty() ? "" : command.get(0);
+        String name = program.substring(program.lastIndexOf('/') + 1)
+                .replaceAll("[^A-Za-z0-9._-]", "_").replaceFirst("^[._]+", "");
+        return name.isEmpty() ? "application" : name;
     }
 
     static void rotateIfLarge(Path log, long maxBytes) throws IOException {
