@@ -62,6 +62,9 @@ public final class SessionWorker {
         }
         PamAuthenticator.PamSession pamSession = asRoot ? result.session() : null;
 
+        // Only now, after the password was accepted; before the session starts, so that its clocks show it.
+        request.timeZone().ifPresent(zone -> applyTimeZone(zone, asRoot));
+
         try {
             Optional<UserAccount> account = asRoot
                     ? UserAccount.lookup(request.username())
@@ -116,6 +119,24 @@ public final class SessionWorker {
         pb.redirectOutput(logWritable ? ProcessBuilder.Redirect.appendTo(runnerLog) : ProcessBuilder.Redirect.DISCARD);
         LOGGER.info(() -> "Starting " + type.id() + " session for " + account.name() + " on " + display);
         return pb.start();
+    }
+
+    /** Sets the system time zone when the one chosen at login differs; a failure is logged, not a login error. */
+    static void applyTimeZone(String zone, boolean asRoot) {
+        SystemTimeZone system = SystemTimeZone.SYSTEM;
+        if (system.current().filter(zone::equals).isPresent()) {
+            return;
+        }
+        if (!asRoot) {
+            LOGGER.info(() -> "Not root: the time zone " + zone + " is not applied to the system");
+            return;
+        }
+        try {
+            system.set(zone);
+            LOGGER.info(() -> "System time zone set to " + zone);
+        } catch (IOException e) {
+            LOGGER.log(Level.WARNING, "Cannot set the system time zone to " + zone, e);
+        }
     }
 
     private static String sessionExecutable() {

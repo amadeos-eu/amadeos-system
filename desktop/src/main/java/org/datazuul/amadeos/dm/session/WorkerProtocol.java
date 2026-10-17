@@ -11,8 +11,9 @@ import org.datazuul.amadeos.commons.i18n.Language;
 /**
  * Line protocol between the greeter and the root session worker.
  *
- * <p>The greeter writes four lines to the worker's stdin: user name, password, session type id and
- * the language chosen at login (a code such as {@code fr}, or empty). The worker answers with one line on stdout, {@code OK} once the user is
+ * <p>The greeter writes five lines to the worker's stdin: user name, password, session type id, the
+ * language chosen at login (a code such as {@code fr}, or empty) and the time zone chosen at login
+ * ({@code Europe/Berlin}, or empty). The worker answers with one line on stdout, {@code OK} once the user is
  * authenticated and the session is about to start, or {@code FAIL <message>}.
  */
 public final class WorkerProtocol {
@@ -23,21 +24,30 @@ public final class WorkerProtocol {
     private WorkerProtocol() {
     }
 
-    /** @param language the language chosen in the greeter; empty keeps the system default */
-    public record Request(String username, String password, SessionType sessionType, Optional<Language> language) {
+    /**
+     * @param language the language chosen in the greeter; empty keeps the system default
+     * @param timeZone the time zone chosen in the greeter ({@code Europe/Berlin}); empty keeps the system's
+     */
+    public record Request(String username, String password, SessionType sessionType, Optional<Language> language,
+                          Optional<String> timeZone) {
         public Request {
             language = language == null ? Optional.empty() : language;
+            timeZone = timeZone == null ? Optional.empty() : timeZone.filter(zone -> !zone.isBlank());
         }
 
         public Request(String username, String password, SessionType sessionType) {
-            this(username, password, sessionType, Optional.empty());
+            this(username, password, sessionType, Optional.empty(), Optional.empty());
+        }
+
+        public Request(String username, String password, SessionType sessionType, Optional<Language> language) {
+            this(username, password, sessionType, language, Optional.empty());
         }
     }
 
     public static void writeRequest(OutputStream out, Request request) throws IOException {
         StringBuilder text = new StringBuilder();
         for (String value : new String[]{request.username(), request.password(), request.sessionType().id(),
-                request.language().map(Language::code).orElse("")}) {
+                request.language().map(Language::code).orElse(""), request.timeZone().orElse("")}) {
             if (value.indexOf('\n') >= 0 || value.indexOf('\r') >= 0 || value.indexOf('\0') >= 0) {
                 throw new IOException("Credentials must not contain line breaks or NUL characters");
             }
@@ -52,11 +62,12 @@ public final class WorkerProtocol {
         String password = readLine(in);
         String session = readLine(in);
         String language = readLine(in);
+        String timeZone = readLine(in);
         if (username == null || password == null) {
             throw new IOException("Incomplete login request");
         }
         return new Request(username, password, SessionType.from(session == null ? "" : session),
-                Language.ofCode(language));
+                Language.ofCode(language), Optional.ofNullable(timeZone));
     }
 
     public static void writeResult(OutputStream out, boolean ok, String message) throws IOException {

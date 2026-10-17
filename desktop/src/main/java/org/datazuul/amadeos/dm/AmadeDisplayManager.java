@@ -4,9 +4,12 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.time.DateTimeException;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.TimeZone;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.SwingUtilities;
@@ -87,16 +90,27 @@ public final class AmadeDisplayManager {
     }
 
     /** Runs on the greeter's authentication thread. */
-    private void handleLogin(String username, String password, String sessionLabel, Language language) {
+    private void handleLogin(String username, String password, String sessionLabel, Language language,
+                             String timeZone) {
         SessionType type = SessionType.from(sessionLabel);
-        LOGGER.info(() -> "Login attempt (session: " + type.id() + ", language: " + language + ")");
+        LOGGER.info(() -> "Login attempt (session: " + type.id() + ", language: " + language
+                + ", time zone: " + timeZone + ")");
 
         // PAM and the session run in a separate root worker process (see SessionWorker).
         SessionWorkerClient.Result result = sessionWorkers.login(display, username, password, type,
-                Optional.ofNullable(language));
+                Optional.ofNullable(language), Optional.ofNullable(timeZone));
         if (result instanceof SessionWorkerClient.Failed failed) {
             greeter.setStatus(failed.message(), true);
             return;
+        }
+        if (timeZone != null) {
+            // The worker has set the system's zone by now; this JVM read it at start, so follow by hand
+            // for the clock of the greeter, which comes back when the session ends.
+            try {
+                TimeZone.setDefault(TimeZone.getTimeZone(ZoneId.of(timeZone)));
+            } catch (DateTimeException e) {
+                LOGGER.fine(() -> "Unknown time zone for the greeter clock: " + timeZone);
+            }
         }
         Process worker = ((SessionWorkerClient.Started) result).worker();
         greeter.setStatus("Starting session...", false);

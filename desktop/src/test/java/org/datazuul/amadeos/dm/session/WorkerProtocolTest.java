@@ -24,16 +24,33 @@ class WorkerProtocolTest {
         WorkerProtocol.Request request = new WorkerProtocol.Request("anna", "secret", SessionType.DESKTOP,
                 Optional.of(Language.FRENCH));
         WorkerProtocol.writeRequest(out, request);
-        assertEquals("anna\nsecret\ndesktop\nfr\n", out.toString(StandardCharsets.UTF_8));
+        assertEquals("anna\nsecret\ndesktop\nfr\n\n", out.toString(StandardCharsets.UTF_8));
+        assertEquals(request, WorkerProtocol.readRequest(new ByteArrayInputStream(out.toByteArray())));
+    }
+
+    @Test
+    void theTimeZoneTravelsWithTheRequest() throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        WorkerProtocol.Request request = new WorkerProtocol.Request("anna", "secret", SessionType.DESKTOP,
+                Optional.of(Language.GERMAN), Optional.of("Europe/Berlin"));
+        WorkerProtocol.writeRequest(out, request);
+        assertEquals("anna\nsecret\ndesktop\nde\nEurope/Berlin\n", out.toString(StandardCharsets.UTF_8));
         assertEquals(request, WorkerProtocol.readRequest(new ByteArrayInputStream(out.toByteArray())));
     }
 
     @Test
     void requestsWithoutOrWithUnknownLanguageKeepTheDefault() throws IOException {
+        WorkerProtocol.Request threeLines = WorkerProtocol.readRequest(new ByteArrayInputStream(
+                "anna\nsecret\ndesktop\n".getBytes(StandardCharsets.UTF_8)));
+        assertEquals(Optional.empty(), threeLines.language());
+        assertEquals(Optional.empty(), threeLines.timeZone());
+        WorkerProtocol.Request fourLines = WorkerProtocol.readRequest(new ByteArrayInputStream(
+                "anna\nsecret\ndesktop\nklingon\n".getBytes(StandardCharsets.UTF_8)));
+        assertEquals(Optional.empty(), fourLines.language());
+        assertEquals(Optional.empty(), fourLines.timeZone());
         assertEquals(Optional.empty(), WorkerProtocol.readRequest(new ByteArrayInputStream(
-                "anna\nsecret\ndesktop\n".getBytes(StandardCharsets.UTF_8))).language());
-        assertEquals(Optional.empty(), WorkerProtocol.readRequest(new ByteArrayInputStream(
-                "anna\nsecret\ndesktop\nklingon\n".getBytes(StandardCharsets.UTF_8))).language());
+                "anna\nsecret\ndesktop\nde\n \n".getBytes(StandardCharsets.UTF_8))).timeZone(),
+                "a blank time zone means: keep the system's");
     }
 
     @Test

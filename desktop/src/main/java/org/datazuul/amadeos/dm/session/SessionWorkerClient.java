@@ -34,6 +34,16 @@ public final class SessionWorkerClient {
     /** @param language the language chosen in the greeter; empty keeps the system default */
     public Result login(String display, String username, String password, SessionType type,
                         Optional<Language> language) {
+        return login(display, username, password, type, language, Optional.empty());
+    }
+
+    /**
+     * @param language the language chosen in the greeter; empty keeps the system default
+     * @param timeZone the time zone chosen in the greeter; the worker sets it on the system once the
+     *                 password is accepted, before the session starts; empty keeps the system's
+     */
+    public Result login(String display, String username, String password, SessionType type,
+                        Optional<Language> language, Optional<String> timeZone) {
         Process worker;
         try {
             worker = new ProcessBuilder(workerCommand(display, loginUid(username)))
@@ -44,7 +54,8 @@ public final class SessionWorkerClient {
         }
         try {
             try (OutputStream stdin = worker.getOutputStream()) {
-                WorkerProtocol.writeRequest(stdin, new WorkerProtocol.Request(username, password, type, language));
+                WorkerProtocol.writeRequest(stdin,
+                        new WorkerProtocol.Request(username, password, type, language, timeZone));
             }
             String error;
             try (InputStream stdout = worker.getInputStream()) {
