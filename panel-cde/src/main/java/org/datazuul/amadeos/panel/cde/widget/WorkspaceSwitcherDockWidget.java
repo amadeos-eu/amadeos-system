@@ -49,8 +49,10 @@ import org.datazuul.amadeos.base.theme.backdrop.MotifColors;
 public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
     private static final Logger LOGGER = Logger.getLogger(WorkspaceSwitcherDockWidget.class.getName());
     static final String DESKTOP_TEXTS = "org.datazuul.amadeos.i18n.desktop";
+    /** Width of the lock column on the left and the EXIT column on the right, as roomy as in CDE. */
+    static final int COLUMN_WIDTH = 40;
     /** Width of the switch box: two 96px buttons with CDE's gaps between the lock and EXIT columns. */
-    static final int PAD_WIDTH = 270;
+    static final int PAD_WIDTH = 2 * COLUMN_WIDTH + 212;
     /** Thickness of a workspace button's Motif bevel. */
     private static final int BEVEL = 2;
     static final String[] WORKSPACE_NAMES = {"One", "Two", "Three", "Four"};
@@ -110,7 +112,7 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
         // 2. Left Pillar: Flat Lock Button
         leftPillar = new JPanel(new GridLayout(2, 1, 0, 0));
         leftPillar.setOpaque(false);
-        leftPillar.setPreferredSize(new Dimension(28, CdePanelChrome.SLOT_HEIGHT));
+        leftPillar.setPreferredSize(new Dimension(COLUMN_WIDTH, CdePanelChrome.SLOT_HEIGHT));
 
         lockBtn = new FlatLockButton(e -> org.datazuul.amadeos.base.process.LockLauncher.lockScreen());
         leftPillar.add(lockBtn);
@@ -144,7 +146,7 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
         // 4. Right Pillar: Status/Mail Indicator Slit + Flat EXIT Button
         rightPillar = new JPanel(new GridLayout(2, 1, 0, 0));
         rightPillar.setOpaque(false);
-        rightPillar.setPreferredSize(new Dimension(30, CdePanelChrome.SLOT_HEIGHT));
+        rightPillar.setPreferredSize(new Dimension(COLUMN_WIDTH, CdePanelChrome.SLOT_HEIGHT));
 
         statusIndicator = new StatusIndicator();
         rightPillar.add(statusIndicator);

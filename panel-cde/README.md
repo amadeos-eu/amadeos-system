@@ -39,6 +39,7 @@ so it is started and follows theme changes:
 - **Plain launcher:** `new DrawerDockWidget(id, tooltip, iconKey, action, List.of(), false)`.
 - **Live widget** (like Clock or Calendar): a class in `panel/cde/widget/` extending `AbstractDockWidget`. Paint the slot with `CdePanelChrome.paintSlotBay(...)`, set the preferred size to `CdePanelChrome.SLOT_WIDTH × SLOT_HEIGHT`, leave `TAB_HEIGHT + 1` free at the top for the drawer notch, and react to colour changes in `updateThemeStyles(theme)`.
 
+A `SlotSpacerDockWidget` (a 10px empty bay) sits between the last slot of each side and the switch, as in CDE.
 The dock width follows the slots' preferred sizes, so no constant needs changing when a slot is added.
 Update the slot list in the Help dialog ("Front Panel Overview") as well.
 
