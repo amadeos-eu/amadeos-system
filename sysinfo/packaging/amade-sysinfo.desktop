@@ -1,0 +1,24 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=amadeOS System Information
+Name[de]=amadeOS Systeminformationen
+Name[fr]=amadeOS Informations système
+Name[es]=amadeOS Información del sistema
+Name[it]=amadeOS Informazioni di sistema
+GenericName=System Information
+GenericName[de]=Systeminformationen
+GenericName[fr]=Informations système
+GenericName[es]=Información del sistema
+GenericName[it]=Informazioni di sistema
+Comment=Show the hardware and the operating system of this computer
+Comment[de]=Hardware und Betriebssystem dieses Computers anzeigen
+Comment[fr]=Afficher le matériel et le système d'exploitation de cet ordinateur
+Comment[es]=Mostrar el hardware y el sistema operativo de este equipo
+Comment[it]=Mostrare l'hardware e il sistema operativo di questo computer
+Icon=computer
+Exec=/usr/bin/amade-sysinfo
+Terminal=false
+Categories=System;Monitor;
+Keywords=hardware;system;cpu;memory;disk;network;battery;
+StartupNotify=true

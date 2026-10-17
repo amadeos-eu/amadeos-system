@@ -1,0 +1,149 @@
+// Shared build of all modules: Java 25, amade-commons, JUnit 5, a fat jar per module and the tasks
+// `deb` (a Debian package) and `installToAmadeOs` (that package into ../amadeos/config/packages.chroot).
+// Each module sets mainClass and the `debian` block in its own build.gradle.
+
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'application'
+
+    group = 'org.datazuul.amadeos'
+    version = '0.1.0'
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(25)
+        }
+    }
+
+    repositories {
+        mavenCentral()
+        maven { url 'https://jitpack.io' }
+    }
+
+    dependencies {
+        // Theme, Motif look, start-up and XDG helpers shared by all amadeOS applications.
+        // With ../amade-commons checked out, settings.gradle builds that checkout instead (composite build).
+        implementation 'com.github.datazuul:amade-commons:368124c665'
+        runtimeOnly 'ch.qos.logback:logback-classic:1.5.18'
+        testImplementation platform('org.junit:junit-bom:5.10.2')
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+
+    test {
+        useJUnitPlatform()
+        // Tests compare English texts, whatever the language of the build machine.
+        systemProperty 'user.language', 'en'
+        systemProperty 'user.country', 'US'
+    }
+
+    ext.debian = [:]
+
+    afterEvaluate {
+        def packageName = "amade-${project.name}"
+
+        jar {
+            archiveBaseName = packageName
+            manifest {
+                attributes(
+                    'Main-Class': application.mainClass.get(),
+                    'Implementation-Title': packageName,
+                    'Implementation-Version': project.version
+                )
+            }
+            from {
+                configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+            }
+            // Signed dependency jars would otherwise invalidate the fat jar.
+            exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA'
+            duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        }
+
+        tasks.register('deb') {
+            dependsOn jar
+            description = "Builds a standard Debian (.deb) package for ${packageName}"
+            group = 'distribution'
+
+            doLast {
+                def deb = project.debian
+                def buildDirFile = layout.buildDirectory.get().asFile
+                def stagingDir = new File(buildDirFile, 'deb-staging')
+                delete(stagingDir)
+
+                def optDir = new File(stagingDir, "opt/${packageName}")
+                def binDir = new File(stagingDir, 'usr/bin')
+                def appDir = new File(stagingDir, 'usr/share/applications')
+                def docDir = new File(stagingDir, "usr/share/doc/${packageName}")
+                def debianDir = new File(stagingDir, 'DEBIAN')
+                def distDir = new File(buildDirFile, 'distributions')
+                [optDir, binDir, appDir, docDir, debianDir, distDir]*.mkdirs()
+
+                copy {
+                    from jar.archiveFile
+                    into optDir
+                    rename { "${packageName}.jar" }
+                }
+
+                def launcher = new File(binDir, packageName)
+                launcher.text = """#!/bin/sh
+exec /usr/bin/java -jar /opt/${packageName}/${packageName}.jar "\$@"
+"""
+                launcher.setExecutable(true, false)
+
+                copy {
+                    from "packaging/${packageName}.desktop"
+                    into appDir
+                }
+                copy {
+                    from rootProject.file('LICENSE')
+                    into docDir
+                    rename { 'copyright' }
+                }
+
+                def depends = (['openjdk-25-jre | java-runtime (>= 25)'] + (deb.depends ?: [])).join(', ')
+                def control = """Package: ${packageName}
+Version: ${project.version}
+Section: ${deb.section}
+Priority: optional
+Architecture: all
+Depends: ${depends}
+"""
+                if (deb.recommends) control += "Recommends: ${deb.recommends.join(', ')}\n"
+                control += """Maintainer: amadeOS Project <developers@datazuul.com>
+Description: ${deb.summary}
+${deb.description.readLines().collect { ' ' + it }.join('\n')}
+"""
+                new File(debianDir, 'control').text = control
+
+                def debFile = new File(distDir, "${packageName}_${project.version}_all.deb")
+                def process = new ProcessBuilder('dpkg-deb', '--root-owner-group', '--build',
+                        stagingDir.absolutePath, debFile.absolutePath)
+                        .redirectErrorStream(true)
+                        .start()
+                process.inputStream.eachLine { println it }
+                if (process.waitFor() != 0) {
+                    throw new GradleException('dpkg-deb failed')
+                }
+                println "[deb] Created ${debFile.absolutePath}"
+            }
+        }
+
+        tasks.register('installToAmadeOs') {
+            dependsOn 'deb'
+            description = 'Builds and drops the .deb package into ../amadeos/config/packages.chroot/'
+            group = 'distribution'
+
+            doLast {
+                def targetDir = rootProject.file('../amadeos/config/packages.chroot')
+                targetDir.mkdirs()
+                def debFile = new File(layout.buildDirectory.get().asFile,
+                        "distributions/${packageName}_${project.version}_all.deb")
+                copy {
+                    from debFile
+                    into targetDir
+                }
+                println "[installToAmadeOs] Copied ${debFile.name} to ${targetDir.absolutePath}"
+            }
+        }
+    }
+}
