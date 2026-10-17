@@ -734,8 +734,13 @@ public final class X11WindowManagerService implements AutoCloseable {
         if (dockWindows.contains(win)) {
             return true;
         }
-        // A dock says so with _NET_WM_WINDOW_TYPE_DOCK (the front panel sets it before it maps its
-        // window); the window manager knows no panel by name, so any panel can take its place.
+        // A dock says so with _NET_WM_WINDOW_TYPE_DOCK, or with a strut: only panels reserve screen
+        // space, and AWT's XToolkit overwrites the type of a Swing panel with _NET_WM_WINDOW_TYPE_NORMAL
+        // when it maps the window under a window manager (the strut it leaves alone). The window manager
+        // knows no panel by name, so any panel can take the front panel's place.
+        if (hasStrut(win)) {
+            return true;
+        }
         PointerByReference actualTypeRet = new PointerByReference();
         IntByReference actualFormatRet = new IntByReference();
         com.sun.jna.ptr.NativeLongByReference nitemsRet = new com.sun.jna.ptr.NativeLongByReference();
@@ -760,6 +765,29 @@ public final class X11WindowManagerService implements AutoCloseable {
                 }
             } finally {
                 x11.XFree(ptr);
+            }
+        }
+        return false;
+    }
+
+    /** Whether the window reserves screen space with _NET_WM_STRUT_PARTIAL or _NET_WM_STRUT. */
+    private boolean hasStrut(long win) {
+        PointerByReference actualTypeRet = new PointerByReference();
+        IntByReference actualFormatRet = new IntByReference();
+        com.sun.jna.ptr.NativeLongByReference nitemsRet = new com.sun.jna.ptr.NativeLongByReference();
+        com.sun.jna.ptr.NativeLongByReference bytesAfterRet = new com.sun.jna.ptr.NativeLongByReference();
+        PointerByReference propRet = new PointerByReference();
+        for (NativeLong atom : new NativeLong[]{netWmStrutPartial, netWmStrut}) {
+            int status = x11.XGetWindowProperty(
+                    display, new NativeLong(win), atom,
+                    new NativeLong(0), new NativeLong(12), 0,
+                    new NativeLong(LibX11.XA_CARDINAL),
+                    actualTypeRet, actualFormatRet, nitemsRet, bytesAfterRet, propRet);
+            if (status == 0 && propRet.getValue() != null) {
+                x11.XFree(propRet.getValue());
+                if (nitemsRet.getValue() != null && nitemsRet.getValue().longValue() >= 4) {
+                    return true;
+                }
             }
         }
         return false;

@@ -109,6 +109,10 @@ public final class AmadeDesktopPanel extends JFrame {
                 panel.addNotify();
                 panel.registerAsDock();
                 panel.setVisible(true);
+                // Under a window manager, AWT's XToolkit writes _NET_WM_WINDOW_TYPE_NORMAL while it maps
+                // the window; the window manager takes the strut as the dock's sign meanwhile, and the
+                // type is put right here for everyone else who reads it.
+                panel.registerAsDock();
             } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE, "Error initializing desktop panel: " + ex.getMessage(), ex);
                 System.exit(1);

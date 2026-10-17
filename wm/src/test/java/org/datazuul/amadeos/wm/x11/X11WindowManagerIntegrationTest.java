@@ -396,6 +396,38 @@ class X11WindowManagerIntegrationTest {
         }
     }
 
+    /**
+     * AWT's XToolkit replaces a Swing panel's _NET_WM_WINDOW_TYPE_DOCK with _NET_WM_WINDOW_TYPE_NORMAL while
+     * it maps the window under a window manager; the strut stays. A window with a strut is a dock.
+     */
+    @Test
+    void testWindowWithAStrutIsADockWhateverItsType() throws Exception {
+        try (X11WindowManagerService wm = X11WindowManagerService.open(display);
+             org.datazuul.amadeos.base.x11.X11EwmhHelper helper = org.datazuul.amadeos.base.x11.X11EwmhHelper.open(display)) {
+            LibX11 x11 = LibX11.INSTANCE;
+            com.sun.jna.NativeLong panelWin = x11.XCreateSimpleWindow(
+                    helper.display(), new com.sun.jna.NativeLong(helper.rootWindow()),
+                    0, 564, 800, 36, 0, new com.sun.jna.NativeLong(0), new com.sun.jna.NativeLong(0));
+            helper.setDockProperties(panelWin.longValue(), 800, 600, 36);
+            // What XToolkit does at map time: the type becomes NORMAL
+            com.sun.jna.NativeLong typeAtom = x11.XInternAtom(helper.display(), "_NET_WM_WINDOW_TYPE", 0);
+            com.sun.jna.NativeLong normalAtom = x11.XInternAtom(helper.display(), "_NET_WM_WINDOW_TYPE_NORMAL", 0);
+            com.sun.jna.Memory typeMem = new com.sun.jna.Memory(com.sun.jna.NativeLong.SIZE);
+            typeMem.setNativeLong(0, normalAtom);
+            x11.XChangeProperty(helper.display(), panelWin, typeAtom, new com.sun.jna.NativeLong(LibX11.XA_ATOM), 32,
+                    LibX11.PropModeReplace, typeMem, 1);
+            x11.XMapWindow(helper.display(), panelWin);
+            x11.XFlush(helper.display());
+
+            Thread.sleep(200);
+            wm.processPendingEvents();
+
+            assertTrue(wm.isDockWindow(panelWin.longValue()), "a window with a strut is a dock");
+            assertNull(wm.getFrameForClient(panelWin.longValue()), "a dock must not have a decoration frame");
+            assertEquals(36, wm.dockMarginBottom());
+        }
+    }
+
     @Test
     void testDockWindowIsNotDecoratedAndReservesBottomStrut() throws Exception {
         try (X11WindowManagerService wm = X11WindowManagerService.open(display);
