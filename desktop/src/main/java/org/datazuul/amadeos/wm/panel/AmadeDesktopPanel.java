@@ -30,10 +30,10 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
-import javax.swing.JTextArea;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
+import org.datazuul.amadeos.wm.XdgDirectories;
 import org.datazuul.amadeos.wm.panel.widget.AbstractDockWidget;
 import org.datazuul.amadeos.wm.panel.widget.CalendarDockWidget;
 import org.datazuul.amadeos.wm.panel.widget.CdePanelChrome;
@@ -523,50 +523,7 @@ public final class AmadeDesktopPanel extends JFrame {
     }
 
     private void showLogViewerDialog(JFrame parent) {
-        JDialog dialog = new JDialog(parent, "amadeOS Session Diagnostics & Logs", false);
-        dialog.setLayout(new BorderLayout(8, 8));
-        DesktopTheme t = ThemeManager.currentTheme();
-        dialog.getContentPane().setBackground(t.base());
-
-        String homeDir = System.getProperty("user.home", "/tmp");
-        File sessionLog = new File(homeDir, ".amadeos-session.log");
-        File wmLog = new File(homeDir, ".amadeos-wm.log");
-
-        JTabbedPane tabbedPane = new JTabbedPane();
-        JTextArea sessionArea = createLogTextArea(sessionLog);
-        tabbedPane.addTab("Session Log (~/.amadeos-session.log)", new JScrollPane(sessionArea));
-
-        JTextArea wmArea = createLogTextArea(wmLog);
-        tabbedPane.addTab("WM Daemon Log (~/.amadeos-wm.log)", new JScrollPane(wmArea));
-
-        dialog.add(tabbedPane, BorderLayout.CENTER);
-
-        JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        bottomPanel.setBackground(t.base());
-        JButton refreshBtn = new JButton("Reload Logs");
-        refreshBtn.addActionListener(e -> {
-            sessionArea.setText(readLogContent(sessionLog));
-            wmArea.setText(readLogContent(wmLog));
-        });
-        JButton closeBtn = new JButton("Close");
-        closeBtn.addActionListener(e -> dialog.dispose());
-
-        bottomPanel.add(refreshBtn);
-        bottomPanel.add(closeBtn);
-        dialog.add(bottomPanel, BorderLayout.SOUTH);
-
-        dialog.setPreferredSize(new Dimension(640, 400));
-        dialog.pack();
-        dialog.setLocationRelativeTo(null);
-        dialog.setVisible(true);
-    }
-
-    private JTextArea createLogTextArea(File file) {
-        JTextArea area = new JTextArea(readLogContent(file));
-        area.setEditable(false);
-        area.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
-        area.setCaretPosition(area.getDocument().getLength());
-        return area;
+        new LogViewerDialog(parent, () -> openInFileManager(XdgDirectories.amadeosLogDir().toString())).setVisible(true);
     }
 
     private void showApplicationManagerDialog(JFrame parent) {
@@ -657,14 +614,4 @@ public final class AmadeDesktopPanel extends JFrame {
         dialog.setVisible(true);
     }
 
-    private String readLogContent(File file) {
-        if (!file.exists()) {
-            return "(Log file " + file.getAbsolutePath() + " does not exist yet.)";
-        }
-        try {
-            return Files.readString(file.toPath());
-        } catch (Exception e) {
-            return "Error reading " + file.getAbsolutePath() + ": " + e.getMessage();
-        }
-    }
 }

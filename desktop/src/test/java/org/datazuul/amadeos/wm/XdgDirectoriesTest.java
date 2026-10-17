@@ -22,4 +22,11 @@ class XdgDirectoriesTest {
     void amadeosDirectoryLivesBelowConfigHome() {
         assertEquals("amadeos", XdgDirectories.amadeosConfigDir().getFileName().toString());
     }
+
+    @Test
+    void logsLiveBelowCacheHome() {
+        assertEquals(Path.of("/srv/cache"), XdgDirectories.cacheHome(Map.of("XDG_CACHE_HOME", "/srv/cache"), "/home/alice"));
+        assertEquals(Path.of("/home/alice/.cache"), XdgDirectories.cacheHome(Map.of("XDG_CACHE_HOME", "cache"), "/home/alice"));
+        assertTrue(XdgDirectories.amadeosLogDir().endsWith(Path.of("amadeos", "logs")));
+    }
 }
