@@ -663,19 +663,29 @@ class X11WindowManagerIntegrationTest {
             assertFalse(panel.isLaunchBusy());
 
             LaunchFeedback.send(LibX11.INSTANCE, panel.display());
-            Thread.sleep(200);
-            wm.processPendingEvents();
-            assertTrue(panel.isLaunchBusy(), "The launch message must set the busy flag on the root window");
+            assertTrue(waitFor(wm, panel::isLaunchBusy), "The launch message must set the busy flag on the root window");
 
             Process client = new ProcessBuilder("xmessage", "-display", display, "-buttons", "OK:0", "Started").start();
             try {
-                Thread.sleep(500);
-                wm.processPendingEvents();
+                assertTrue(waitFor(wm, () -> !panel.isLaunchBusy()), "The new window must end the busy cursor");
                 assertFalse(wm.core().registry().snapshot().isEmpty());
-                assertFalse(panel.isLaunchBusy(), "The new window must end the busy cursor");
             } finally {
                 client.destroyForcibly();
             }
         }
+    }
+
+    /** Lets the window manager handle its events until the condition holds; slow CI machines need more than a fixed pause. */
+    private static boolean waitFor(X11WindowManagerService wm, java.util.function.BooleanSupplier condition)
+            throws InterruptedException {
+        long deadline = System.currentTimeMillis() + 5000;
+        while (System.currentTimeMillis() < deadline) {
+            wm.processPendingEvents();
+            if (condition.getAsBoolean()) {
+                return true;
+            }
+            Thread.sleep(50);
+        }
+        return false;
     }
 }
