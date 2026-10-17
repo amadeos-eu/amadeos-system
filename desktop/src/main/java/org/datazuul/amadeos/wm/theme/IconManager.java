@@ -67,6 +67,9 @@ public final class IconManager {
         map.put("help", List.of("help-browser", "system-help", "gnome-help", "khelpcenter", "help", "stock_help"));
         map.put("lock", List.of("system-lock-screen", "changes-prevent", "dialog-password", "security-high", "lock"));
         map.put("power", List.of("system-shutdown", "system-log-out", "system-reboot", "application-exit", "power"));
+        map.put("shutdown", List.of("system-shutdown", "gnome-shutdown", "application-exit"));
+        map.put("logout", List.of("system-log-out", "gnome-logout", "application-exit"));
+        map.put("reboot", List.of("system-reboot", "view-refresh", "reload"));
         map.put("trash", List.of("user-trash", "trashcan_empty", "user-trash-empty", "user-trash-full", "trash-empty", "trash"));
         map.put("diagnostics", List.of("utilities-system-monitor", "preferences-system", "system-help", "dialog-information", "diagnostics"));
         map.put("window", List.of("window-new", "applications-other", "preferences-desktop", "preferences-desktop-theme"));
@@ -528,7 +531,7 @@ public final class IconManager {
                 g.fillOval(11, 12, 2, 2);
                 g.fillRect(11, 14, 2, 4);
             }
-            case "power", "exit" -> {
+            case "power", "exit", "shutdown" -> {
                 // Power button
                 g.setColor(new Color(0x40, 0x40, 0x40));
                 g.fillOval(3, 3, 18, 18);
@@ -536,6 +539,30 @@ public final class IconManager {
                 g.setStroke(new BasicStroke(2.0f));
                 g.drawArc(6, 6, 12, 12, 135, 270);
                 g.drawLine(12, 5, 12, 12);
+            }
+            case "logout" -> {
+                // Open door with an arrow leaving through it
+                g.setColor(new Color(0x60, 0x60, 0x60));
+                g.fillRect(4, 3, 10, 18);
+                g.setColor(new Color(0xB0, 0x80, 0x40));
+                g.fillPolygon(new int[]{4, 10, 10, 4}, new int[]{3, 5, 21, 21}, 4);
+                g.setColor(Color.BLACK);
+                g.drawRect(4, 3, 10, 18);
+                g.setColor(new Color(0x30, 0x90, 0x30));
+                g.setStroke(new BasicStroke(2.0f));
+                g.drawLine(11, 12, 20, 12);
+                g.drawLine(17, 9, 20, 12);
+                g.drawLine(17, 15, 20, 12);
+            }
+            case "reboot" -> {
+                // Circular arrow
+                g.setColor(new Color(0x40, 0x40, 0x40));
+                g.fillOval(3, 3, 18, 18);
+                g.setColor(new Color(0x40, 0xB0, 0x40));
+                g.setStroke(new BasicStroke(2.0f));
+                g.drawArc(6, 6, 12, 12, 60, 300);
+                g.setStroke(new BasicStroke(1.0f));
+                g.fillPolygon(new int[]{13, 19, 14}, new int[]{4, 7, 10}, 3);
             }
             case "trash", "waste" -> {
                 // Wastebasket
