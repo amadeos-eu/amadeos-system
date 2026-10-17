@@ -29,6 +29,8 @@ public final class FrameWindow {
     private boolean maximized = false;
     private boolean minimized = false;
     private Rectangle unmaximizedBounds;
+    private boolean fullScreen = false;
+    private Rectangle normalBounds;
 
     private WindowButton hoveredButton;
     private WindowButton pressedButton;
@@ -173,6 +175,24 @@ public final class FrameWindow {
 
     public void setUnmaximizedBounds(Rectangle bounds) {
         this.unmaximizedBounds = bounds;
+    }
+
+    /** Whether the client covers the whole screen (_NET_WM_STATE_FULLSCREEN), its decoration off screen. */
+    public boolean isFullScreen() {
+        return fullScreen;
+    }
+
+    public void setFullScreen(boolean fullScreen) {
+        this.fullScreen = fullScreen;
+    }
+
+    /** The frame bounds before full screen, restored when the client leaves it. */
+    public Rectangle normalBounds() {
+        return normalBounds;
+    }
+
+    public void setNormalBounds(Rectangle bounds) {
+        this.normalBounds = bounds;
     }
 
     public WindowButton hoveredButton() {

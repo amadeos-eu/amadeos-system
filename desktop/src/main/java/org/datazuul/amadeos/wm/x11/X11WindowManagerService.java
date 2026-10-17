@@ -104,6 +104,7 @@ public final class X11WindowManagerService implements AutoCloseable {
     private final NativeLong netWmWindowTypeNormal;
     private final NativeLong netWmState;
     private final NativeLong netWmStateHidden;
+    private final NativeLong netWmStateFullscreen;
     private final NativeLong netWmStrut;
     private final NativeLong netWmStrutPartial;
     private final NativeLong wmChangeState;
@@ -265,6 +266,7 @@ public final class X11WindowManagerService implements AutoCloseable {
         this.netWmWindowTypeNormal = x11.XInternAtom(display, "_NET_WM_WINDOW_TYPE_NORMAL", 0);
         this.netWmState = x11.XInternAtom(display, "_NET_WM_STATE", 0);
         this.netWmStateHidden = x11.XInternAtom(display, "_NET_WM_STATE_HIDDEN", 0);
+        this.netWmStateFullscreen = x11.XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", 0);
         this.netWmStrut = x11.XInternAtom(display, "_NET_WM_STRUT", 0);
         this.netWmStrutPartial = x11.XInternAtom(display, "_NET_WM_STRUT_PARTIAL", 0);
         this.wmChangeState = x11.XInternAtom(display, "WM_CHANGE_STATE", 0);
@@ -768,7 +770,7 @@ public final class X11WindowManagerService implements AutoCloseable {
         // _NET_SUPPORTED on root
         NativeLong[] supportedAtoms = new NativeLong[]{
             netSupportingWmCheck, netWmName, netSupported, netClientList, netActiveWindow, netCloseWindow,
-            netWmWindowType, netWmWindowTypeDock, netWmState, netWmStateHidden, netWmStrut, netWmStrutPartial,
+            netWmWindowType, netWmWindowTypeDock, netWmState, netWmStateHidden, netWmStateFullscreen, netWmStrut, netWmStrutPartial,
             netNumberOfDesktops, netCurrentDesktop, netDesktopNames, netWmDesktop
         };
         Memory supMem = new Memory((long) supportedAtoms.length * NativeLong.SIZE);
@@ -1437,6 +1439,10 @@ public final class X11WindowManagerService implements AutoCloseable {
 
                 grabWindowButtons(win);
                 focusClient(win);
+                // Clients set _NET_WM_STATE themselves before mapping (EWMH), e.g. Java's setFullScreenWindow
+                if (frame != null && hasWmState(win, netWmStateFullscreen)) {
+                    setFullScreen(frame, true);
+                }
                 updateClientList();
                 long finalTransientFor = transientFor;
                 LOGGER.info(() -> "Managed reparented client window: " + win + " geometry=" + managedGeom
@@ -1575,6 +1581,14 @@ public final class X11WindowManagerService implements AutoCloseable {
                     long action = (cmsg.data != null && cmsg.data.length > 0 && cmsg.data[0] != null) ? cmsg.data[0].longValue() : 0L;
                     long prop1 = (cmsg.data != null && cmsg.data.length > 1 && cmsg.data[1] != null) ? cmsg.data[1].longValue() : 0L;
                     long prop2 = (cmsg.data != null && cmsg.data.length > 2 && cmsg.data[2] != null) ? cmsg.data[2].longValue() : 0L;
+                    if (prop1 == netWmStateFullscreen.longValue() || prop2 == netWmStateFullscreen.longValue()) {
+                        FrameWindow frame = clientToFrame.get(win);
+                        if (frame != null) {
+                            boolean on = action == 1 /* ADD */ || (action == 2 /* TOGGLE */ && !frame.isFullScreen());
+                            setFullScreen(frame, on);
+                            LOGGER.info(() -> "ClientMessage _NET_WM_STATE_FULLSCREEN " + (on ? "on" : "off") + " for " + win);
+                        }
+                    }
                     if (prop1 == netWmStateHidden.longValue() || prop2 == netWmStateHidden.longValue()) {
                         FrameWindow frame = clientToFrame.get(win);
                         if (frame != null) {
@@ -1599,7 +1613,11 @@ public final class X11WindowManagerService implements AutoCloseable {
                 LibX11.XConfigureRequestEvent cfg = new LibX11.XConfigureRequestEvent(event.getPointer());
                 long win = cfg.window.longValue();
                 FrameWindow frame = clientToFrame.get(win);
-                if (frame != null) {
+                if (frame != null && frame.isFullScreen()) {
+                    // A full screen client keeps the whole screen; tell it so instead of moving it
+                    sendSyntheticConfigureNotify(frame);
+                    x11.XFlush(display);
+                } else if (frame != null) {
                     FrameMetrics m = theme.metrics();
                     long mask = (cfg.value_mask != null) ? cfg.value_mask.longValue() : 0L;
                     int maxUsableH = Math.max(100, screenHeight - dockMarginBottom);
@@ -1962,6 +1980,80 @@ public final class X11WindowManagerService implements AutoCloseable {
                 LOGGER.info(() -> "Menu button clicked for window " + clientWin);
                 core.close(clientWin);
             }
+        }
+    }
+
+    /**
+     * Puts a client into full screen (_NET_WM_STATE_FULLSCREEN) or back. The frame stays, but moves so
+     * that its title bar and borders lie off screen and the client covers the whole screen, above the
+     * front panel; leaving full screen restores the frame bounds from before.
+     */
+    private void setFullScreen(FrameWindow frame, boolean on) {
+        if (frame.isFullScreen() == on) {
+            return;
+        }
+        long clientWin = frame.clientWindow().longValue();
+        FrameMetrics m = frame.metrics();
+        if (on) {
+            frame.setNormalBounds(new Rectangle(frame.frameX(), frame.frameY(), frame.frameWidth(), frame.frameHeight()));
+            frame.setBounds(-m.clientOffsetX(), -m.clientOffsetY(), m.frameWidth(screenWidth), m.frameHeight(screenHeight));
+            frame.setFullScreen(true);
+            Memory stateMem = new Memory(NativeLong.SIZE);
+            stateMem.setNativeLong(0, netWmStateFullscreen);
+            x11.XChangeProperty(display, new NativeLong(clientWin), netWmState, xaAtomAtom, 32, LibX11.PropModeReplace, stateMem, 1);
+        } else {
+            Rectangle r = frame.normalBounds();
+            if (r == null) {
+                r = new Rectangle(50, 50, 600, 400);
+            }
+            frame.setBounds(r.x, r.y, r.width, r.height);
+            frame.setFullScreen(false);
+            x11.XDeleteProperty(display, new NativeLong(clientWin), netWmState);
+        }
+        x11.XMoveResizeWindow(display, frame.frameWindow(), frame.frameX(), frame.frameY(), frame.frameWidth(), frame.frameHeight());
+        x11.XMoveResizeWindow(display, frame.clientWindow(),
+                frame.clientX(), frame.clientY(), frame.clientWidth(), frame.clientHeight());
+        frame.render();
+        frame.blit(display, gc, screen);
+        sendSyntheticConfigureNotify(frame);
+        core.registry().updateGeometry(clientWin,
+                new WindowGeometry(frame.frameX(), frame.frameY(), frame.frameWidth(), frame.frameHeight()));
+        if (on) {
+            x11.XRaiseWindow(display, frame.frameWindow());
+        } else {
+            for (long dock : dockWindows) {
+                x11.XRaiseWindow(display, new NativeLong(dock));
+            }
+        }
+        x11.XFlush(display);
+    }
+
+    /** Whether the client's _NET_WM_STATE property contains {@code state}. */
+    private boolean hasWmState(long win, NativeLong state) {
+        PointerByReference actualTypeRet = new PointerByReference();
+        IntByReference actualFormatRet = new IntByReference();
+        com.sun.jna.ptr.NativeLongByReference nitemsRet = new com.sun.jna.ptr.NativeLongByReference();
+        com.sun.jna.ptr.NativeLongByReference bytesAfterRet = new com.sun.jna.ptr.NativeLongByReference();
+        PointerByReference propRet = new PointerByReference();
+        int status = x11.XGetWindowProperty(
+                display, new NativeLong(win), netWmState,
+                new NativeLong(0), new NativeLong(32), 0,
+                new NativeLong(LibX11.XA_ATOM),
+                actualTypeRet, actualFormatRet, nitemsRet, bytesAfterRet, propRet);
+        if (status != 0 || propRet.getValue() == null) {
+            return false;
+        }
+        Pointer ptr = propRet.getValue();
+        try {
+            long count = nitemsRet.getValue() != null ? nitemsRet.getValue().longValue() : 0;
+            for (long i = 0; i < count; i++) {
+                if (ptr.getNativeLong(i * NativeLong.SIZE).longValue() == state.longValue()) {
+                    return true;
+                }
+            }
+            return false;
+        } finally {
+            x11.XFree(ptr);
         }
     }
 
