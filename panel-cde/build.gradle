@@ -1,0 +1,23 @@
+// The CDE Front Panel: the dock with clock, calendar, workspace switcher, lock and language buttons, the
+// network cell and the drawers listing the installed applications. `amade-panel-cde`; installed as the
+// alternative /usr/bin/amade-panel, which amade-session starts.
+application {
+    mainClass = 'org.datazuul.amadeos.panel.cde.AmadeDesktopPanel'
+}
+
+debian = [
+    section    : 'x11',
+    javaOptions: '--enable-native-access=ALL-UNNAMED',
+    // NetworkManager and polkit for the network cell.
+    depends    : ['network-manager', 'polkitd'],
+    recommends : ['amade-wm'],
+    provides   : ['amade-panel'],
+    conflicts  : ['amade-desktop'],
+    replaces   : ['amade-desktop'],
+    summary    : 'CDE Front Panel of amadeOS',
+    description: '''The front panel of the amadeOS desktop in the style of CDE: clock, calendar,
+workspace switcher, lock and language buttons, the network cell and drawers
+that list the installed applications from their .desktop files. Provides
+amade-panel: amade-session starts /usr/bin/amade-panel, which this package
+registers as an alternative, so another panel can take its place.'''
+]

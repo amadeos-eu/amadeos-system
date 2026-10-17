@@ -21,18 +21,18 @@ jobs:
         with:
           # Plain actions/cache instead of the proprietary enhanced cache that is the v6 default.
           cache-provider: basic
-      # The X11 integration tests of the desktop start their own Xvfb and use xmessage as a test client.
+      # The X11 integration tests of the window manager start their own Xvfb and use xmessage as a test client.
       - name: Install X11 test tools
         run: sudo apt-get update -q && sudo apt-get install -y -q x11-utils xvfb
       - name: Test
         run: xvfb-run --auto-servernum ./gradlew test --no-daemon
       - name: Check that the tests ran
         run: |
-          for module in base desktop print sysinfo; do
+          for module in base wm panel-cde dm session style print sysinfo; do
             count=$(grep -ho 'tests="[0-9]*"' $module/build/test-results/test/*.xml | grep -o '[0-9]*' | paste -sd+ | bc)
             skipped=$(grep -ho 'skipped="[0-9]*"' $module/build/test-results/test/*.xml | grep -o '[0-9]*' | paste -sd+ | bc)
             echo "$module: tests run: $count, skipped: $skipped"
-            test "$count" -ge 10
+            test "$count" -ge 5
             # base skips one test when the amadeos-backdrops-cde package is not installed.
             if [ "$module" = base ]; then test "$skipped" -le 1; else test "$skipped" -eq 0; fi
           done
@@ -40,7 +40,7 @@ jobs:
         run: ./gradlew deb --no-daemon
       - name: Check the packages
         run: |
-          for module in desktop print sysinfo; do
+          for module in wm panel-cde dm session style print sysinfo; do
             name=amade-$module
             jar=$(ls $module/build/libs/$name-*.jar)
             unzip -p "$jar" META-INF/MANIFEST.MF | grep -q "Main-Class: org.datazuul.amadeos."

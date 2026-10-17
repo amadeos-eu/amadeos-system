@@ -1,0 +1,4 @@
+#!/bin/sh
+# Applies the keyboard, mouse and bell settings of the Style Manager (~/.config/amadeos/input.conf)
+# at login with xset, xmodmap and xrdb.
+exec /usr/bin/amade-style input >> "${HOME:-/tmp}/.amadeos-input.log" 2>&1

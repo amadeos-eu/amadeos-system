@@ -1,0 +1,15 @@
+#!/bin/sh
+# amadeOS screen saver and idle lock (Style Manager > Screen), the counterpart of CDE's dtscreen.
+# Restarted if it crashes; stops when the X display is gone (exit 5) or on a clean exit (0).
+set -u
+
+LOG_FILE="${HOME:-/tmp}/.amadeos-screen.log"
+
+while :; do
+    /usr/bin/amade-session screen >> "$LOG_FILE" 2>&1
+    case "$?" in
+        0|5) exit 0 ;;
+        126|127) exit 1 ;;
+        *) echo "[amadeos-screen] restarting in 2s" >> "$LOG_FILE"; sleep 2 ;;
+    esac
+done

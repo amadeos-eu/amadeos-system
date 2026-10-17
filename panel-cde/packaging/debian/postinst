@@ -1,0 +1,7 @@
+#!/bin/sh
+# amade-panel-cde: the panel amade-session starts is /usr/bin/amade-panel; this one registers as it.
+set -e
+
+if [ "$1" = "configure" ]; then
+    update-alternatives --install /usr/bin/amade-panel amade-panel /usr/bin/amade-panel-cde 50
+fi

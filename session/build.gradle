@@ -1,0 +1,25 @@
+// The session: the amadeos-session script (window manager under supervision, autostart scripts, then the
+// panel), the screen lock (`amade-session lock`, wrapped by amadeos-lock) and the screen saver with idle
+// lock (`amade-session screen`).
+application {
+    mainClass = 'org.datazuul.amadeos.session.SessionLauncher'
+}
+
+debian = [
+    section    : 'x11',
+    javaOptions: '--enable-native-access=ALL-UNNAMED',
+    // The window manager and a panel (amade-panel-cde or another provider of amade-panel); xprop (the
+    // script waits for the window manager), the MIT-SCREEN-SAVER library (screen saver), PAM (lock).
+    depends    : ['amade-wm', 'amade-panel', 'x11-utils', 'libxss1', 'libpam-runtime'],
+    // xterm: the fallback of a failed session; xinit: startx without the display manager (amadeos-session
+    // is registered as x-session-manager).
+    recommends : ['xterm', 'xinit', 'amade-style'],
+    conflicts  : ['amade-desktop'],
+    replaces   : ['amade-desktop'],
+    summary    : 'Desktop session, screen lock and screen saver of amadeOS',
+    description: '''The X session of the amadeOS desktop: amadeos-session starts the window manager under
+supervision, the autostart scripts of /etc/amadeos/autostart.d and the front
+panel; settings in /etc/amadeos/session.conf. With it the screen lock
+(amadeos-lock, PAM through /etc/pam.d/amadeos-lock) and the screen saver with
+idle lock in the style of CDE's dtscreen.'''
+]
