@@ -44,7 +44,7 @@ public final class XdgApplicationManager {
                             // User entries take precedence over system entries (first encountered wins)
                             if (!entries.containsKey(id)) {
                                 XdgDesktopEntryParser.parse(p).ifPresent(entry -> {
-                                    if (entry.isVisible()) {
+                                    if (entry.isVisible() && entry.isInstalled()) {
                                         entries.put(id, entry);
                                     }
                                 });
