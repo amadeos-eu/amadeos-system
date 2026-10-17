@@ -21,32 +21,38 @@ jobs:
         with:
           # Plain actions/cache instead of the proprietary enhanced cache that is the v6 default.
           cache-provider: basic
+      # The X11 integration tests of the desktop start their own Xvfb and use xmessage as a test client.
+      - name: Install X11 test tools
+        run: sudo apt-get update -q && sudo apt-get install -y -q x11-utils xvfb
       - name: Test
         run: xvfb-run --auto-servernum ./gradlew test --no-daemon
       - name: Check that the tests ran
         run: |
-          for module in print sysinfo; do
+          for module in desktop print sysinfo; do
             count=$(grep -ho 'tests="[0-9]*"' $module/build/test-results/test/*.xml | grep -o '[0-9]*' | paste -sd+ | bc)
             skipped=$(grep -ho 'skipped="[0-9]*"' $module/build/test-results/test/*.xml | grep -o '[0-9]*' | paste -sd+ | bc)
             echo "$module: tests run: $count, skipped: $skipped"
             test "$count" -ge 10
-            test "$skipped" -eq 0
+            # The desktop skips one test when the amadeos-backdrops-cde package is not installed.
+            if [ "$module" = desktop ]; then test "$skipped" -le 1; else test "$skipped" -eq 0; fi
           done
       - name: Package
         run: ./gradlew deb --no-daemon
       - name: Check the packages
         run: |
-          for module in print sysinfo; do
+          for module in desktop print sysinfo; do
             name=amade-$module
             jar=$(ls $module/build/libs/$name-*.jar)
-            unzip -p "$jar" META-INF/MANIFEST.MF | grep -q "Main-Class: org.datazuul.amadeos.$module"
+            unzip -p "$jar" META-INF/MANIFEST.MF | grep -q "Main-Class: org.datazuul.amadeos."
             deb=$(ls $module/build/distributions/${name}_*_all.deb)
             dpkg-deb --info "$deb"
             dpkg-deb --contents "$deb" > contents.txt
-            for f in opt/$name/$name.jar usr/bin/$name usr/share/applications/$name.desktop \
-                     usr/share/doc/$name/copyright; do
+            for f in opt/$name/$name.jar usr/bin/$name usr/share/doc/$name/copyright; do
               grep -q "$f" contents.txt || { echo "missing in $name: $f"; exit 1; }
             done
+            if [ -f $module/packaging/$name.desktop ]; then
+              grep -q "usr/share/applications/$name.desktop" contents.txt || { echo "missing in $name: menu entry"; exit 1; }
+            fi
           done
       - name: Upload the Debian packages
         uses: actions/upload-artifact@v7

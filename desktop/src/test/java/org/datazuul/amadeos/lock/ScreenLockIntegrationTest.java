@@ -25,7 +25,8 @@ import static org.junit.jupiter.api.Assumptions.assumeFalse;
  * through XTest, like a user at the keyboard.
  */
 class ScreenLockIntegrationTest {
-    private static final String WRAPPER = "config/includes.chroot/usr/local/bin/amadeos-lock";
+    // The wrapper script of the package (desktop/ is the working directory of the tests).
+    private static final String WRAPPER = "packaging/amadeos-lock";
     private final LibX11 x11 = LibX11.INSTANCE;
     private Pointer display;
     private NativeLong root;

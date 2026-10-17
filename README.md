@@ -12,11 +12,12 @@ multi-project: one module and one Debian package per component. The standalone a
 
 | Module | Package | What it is |
 |---|---|---|
+| [`desktop`](desktop/README.md) | `amade-desktop` | The desktop itself: window manager, front panel, display manager with login greeter, screen lock, screen saver, Style Manager and input settings tool; `amade-desktop <dm|wm|panel|style|screen|input|lock>` |
 | `print` | `amade-print` | Print manager: CUPS printers with their state, the jobs of each printer (cancel, hold, release), pause and resume printers, default printer, test page, CUPS administration for adding printers |
 | `sysinfo` | `amade-sysinfo` | System information: operating system, processor, memory, storage, graphics, network and battery on one page; copy or save as text |
 
-Planned, moving here from the amadeos repository: the window manager and front panel, the display
-manager (greeter), the session parts (screen lock, screensaver) and the Style Manager.
+The desktop code came from the amadeos repository with its history (`git filter-repo`); that
+repository keeps the live image, its scripts and configuration.
 
 ## Building
 
@@ -25,9 +26,12 @@ manager (greeter), the session parts (screen lock, screensaver) and the Style Ma
 ./gradlew deb                   # build/distributions/amade-<module>_<version>_all.deb per module
 ./gradlew :print:installToAmadeOs   # one package into ../amadeos/config/packages.chroot/
 ./gradlew :sysinfo:run          # start a module from the build
+./gradlew :desktop:runPanel     # the front panel on your current desktop
 ```
 
-Java 25 and `dpkg-deb` (for the packages) are needed. With
+Java 25 and `dpkg-deb` (for the packages) are needed. The X11 integration tests of the desktop start
+their own Xvfb and use `xmessage` as a test client (`xvfb`, `x11-utils`); on a machine without a display
+run the tests under `xvfb-run -a`. With
 [amade-commons](https://github.com/datazuul/amade-commons) checked out next to this repository, the build
 uses that checkout (composite build); otherwise the version from JitPack named in `build.gradle`.
 

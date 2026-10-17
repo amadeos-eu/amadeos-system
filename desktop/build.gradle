@@ -1,66 +1,49 @@
-plugins {
-    id 'java'
-    id 'application'
-}
-
-group = 'org.datazuul.amadeos'
-version = '0.1.0-SNAPSHOT'
-
-java {
-    sourceCompatibility = JavaVersion.VERSION_25
-    targetCompatibility = JavaVersion.VERSION_25
-}
-
-repositories {
-    mavenCentral()
-    maven { url 'https://jitpack.io' }
-}
-
-dependencies {
-    implementation 'net.java.dev.jna:jna:5.14.0'
-    // Desktop themes and the Motif look, shared with the amadeOS applications. The desktop does not use
-    // the Guice-based application start-up of amade-commons, so Guice stays out of the image jar.
-    // With ../amade-commons checked out, settings.gradle builds that checkout instead (composite build).
-    implementation('com.github.datazuul:amade-commons:327fe95f3e') {
-        exclude group: 'com.google.inject'
-    }
-    // amade-commons logs through SLF4J; route it into java.util.logging like the rest of the desktop.
-    runtimeOnly 'org.slf4j:slf4j-jdk14:2.0.17'
-    testImplementation platform('org.junit:junit-bom:5.10.2')
-    testImplementation 'org.junit.jupiter:junit-jupiter'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-}
-
-tasks.named('test') {
-    useJUnitPlatform()
-    jvmArgs(['--enable-native-access=ALL-UNNAMED'])
-}
-
+// The desktop: window manager, front panel, display manager with login greeter, screen lock, screen saver,
+// Style Manager and input tool. One jar; the first argument selects the component (see AmadeOsLauncher).
 application {
     mainClass = 'org.datazuul.amadeos.wm.AmadeOsLauncher'
 }
 
+// The desktop logs through java.util.logging; amade-commons' SLF4J output goes there too.
+slf4jBinding = 'org.slf4j:slf4j-jdk14:2.0.17'
+
+dependencies {
+    // Xlib, Xss and libc through JNA.
+    implementation 'net.java.dev.jna:jna:5.14.0'
+}
+
+configurations.configureEach {
+    // The desktop does not use the Guice-based application start-up of amade-commons.
+    exclude group: 'com.google.inject'
+}
+
+test {
+    jvmArgs '--enable-native-access=ALL-UNNAMED'
+}
+
 tasks.register('runPanel', JavaExec) {
     group = 'application'
-    description = 'Runs the standalone CDE Front Panel on your current desktop'
+    description = 'Runs the front panel on your current desktop'
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'org.datazuul.amadeos.wm.panel.AmadeDesktopPanel'
     jvmArgs = ['--enable-native-access=ALL-UNNAMED']
     systemProperties = System.properties
 }
 
-tasks.named('jar') {
-    manifest {
-        attributes('Main-Class': application.mainClass.get())
-    }
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    from {
-        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
-    }
-}
-
-
-
-
-
-
+debian = [
+    section    : 'x11',
+    javaOptions: '--enable-native-access=ALL-UNNAMED',
+    // What the scripts of the desktop call: Xorg and xauth (display manager), xset, xmodmap, xrdb,
+    // xsetroot (input settings, session), xprop (session), chvt (kbd), mcookie (util-linux), the
+    // MIT-SCREEN-SAVER library (screen saver), PAM with logind sessions, NetworkManager and polkit
+    // for the network cell of the front panel.
+    depends    : ['xserver-xorg', 'xauth', 'x11-xserver-utils', 'x11-utils', 'kbd', 'util-linux', 'libxss1',
+                  'libpam-systemd', 'network-manager', 'polkitd'],
+    recommends : ['xterm'],
+    summary    : 'Window manager, front panel, display manager and settings of amadeOS',
+    description: '''The desktop of amadeOS in the style of CDE: a reparenting X11 window manager
+with Motif frames and four workspaces, the front panel with clock, workspace
+switcher and drawers, the display manager with its login greeter (PAM), the
+screen lock and screen saver, the Style Manager and the input settings tool.
+Start a component with amade-desktop <dm|wm|panel|style|screen|input|lock>.'''
+]

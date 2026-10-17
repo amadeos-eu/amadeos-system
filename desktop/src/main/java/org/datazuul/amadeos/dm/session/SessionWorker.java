@@ -28,7 +28,9 @@ import org.datazuul.amadeos.wm.x11.LibC;
 public final class SessionWorker {
     private static final Logger LOGGER = Logger.getLogger(SessionWorker.class.getName());
     static final String RUNNER_LOG = "/var/log/amadeos-session-runner.log";
-    private static final String DEV_SESSION_EXECUTABLE = "config/includes.chroot/usr/local/bin/amadeos-session";
+    // Developing with the amadeos repository checked out next to amade-system (the module directory is the working
+    // directory of gradlew :desktop:run).
+    private static final String DEV_SESSION_EXECUTABLE = "../../amadeos/config/includes.chroot/usr/local/bin/amadeos-session";
 
     private SessionWorker() {
     }

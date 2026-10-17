@@ -24,7 +24,6 @@ subprojects {
         // Theme, Motif look, start-up and XDG helpers shared by all amadeOS applications.
         // With ../amade-commons checked out, settings.gradle builds that checkout instead (composite build).
         implementation 'com.github.datazuul:amade-commons:368124c665'
-        runtimeOnly 'ch.qos.logback:logback-classic:1.5.18'
         testImplementation platform('org.junit:junit-bom:5.10.2')
         testImplementation 'org.junit.jupiter:junit-jupiter'
         testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
@@ -38,9 +37,15 @@ subprojects {
     }
 
     ext.debian = [:]
+    // The SLF4J binding of the module's jar; the desktop logs through java.util.logging instead.
+    ext.slf4jBinding = 'ch.qos.logback:logback-classic:1.5.18'
 
     afterEvaluate {
         def packageName = "amade-${project.name}"
+
+        dependencies {
+            runtimeOnly project.slf4jBinding
+        }
 
         jar {
             archiveBaseName = packageName
@@ -84,15 +89,21 @@ subprojects {
                     rename { "${packageName}.jar" }
                 }
 
+                def javaOptions = deb.javaOptions ? "${deb.javaOptions} " : ''
                 def launcher = new File(binDir, packageName)
                 launcher.text = """#!/bin/sh
-exec /usr/bin/java -jar /opt/${packageName}/${packageName}.jar "\$@"
+exec /usr/bin/java ${javaOptions}-jar /opt/${packageName}/${packageName}.jar "\$@"
 """
                 launcher.setExecutable(true, false)
 
-                copy {
-                    from "packaging/${packageName}.desktop"
-                    into appDir
+                // Applications bring a menu entry; the desktop itself has none.
+                if (file("packaging/${packageName}.desktop").exists()) {
+                    copy {
+                        from "packaging/${packageName}.desktop"
+                        into appDir
+                    }
+                } else {
+                    appDir.deleteDir()
                 }
                 copy {
                     from rootProject.file('LICENSE')

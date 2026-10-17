@@ -21,10 +21,10 @@ for d in $(seq 1 10); do
     fi
 done
 
-echo "[run-xephyr] Building latest amadeOS JAR..."
-./gradlew jar
+echo "[run-xephyr] Building the desktop jar..."
+(cd .. && ./gradlew :desktop:jar)
 
-JAR="$ROOT_DIR/build/libs/amadeos-0.1.0-SNAPSHOT.jar"
+JAR="$(ls "$ROOT_DIR"/build/libs/amade-desktop-*.jar 2>/dev/null | head -n 1)"
 if [ ! -f "$JAR" ]; then
     echo "[run-xephyr] Error: JAR not found at $JAR" >&2
     exit 1
