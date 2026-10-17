@@ -126,10 +126,6 @@ public final class CalendarDockWidget extends AbstractDockWidget {
 
         // Context menu
         contextMenu = new JPopupMenu();
-        JMenuItem openItem = new JMenuItem("Open Calendar (orage)");
-        openItem.addActionListener(e -> launchCalendarApp());
-        contextMenu.add(openItem);
-
         JMenuItem todayItem = new JMenuItem("Show Today's Date...");
         todayItem.addActionListener(e -> showTodayDialog());
         contextMenu.add(todayItem);
@@ -239,10 +235,9 @@ public final class CalendarDockWidget extends AbstractDockWidget {
     }
 
     private void launchCalendarApp() {
-        // Try launching orage, then gnome-calendar, or fallback to an informative dialog
+        // amade-calendar once it exists (see ROADMAP M13), else an informative dialog
         try {
-            if (ProcessLauncher.startFirstAvailable(
-                    List.of(List.of("orage"), List.of("gnome-calendar"), List.of("korganizer"))).isPresent()) {
+            if (ProcessLauncher.startFirstAvailable(List.of(List.of("amade-calendar"))).isPresent()) {
                 return;
             }
         } catch (Exception ignored) {

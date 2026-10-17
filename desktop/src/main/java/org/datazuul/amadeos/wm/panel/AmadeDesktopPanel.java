@@ -191,12 +191,13 @@ public final class AmadeDesktopPanel extends JFrame {
         widgets.add(editorDrawer);
         leftSlots.add(editorDrawer.component());
 
-        // Slot 5: Mail (with drawer ▲), filled from Email desktop entries
+        // Slot 5: Mail & Internet (with drawer ▲): the Email desktop entries, then the other
+        // Network ones such as the web browser
         DrawerDockWidget mailDrawer = createCategoryDrawer(
-                "mail", "Electronic Mail", "mail",
+                "mail", "Mail & Internet", "mail",
                 XdgCategory.MAIL,
                 e -> launchProcess("amade-mail"),
-                List.of()
+                xdgTools(XdgCategory.NETWORK, XdgCategory.MAIL)
         );
         widgets.add(mailDrawer);
         leftSlots.add(mailDrawer.component());
@@ -462,8 +463,16 @@ public final class AmadeDesktopPanel extends JFrame {
 
     /** The installed applications of a category as drawer entries. */
     private List<DrawerTool> xdgTools(XdgCategory category) {
+        return xdgTools(category, null);
+    }
+
+    /** The installed applications of {@code category} that are not also in {@code except}. */
+    private List<DrawerTool> xdgTools(XdgCategory category, XdgCategory except) {
         List<DrawerTool> tools = new ArrayList<>();
         for (XdgDesktopEntry app : XdgApplicationManager.getInstance().getApplicationsByCategory(category)) {
+            if (except != null && app.matchesCategory(except)) {
+                continue;
+            }
             tools.add(new DrawerTool(app.name(), app.icon(), e -> {
                 try {
                     app.launch();
