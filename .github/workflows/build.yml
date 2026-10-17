@@ -60,7 +60,9 @@ jobs:
                 grep -q " ${f}\$" contents.txt || { echo "missing in $name: $f"; exit 1; }
                 case "$f" in ./etc/*) grep -qx "${f#.}" control-$name/conffiles || { echo "not a conffile in $name: $f"; exit 1; } ;; esac
               done
+              # Not every package has maintainer scripts (amade-style has none).
               for script in $module/packaging/debian/*; do
+                [ -f "$script" ] || continue
                 test -x control-$name/$(basename $script) || { echo "missing in $name: $(basename $script)"; exit 1; }
               done
             fi
