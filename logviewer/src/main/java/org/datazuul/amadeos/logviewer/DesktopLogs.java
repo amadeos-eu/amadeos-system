@@ -1,4 +1,4 @@
-package org.datazuul.amadeos.panel.cde;
+package org.datazuul.amadeos.logviewer;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -15,7 +15,7 @@ import org.datazuul.amadeos.base.xdg.XdgDirectories;
 import org.datazuul.amadeos.base.process.ProcessLauncher;
 
 /**
- * The logs the Tools drawer's viewer offers: the session and window manager logs and the per-application
+ * The logs the viewer offers: the session and window manager logs and the per-application
  * logs in {@code ~/.cache/amadeos/logs}, the display manager's logs in {@code /var/log} when readable, and
  * the system journal of this boot.
  */

@@ -1,0 +1,19 @@
+// Session Diagnostics & Logs: the logs of the session, the window manager and the applications, the display
+// manager's logs and the journal of this boot, one at a time. `amade-logviewer`; the Tools drawer of the
+// panel starts it.
+application {
+    mainClass = 'org.datazuul.amadeos.logviewer.LogViewer'
+}
+
+debian = [
+    section    : 'utils',
+    javaOptions: '--enable-native-access=ALL-UNNAMED',
+    // Open Folder shows the log directory in the file manager; the journal needs systemd's journalctl.
+    recommends : ['amade-files', 'systemd'],
+    summary    : 'Session diagnostics and log viewer of amadeOS',
+    description: '''Shows the logs of the amadeOS desktop one at a time: the session and window manager
+logs and the log of every program started from the panel (~/.cache/amadeos/logs),
+the display manager's logs in /var/log and the system journal of this boot.
+Follow reloads the log every two seconds; Open Folder shows the log directory
+in the file manager. Part of the amadeOS desktop.'''
+]

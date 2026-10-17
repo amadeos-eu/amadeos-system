@@ -1,33 +1,40 @@
-package org.datazuul.amadeos.panel.cde;
+package org.datazuul.amadeos.logviewer;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.event.KeyEvent;
+import java.io.IOException;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
-import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.KeyStroke;
+import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import javax.swing.Timer;
-import org.datazuul.amadeos.commons.theme.DesktopTheme;
+import org.datazuul.amadeos.base.process.ProcessLauncher;
 import org.datazuul.amadeos.base.theme.ThemeManager;
+import org.datazuul.amadeos.base.xdg.XdgDirectories;
+import org.datazuul.amadeos.commons.theme.DesktopTheme;
 
 /**
- * Session Diagnostics &amp; Logs in the Tools drawer: one log at a time, chosen from a list (see
- * {@link DesktopLogs}), shown from its end; <i>Follow</i> reloads it every two seconds.
+ * Session Diagnostics &amp; Logs, the program {@code amade-logviewer}: one log at a time, chosen from a
+ * list (see {@link DesktopLogs}), shown from its end; <i>Follow</i> reloads it every two seconds,
+ * <i>Open Folder</i> shows the log directory in amade-files.
  */
-public final class LogViewerDialog extends JDialog {
+public final class LogViewer extends JFrame {
+    private static final Logger LOGGER = Logger.getLogger(LogViewer.class.getName());
     private static final int FOLLOW_MILLIS = 2000;
 
     private final JComboBox<DesktopLogs.Source> logs = new JComboBox<>();
@@ -36,10 +43,14 @@ public final class LogViewerDialog extends JDialog {
     private final Timer followTimer = new Timer(FOLLOW_MILLIS, e -> reload());
     private boolean loading;
 
-    /** @param openFolder opens the log directory in the file manager; null leaves the button out */
-    public LogViewerDialog(JFrame parent, Runnable openFolder) {
-        super(parent, "amadeOS Session Diagnostics & Logs", false);
-        DesktopTheme t = ThemeManager.currentTheme();
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> new LogViewer().setVisible(true));
+    }
+
+    public LogViewer() {
+        super("amadeOS Session Diagnostics & Logs");
+        DesktopTheme t = ThemeManager.currentTheme(); // installs the desktop look
+        setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         setLayout(new BorderLayout(8, 8));
         getContentPane().setBackground(t.base());
 
@@ -83,13 +94,11 @@ public final class LogViewerDialog extends JDialog {
         reloadButton.setMnemonic(KeyEvent.VK_R);
         reloadButton.addActionListener(e -> refreshList());
         bottom.add(reloadButton);
-        if (openFolder != null) {
-            JButton folder = new JButton("Open Folder");
-            folder.setMnemonic(KeyEvent.VK_O);
-            folder.setToolTipText("The log directory in the file manager");
-            folder.addActionListener(e -> openFolder.run());
-            bottom.add(folder);
-        }
+        JButton folder = new JButton("Open Folder");
+        folder.setMnemonic(KeyEvent.VK_O);
+        folder.setToolTipText("The log directory in the file manager");
+        folder.addActionListener(e -> openLogFolder());
+        bottom.add(folder);
         JButton close = new JButton("Close");
         close.addActionListener(e -> dispose());
         bottom.add(close);
@@ -104,7 +113,16 @@ public final class LogViewerDialog extends JDialog {
         refreshList();
         setPreferredSize(new Dimension(760, 480));
         pack();
-        setLocationRelativeTo(parent);
+        setLocationRelativeTo(null);
+    }
+
+    /** The log directory in amade-files, started like the panel starts programs (own log, busy cursor). */
+    private void openLogFolder() {
+        try {
+            ProcessLauncher.start(List.of("amade-files", XdgDirectories.amadeosLogDir().toString()));
+        } catch (IOException e) {
+            LOGGER.log(Level.WARNING, "Could not start amade-files", e);
+        }
     }
 
     /** Lists the logs again (an application started since may have a new one) and keeps the selection. */

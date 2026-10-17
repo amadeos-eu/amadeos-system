@@ -1,4 +1,4 @@
-package org.datazuul.amadeos.panel.cde;
+package org.datazuul.amadeos.logviewer;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -56,6 +56,23 @@ class DesktopLogsTest {
 
         assertEquals(content.toString(), DesktopLogs.tail(log, (int) Files.size(log)), "a small log is complete");
         assertTrue(DesktopLogs.tail(directory.resolve("none.log"), 100).contains("does not exist"));
+    }
+
+    @Test
+    void theLabelShowsTheHomeDirectoryAsATilde() {
+        Path home = Path.of(System.getProperty("user.home"));
+        DesktopLogs.Source inHome = new DesktopLogs.Source("Session", home.resolve(".cache/amadeos/logs/session.log"), null);
+        assertEquals("Session  (~/.cache/amadeos/logs/session.log)", inHome.label());
+        DesktopLogs.Source elsewhere = new DesktopLogs.Source("X server", Path.of("/var/log/amadeos-xorg.log"), null);
+        assertEquals("X server  (/var/log/amadeos-xorg.log)", elsewhere.label());
+        assertEquals(elsewhere.label(), elsewhere.toString());
+    }
+
+    @Test
+    void aJournalSourceHasNoFileAndReadsItsCommand() {
+        DesktopLogs.Source journal = new DesktopLogs.Source("System Journal", null, List.of("sh", "-c", "echo journal"));
+        assertEquals("System Journal", journal.label());
+        assertEquals("journal\n", journal.read());
     }
 
     @Test

@@ -1,0 +1,24 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=amadeOS Session Diagnostics & Logs
+Name[de]=amadeOS Sitzungsdiagnose und Protokolle
+Name[fr]=amadeOS Diagnostic de session et journaux
+Name[es]=amadeOS Diagnóstico de sesión y registros
+Name[it]=amadeOS Diagnostica di sessione e registri
+GenericName=Log Viewer
+GenericName[de]=Protokollanzeige
+GenericName[fr]=Visionneuse de journaux
+GenericName[es]=Visor de registros
+GenericName[it]=Visualizzatore di registri
+Comment=Show the logs of the desktop session, the applications and the system
+Comment[de]=Protokolle der Sitzung, der Anwendungen und des Systems anzeigen
+Comment[fr]=Afficher les journaux de la session, des applications et du système
+Comment[es]=Mostrar los registros de la sesión, las aplicaciones y el sistema
+Comment[it]=Mostrare i registri della sessione, delle applicazioni e del sistema
+Icon=utilities-system-monitor
+Exec=/usr/bin/amade-logviewer
+Terminal=false
+Categories=System;Monitor;
+Keywords=log;logs;journal;diagnostics;session;
+StartupNotify=true
