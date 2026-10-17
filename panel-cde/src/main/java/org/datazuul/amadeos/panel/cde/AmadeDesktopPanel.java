@@ -40,6 +40,7 @@ import org.datazuul.amadeos.panel.cde.widget.ClockDockWidget;
 import org.datazuul.amadeos.panel.cde.widget.DockWidget;
 import org.datazuul.amadeos.panel.cde.widget.DrawerDockWidget;
 import org.datazuul.amadeos.panel.cde.widget.DrawerDockWidget.DrawerTool;
+import org.datazuul.amadeos.panel.cde.widget.SlotSpacerDockWidget;
 import org.datazuul.amadeos.panel.cde.widget.WorkspaceSwitcherDockWidget;
 import org.datazuul.amadeos.base.net.NmcliNetworkService;
 import org.datazuul.amadeos.panel.cde.status.NetworkCell;
@@ -230,6 +231,11 @@ public final class AmadeDesktopPanel extends JFrame {
         widgets.add(graphicsDrawer);
         leftSlots.add(graphicsDrawer.component());
 
+        // The narrow empty bay before the workspace switch, as in CDE
+        SlotSpacerDockWidget leftSpacer = new SlotSpacerDockWidget("spacer-left");
+        widgets.add(leftSpacer);
+        leftSlots.add(leftSpacer.component());
+
         rootPanel.add(leftSlots, BorderLayout.WEST);
 
         // 2. CENTER: Iconic CDE 4-way Workspace Switcher Pad
@@ -247,6 +253,11 @@ public final class AmadeDesktopPanel extends JFrame {
         // 3. RIGHT SLOTS (Slots 8-12): Printer, Tools, Help, Trash, Status
         rightSlots = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         rightSlots.setBackground(initialTheme.base());
+
+        // The narrow empty bay after the workspace switch, as in CDE
+        SlotSpacerDockWidget rightSpacer = new SlotSpacerDockWidget("spacer-right");
+        widgets.add(rightSpacer);
+        rightSlots.add(rightSpacer.component());
 
         // Slot 8: Printers (with drawer ▲): amade-print with the printers and their jobs, the other installed
         // Printing applications, and the CUPS web interface for adding and configuring printers
