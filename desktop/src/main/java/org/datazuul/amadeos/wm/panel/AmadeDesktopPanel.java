@@ -2,6 +2,7 @@ package org.datazuul.amadeos.wm.panel;
 
 import com.sun.jna.Native;
 import java.awt.BorderLayout;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -84,6 +85,8 @@ public final class AmadeDesktopPanel extends JFrame {
     private final JPanel rightSlots;
     private final WorkspaceSwitcherDockWidget switcher;
     private final Timer pollTimer;
+    /** When the panel last started an application; the window manager's busy flag may lag behind. */
+    private long launchedAt;
 
     public static void main(String[] args) {
         if (!acquireSingleInstanceLock()) {
@@ -352,6 +355,7 @@ public final class AmadeDesktopPanel extends JFrame {
             if (remoteDesktop >= 0 && remoteDesktop < 4) {
                 switcher.setActiveWorkspace(remoteDesktop + 1);
             }
+            showBusy(helper.isLaunchBusy() || System.currentTimeMillis() - launchedAt < 1000);
         });
         pollTimer.start();
     }
@@ -452,9 +456,23 @@ public final class AmadeDesktopPanel extends JFrame {
         return new DrawerDockWidget(id, title, iconKey, primaryAction, tools, hasDrawer);
     }
 
+    /** The watch over the panel while an application starts, as the window manager shows it elsewhere. */
+    private void showBusy(boolean busy) {
+        Cursor cursor = Cursor.getPredefinedCursor(busy ? Cursor.WAIT_CURSOR : Cursor.DEFAULT_CURSOR);
+        if (getCursor().getType() != cursor.getType()) {
+            setCursor(cursor);
+        }
+    }
+
+    private void launched() {
+        launchedAt = System.currentTimeMillis();
+        showBusy(true);
+    }
+
     private void launchProcess(String... cmd) {
         try {
             org.datazuul.amadeos.wm.process.ProcessLauncher.start(java.util.List.of(cmd));
+            launched();
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this, "Failed to launch " + cmd[0] + ": " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
@@ -475,6 +493,7 @@ public final class AmadeDesktopPanel extends JFrame {
             tools.add(new DrawerTool(app.name(), app.icon(), e -> {
                 try {
                     app.launch();
+                    launched();
                 } catch (Exception ex) {
                     LOGGER.warning("Failed to launch XDG app " + app.name() + ": " + ex.getMessage());
                     JOptionPane.showMessageDialog(this, "Failed to launch " + app.name() + ": " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);

@@ -84,6 +84,7 @@ public interface LibX11 extends Library {
 
     // Cursor shapes
     int XC_left_ptr = 68;
+    int XC_watch = 150;
     int XC_fleur = 52;
     int XC_top_side = 138;
     int XC_bottom_side = 16;

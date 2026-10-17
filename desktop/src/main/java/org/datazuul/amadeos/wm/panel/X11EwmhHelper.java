@@ -31,6 +31,7 @@ public class X11EwmhHelper implements AutoCloseable {
     private final NativeLong wmState;
     private final NativeLong utf8String;
     private final NativeLong amadeosThemeAtom;
+    private final NativeLong launchBusyAtom;
     private final NativeLong netNumberOfDesktops;
     private final NativeLong netCurrentDesktop;
     private final NativeLong netDesktopNames;
@@ -72,6 +73,8 @@ public class X11EwmhHelper implements AutoCloseable {
         this.wmState = x11.XInternAtom(display, "WM_STATE", 0);
         this.utf8String = x11.XInternAtom(display, "UTF8_STRING", 0);
         this.amadeosThemeAtom = x11.XInternAtom(display, "_AMADEOS_THEME", 0);
+        this.launchBusyAtom = x11.XInternAtom(display,
+                org.datazuul.amadeos.wm.process.LaunchFeedback.BUSY_PROPERTY, 0);
         this.netNumberOfDesktops = x11.XInternAtom(display, "_NET_NUMBER_OF_DESKTOPS", 0);
         this.netCurrentDesktop = x11.XInternAtom(display, "_NET_CURRENT_DESKTOP", 0);
         this.netDesktopNames = x11.XInternAtom(display, "_NET_DESKTOP_NAMES", 0);
@@ -368,6 +371,32 @@ public class X11EwmhHelper implements AutoCloseable {
 
     public NativeLong netWmDesktop() {
         return netWmDesktop;
+    }
+
+    /** Whether the window manager shows the busy cursor for an application that is starting. */
+    public boolean isLaunchBusy() {
+        PointerByReference actualTypeRet = new PointerByReference();
+        IntByReference actualFormatRet = new IntByReference();
+        NativeLongByReference nitemsRet = new NativeLongByReference();
+        NativeLongByReference bytesAfterRet = new NativeLongByReference();
+        PointerByReference propRet = new PointerByReference();
+
+        int status = x11.XGetWindowProperty(
+                display, new NativeLong(rootWindow), launchBusyAtom,
+                new NativeLong(0), new NativeLong(1), 0,
+                xaCardinalAtom,
+                actualTypeRet, actualFormatRet, nitemsRet, bytesAfterRet, propRet);
+
+        if (status == 0 && propRet.getValue() != null) {
+            Pointer ptr = propRet.getValue();
+            try {
+                return nitemsRet.getValue() != null && nitemsRet.getValue().longValue() > 0
+                        && ptr.getNativeLong(0).longValue() != 0;
+            } finally {
+                x11.XFree(ptr);
+            }
+        }
+        return false;
     }
 
     public int getCurrentDesktop() {

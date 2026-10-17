@@ -33,6 +33,7 @@ import org.datazuul.amadeos.sound.BellPlayer;
 import org.datazuul.amadeos.wm.menu.DesktopMenuActions;
 import org.datazuul.amadeos.wm.menu.DesktopRootMenu;
 import org.datazuul.amadeos.wm.panel.AmadeDesktopPanel;
+import org.datazuul.amadeos.wm.process.LaunchFeedback;
 import org.datazuul.amadeos.commons.theme.DesktopTheme;
 import org.datazuul.amadeos.wm.theme.ThemeManager;
 import org.datazuul.amadeos.wm.theme.WallpaperManager;
@@ -91,6 +92,14 @@ public final class X11WindowManagerService implements AutoCloseable {
     private final NativeLong cursorNE;
     private final NativeLong cursorSW;
     private final NativeLong cursorSE;
+    private final NativeLong cursorBusy;
+
+    // Launch feedback (see LaunchFeedback): the busy cursor until a new window appears.
+    // busyUntil is only used on the event loop thread; 0 means not busy.
+    private final NativeLong launchAtom;
+    private final NativeLong launchBusyAtom;
+    private long busyUntil;
+    private final java.util.Timer busyTimer = new java.util.Timer("wm-launch-feedback", true);
 
     // EWMH and ICCCM atoms
     private final NativeLong netSupportingWmCheck;
@@ -254,6 +263,9 @@ public final class X11WindowManagerService implements AutoCloseable {
         this.cursorNE = x11.XCreateFontCursor(display, LibX11.XC_top_right_corner);
         this.cursorSW = x11.XCreateFontCursor(display, LibX11.XC_bottom_left_corner);
         this.cursorSE = x11.XCreateFontCursor(display, LibX11.XC_bottom_right_corner);
+        this.cursorBusy = x11.XCreateFontCursor(display, LibX11.XC_watch);
+        this.launchAtom = x11.XInternAtom(display, LaunchFeedback.MESSAGE_ATOM, 0);
+        this.launchBusyAtom = x11.XInternAtom(display, LaunchFeedback.BUSY_PROPERTY, 0);
 
         this.netSupportingWmCheck = x11.XInternAtom(display, "_NET_SUPPORTING_WM_CHECK", 0);
         this.netWmName = x11.XInternAtom(display, "_NET_WM_NAME", 0);
@@ -651,8 +663,53 @@ public final class X11WindowManagerService implements AutoCloseable {
         return clientToFrame.get(clientWin);
     }
 
+    /** The cursor where no resize or move is offered: the arrow, or the watch while an application starts. */
+    private NativeLong idleCursor() {
+        return busyUntil != 0 ? cursorBusy : cursorDefault;
+    }
+
+    /** An application is starting: the watch on the desktop and the frames, until its window appears. */
+    private void startBusy() {
+        boolean wasBusy = busyUntil != 0;
+        busyUntil = System.currentTimeMillis() + LaunchFeedback.TIMEOUT_MILLIS;
+        busyTimer.schedule(new java.util.TimerTask() {
+            @Override
+            public void run() {
+                runOnEventThread(() -> {
+                    if (busyUntil != 0 && System.currentTimeMillis() >= busyUntil) {
+                        LOGGER.info("No new window after a launch; busy cursor off");
+                        endBusy();
+                    }
+                });
+            }
+        }, LaunchFeedback.TIMEOUT_MILLIS + 50);
+        if (wasBusy) {
+            return;
+        }
+        x11.XDefineCursor(display, new NativeLong(rootWindow), cursorBusy);
+        Memory one = new Memory(NativeLong.SIZE);
+        one.setNativeLong(0, new NativeLong(1));
+        x11.XChangeProperty(display, new NativeLong(rootWindow), launchBusyAtom, xaCardinalAtom, 32,
+                LibX11.PropModeReplace, one, 1);
+        x11.XFlush(display);
+    }
+
+    private void endBusy() {
+        if (busyUntil == 0) {
+            return;
+        }
+        busyUntil = 0;
+        x11.XDefineCursor(display, new NativeLong(rootWindow), cursorDefault);
+        // Frames the pointer crossed meanwhile got the watch; the others inherit the root's cursor.
+        for (FrameWindow frame : clientToFrame.values()) {
+            x11.XDefineCursor(display, frame.frameWindow(), cursorDefault);
+        }
+        x11.XDeleteProperty(display, new NativeLong(rootWindow), launchBusyAtom);
+        x11.XFlush(display);
+    }
+
     private NativeLong getCursorForDirection(ResizeDirection dir) {
-        if (dir == null) return cursorDefault;
+        if (dir == null) return idleCursor();
         return switch (dir) {
             case N -> cursorN;
             case S -> cursorS;
@@ -662,7 +719,7 @@ public final class X11WindowManagerService implements AutoCloseable {
             case NE -> cursorNE;
             case SW -> cursorSW;
             case SE -> cursorSE;
-            case NONE -> cursorDefault;
+            case NONE -> idleCursor();
         };
     }
 
@@ -1444,6 +1501,7 @@ public final class X11WindowManagerService implements AutoCloseable {
                     setFullScreen(frame, true);
                 }
                 updateClientList();
+                endBusy();
                 long finalTransientFor = transientFor;
                 LOGGER.info(() -> "Managed reparented client window: " + win + " geometry=" + managedGeom
                         + (finalTransientFor != 0 ? " (transient for " + finalTransientFor + ")" : ""));
@@ -1561,11 +1619,15 @@ public final class X11WindowManagerService implements AutoCloseable {
                     return; // only wakes the loop; queued actions run before the next XNextEvent
                 }
                 long win = cmsg.window.longValue();
-                if (cmsg.message_type != null && cmsg.message_type.equals(netCloseWindow)) {
+                if (launchAtom.equals(cmsg.message_type)) {
+                    startBusy();
+                } else if (cmsg.message_type != null && cmsg.message_type.equals(netCloseWindow)) {
                     core.close(win);
                     LOGGER.info(() -> "ClientMessage _NET_CLOSE_WINDOW handled for " + win);
                 } else if (cmsg.message_type != null && cmsg.message_type.equals(netActiveWindow)) {
                     focusClient(win);
+                    // An application that was already running (Firefox opening a tab) raises its window
+                    endBusy();
                     LOGGER.info(() -> "ClientMessage _NET_ACTIVE_WINDOW handled for " + win);
                 } else if (cmsg.message_type != null && cmsg.message_type.equals(wmChangeState)) {
                     long targetState = (cmsg.data != null && cmsg.data.length > 0 && cmsg.data[0] != null)
@@ -1850,7 +1912,7 @@ public final class X11WindowManagerService implements AutoCloseable {
                 core.registry().updateGeometry(clientWin, new WindowGeometry(
                         wireframeX, wireframeY,
                         wireframeW, wireframeH));
-                x11.XDefineCursor(display, interactionFrame.frameWindow(), cursorDefault);
+                x11.XDefineCursor(display, interactionFrame.frameWindow(), idleCursor());
                 sendSyntheticConfigureNotify(interactionFrame);
             }
             interactionType = InteractionType.NONE;
@@ -2242,6 +2304,9 @@ public final class X11WindowManagerService implements AutoCloseable {
             tileWinToTile.clear();
             clientToTile.clear();
 
+            busyTimer.cancel();
+            x11.XDeleteProperty(display, new NativeLong(rootWindow), launchBusyAtom);
+            if (cursorBusy != null) x11.XFreeCursor(display, cursorBusy);
             if (cursorDefault != null) x11.XFreeCursor(display, cursorDefault);
             if (cursorMove != null) x11.XFreeCursor(display, cursorMove);
             if (cursorN != null) x11.XFreeCursor(display, cursorN);

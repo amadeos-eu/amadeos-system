@@ -33,8 +33,11 @@ public final class ProcessLauncher {
         return start(command, new File(System.getProperty("user.home", "/tmp")));
     }
 
+    /** Starts the command and shows the busy cursor until its window appears (see {@link LaunchFeedback}). */
     public static Process start(List<String> command, File workingDirectory) throws IOException {
-        return start(command, workingDirectory, logFile());
+        Process process = start(command, workingDirectory, logFile());
+        LaunchFeedback.announce();
+        return process;
     }
 
     static Process start(List<String> command, File workingDirectory, Path log) throws IOException {
