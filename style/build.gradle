@@ -1,6 +1,6 @@
 // The Style Manager (CDE's dtstyle) and the input settings tool. `amadeos-style`, `amadeos-style input`.
 application {
-    mainClass = 'org.datazuul.amadeos.style.StyleLauncher'
+    mainClass = 'eu.amadeos.style.StyleLauncher'
 }
 
 dependencies {

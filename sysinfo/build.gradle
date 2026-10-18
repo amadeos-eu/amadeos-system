@@ -1,5 +1,5 @@
 application {
-    mainClass = 'org.datazuul.amadeos.sysinfo.bootstrap.AmadeSysinfoApplication'
+    mainClass = 'eu.amadeos.sysinfo.bootstrap.AmadeSysinfoApplication'
 }
 
 debian = [

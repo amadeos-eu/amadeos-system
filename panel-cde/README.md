@@ -18,7 +18,7 @@ atom and the `_AMADEOS_LAUNCH` message (busy cursor while a program starts).
 
 Language: English, Deutsch, Français, Español, Italiano, chosen in the greeter or with the panel's
 language button; both write `~/.config/amadeos/locale.conf`. The texts are in
-`src/main/resources/org/datazuul/amadeos/i18n/desktop*.properties`.
+`src/main/resources/eu/amadeos/i18n/desktop*.properties`.
 
 ## Developing
 
@@ -31,7 +31,7 @@ language button; both write `~/.config/amadeos/locale.conf`. The texts are in
 ### Front Panel slots and widgets
 
 The Front Panel layout is defined in code, in the constructor of `AmadeDesktopPanel`
-(`src/main/java/org/datazuul/amadeos/panel/cde/`). Slots are added left to right to `leftSlots` (left
+(`src/main/java/eu/amadeos/panel/cde/`). Slots are added left to right to `leftSlots` (left
 of the workspace switcher) or `rightSlots` (right of it), and every widget is also added to `widgets`,
 so it is started and follows theme changes:
 
@@ -46,7 +46,7 @@ Update the slot list in the Help dialog ("Front Panel Overview") as well.
 ### Icons
 
 Panel and desktop icons are looked up by **icon key** in `IconManager`
-(`../base/src/main/java/org/datazuul/amadeos/base/theme/`). Each key maps to a list of Freedesktop icon names
+(`../base/src/main/java/eu/amadeos/base/theme/`). Each key maps to a list of Freedesktop icon names
 (`FREEDESKTOP_NAMES`). The current icon theme (default: NsCDE) is searched for each name in turn, then
 its inherited themes and `hicolor`; the first match wins. If nothing is found, a simple icon is drawn in
 code (`generatePixmaps`).

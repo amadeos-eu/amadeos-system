@@ -43,7 +43,7 @@ jobs:
           for module in wm panel-cde dm session style logviewer print sysinfo; do
             name=amadeos-$module
             jar=$(ls $module/build/libs/$name-*.jar)
-            unzip -p "$jar" META-INF/MANIFEST.MF | grep -q "Main-Class: org.datazuul.amadeos."
+            unzip -p "$jar" META-INF/MANIFEST.MF | grep -q "Main-Class: eu.amadeos."
             deb=$(ls $module/build/distributions/${name}_*_all.deb)
             dpkg-deb --info "$deb"
             dpkg-deb --contents "$deb" > contents.txt

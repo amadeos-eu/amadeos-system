@@ -16,7 +16,7 @@ fi
 grab_failures=0
 crashes=0
 while :; do
-    "$JAVA_BIN" --enable-native-access=ALL-UNNAMED -cp "$AMADEOS_JAR" org.datazuul.amadeos.lock.ScreenLock
+    "$JAVA_BIN" --enable-native-access=ALL-UNNAMED -cp "$AMADEOS_JAR" eu.amadeos.lock.ScreenLock
     rc=$?
     case "$rc" in
         0) exit 0 ;;                  # unlocked with the correct password
