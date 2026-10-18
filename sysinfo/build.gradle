@@ -1,5 +1,5 @@
 application {
-    mainClass = 'eu.amadeos.sysinfo.bootstrap.AmadeSysinfoApplication'
+    mainClass = 'eu.amadeos.system.sysinfo.bootstrap.AmadeSysinfoApplication'
 }
 
 debian = [

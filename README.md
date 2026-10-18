@@ -52,7 +52,7 @@ takes the Front Panel's place when installed instead; with both installed, `upda
 
 Language: English, Deutsch, Français, Español, Italiano, chosen in the greeter or with the panel's
 language button; both write `~/.config/amadeos/locale.conf`. The panel's texts are in
-`panel-cde/src/main/resources/eu/amadeos/i18n/desktop*.properties`.
+`panel-cde/src/main/resources/eu/amadeos/system/i18n/desktop*.properties`.
 
 What the packages install besides their jars and launchers (`packaging/root` of a module mirrors the
 file system; the files under `etc/` are conffiles):

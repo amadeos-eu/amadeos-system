@@ -2,7 +2,7 @@
 // network cell and the drawers listing the installed applications. `amadeos-panel-cde`; installed as the
 // alternative /usr/bin/amadeos-panel, which amadeos-session starts.
 application {
-    mainClass = 'eu.amadeos.panel.cde.AmadeDesktopPanel'
+    mainClass = 'eu.amadeos.system.panel.cde.AmadeDesktopPanel'
 }
 
 debian = [

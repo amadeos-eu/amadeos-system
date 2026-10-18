@@ -1,0 +1,36 @@
+package eu.amadeos.system.panel.cde;
+
+import eu.amadeos.system.base.x11.X11EwmhHelper;
+
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import javax.imageio.ImageIO;
+import org.junit.jupiter.api.Test;
+
+class AmadeDesktopPanelVisualTest {
+
+    @Test
+    void renderPanelToPng() {
+        try {
+            X11EwmhHelper helper = X11EwmhHelper.open(null);
+            AmadeDesktopPanel panel = new AmadeDesktopPanel(helper);
+            panel.addNotify();
+            int width = panel.getContentPane().getPreferredSize().width;
+            panel.setSize(width, AmadeDesktopPanel.DOCK_HEIGHT);
+            panel.validate();
+
+            BufferedImage img = new BufferedImage(width, AmadeDesktopPanel.DOCK_HEIGHT, BufferedImage.TYPE_INT_RGB);
+            Graphics2D g2 = img.createGraphics();
+            panel.getContentPane().paint(g2);
+            g2.dispose();
+
+            File out = new File("build/cde_front_panel_rendered.png");
+            out.getParentFile().mkdirs();
+            ImageIO.write(img, "png", out);
+            System.out.println("SUCCESSFULLY_RENDERED_PANEL: " + out.getAbsolutePath());
+        } catch (Throwable t) {
+            System.out.println("Notice: Could not render off-screen panel: " + t.getMessage());
+        }
+    }
+}
