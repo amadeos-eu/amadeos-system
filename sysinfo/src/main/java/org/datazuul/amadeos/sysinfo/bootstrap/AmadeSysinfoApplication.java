@@ -5,7 +5,7 @@ import org.datazuul.amadeos.commons.app.AppInfo;
 import org.datazuul.amadeos.sysinfo.ui.MainWindow;
 
 public final class AmadeSysinfoApplication {
-    public static final AppInfo APP = new AppInfo("amade-sysinfo", "System Information", "sysinfo");
+    public static final AppInfo APP = new AppInfo("amadeos-sysinfo", "System Information", "sysinfo");
 
     private AmadeSysinfoApplication() {
     }

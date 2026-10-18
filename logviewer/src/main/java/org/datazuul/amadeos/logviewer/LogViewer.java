@@ -29,7 +29,7 @@ import org.datazuul.amadeos.base.xdg.XdgDirectories;
 import org.datazuul.amadeos.commons.theme.DesktopTheme;
 
 /**
- * Session Diagnostics &amp; Logs, the program {@code amade-logviewer}: one log at a time, chosen from a
+ * Session Diagnostics &amp; Logs, the program {@code amadeos-logviewer}: one log at a time, chosen from a
  * list (see {@link DesktopLogs}), shown from its end; <i>Follow</i> reloads it every two seconds,
  * <i>Open Folder</i> shows the log directory in amade-files.
  */

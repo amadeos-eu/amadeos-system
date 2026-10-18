@@ -33,7 +33,7 @@ import org.datazuul.amadeos.base.x11.LibX11;
  * 5 no X display.
  */
 public final class ScreenLock {
-    /** The PAM service of the lock, /etc/pam.d/amadeos-lock from the package amade-session. */
+    /** The PAM service of the lock, /etc/pam.d/amadeos-lock from the package amadeos-session. */
     static final String PAM_SERVICE = "amadeos-lock";
     private static final Logger LOGGER = Logger.getLogger(ScreenLock.class.getName());
     public static final int UNLOCKED = 0;

@@ -24,7 +24,7 @@ done
 echo "[run-greeter] Building the display manager jar..."
 (cd .. && ./gradlew :dm:jar)
 
-JAR="$(ls "$ROOT_DIR"/build/libs/amade-dm-*.jar 2>/dev/null | head -n 1)"
+JAR="$(ls "$ROOT_DIR"/build/libs/amadeos-dm-*.jar 2>/dev/null | head -n 1)"
 if [ ! -f "$JAR" ]; then
     echo "[run-greeter] Error: JAR not found at $JAR" >&2
     exit 1

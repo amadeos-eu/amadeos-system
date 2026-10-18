@@ -75,7 +75,7 @@ configure(subprojects.findAll { it.name in desktopModules }) {
 configure(subprojects.findAll { it.name != 'base' }) {
 
     afterEvaluate {
-        def packageName = "amade-${project.name}"
+        def packageName = "amadeos-${project.name}"
 
         dependencies {
             runtimeOnly project.slf4jBinding
@@ -115,11 +115,15 @@ configure(subprojects.findAll { it.name != 'base' }) {
 
                 def optDir = new File(stagingDir, "opt/${packageName}")
                 def binDir = new File(stagingDir, 'usr/bin')
+                // A module whose own script has the package's name (amadeos-session, amadeos-dm) keeps
+                // the jar launcher in /usr/libexec, where the script calls it.
+                def launcherDir = file("packaging/root/usr/bin/${packageName}").exists()
+                        ? new File(stagingDir, 'usr/libexec') : binDir
                 def appDir = new File(stagingDir, 'usr/share/applications')
                 def docDir = new File(stagingDir, "usr/share/doc/${packageName}")
                 def debianDir = new File(stagingDir, 'DEBIAN')
                 def distDir = new File(buildDirFile, 'distributions')
-                [optDir, binDir, appDir, docDir, debianDir, distDir]*.mkdirs()
+                [optDir, binDir, launcherDir, appDir, docDir, debianDir, distDir]*.mkdirs()
 
                 copy {
                     from jar.archiveFile
@@ -128,7 +132,7 @@ configure(subprojects.findAll { it.name != 'base' }) {
                 }
 
                 def javaOptions = deb.javaOptions ? "${deb.javaOptions} " : ''
-                def launcher = new File(binDir, packageName)
+                def launcher = new File(launcherDir, packageName)
                 launcher.text = """#!/bin/sh
 exec /usr/bin/java ${javaOptions}-jar /opt/${packageName}/${packageName}.jar "\$@"
 """

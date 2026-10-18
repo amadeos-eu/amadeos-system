@@ -1,5 +1,5 @@
 #!/bin/sh
-# amade-dm: forget the enablement state of the display manager when the package is purged.
+# amadeos-dm: forget the enablement state of the display manager when the package is purged.
 set -e
 
 if [ "$1" = "purge" ]; then

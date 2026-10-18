@@ -1,7 +1,7 @@
 #!/bin/sh
-# amade-panel-cde: no longer a choice for amade-panel.
+# amadeos-panel-cde: no longer a choice for amadeos-panel.
 set -e
 
 if [ "$1" = "remove" ]; then
-    update-alternatives --remove amade-panel /usr/bin/amade-panel-cde
+    update-alternatives --remove amadeos-panel /usr/bin/amadeos-panel-cde
 fi

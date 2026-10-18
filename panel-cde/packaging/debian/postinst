@@ -1,7 +1,7 @@
 #!/bin/sh
-# amade-panel-cde: the panel amade-session starts is /usr/bin/amade-panel; this one registers as it.
+# amadeos-panel-cde: the panel amadeos-session starts is /usr/bin/amadeos-panel; this one registers as it.
 set -e
 
 if [ "$1" = "configure" ]; then
-    update-alternatives --install /usr/bin/amade-panel amade-panel /usr/bin/amade-panel-cde 50
+    update-alternatives --install /usr/bin/amadeos-panel amadeos-panel /usr/bin/amadeos-panel-cde 50
 fi

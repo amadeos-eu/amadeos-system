@@ -6,7 +6,7 @@ set -u
 LOG_FILE="${HOME:-/tmp}/.amadeos-screen.log"
 
 while :; do
-    /usr/bin/amade-session screen >> "$LOG_FILE" 2>&1
+    /usr/libexec/amadeos-session screen >> "$LOG_FILE" 2>&1
     case "$?" in
         0|5) exit 0 ;;
         126|127) exit 1 ;;

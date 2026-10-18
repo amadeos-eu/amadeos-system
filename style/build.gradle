@@ -1,4 +1,4 @@
-// The Style Manager (CDE's dtstyle) and the input settings tool. `amade-style`, `amade-style input`.
+// The Style Manager (CDE's dtstyle) and the input settings tool. `amadeos-style`, `amadeos-style input`.
 application {
     mainClass = 'org.datazuul.amadeos.style.StyleLauncher'
 }
@@ -13,12 +13,12 @@ debian = [
     javaOptions: '--enable-native-access=ALL-UNNAMED',
     // xset, xmodmap, xrdb and xsetroot apply the keyboard, mouse, bell and backdrop settings.
     depends    : ['x11-xserver-utils'],
-    conflicts  : ['amade-desktop'],
-    replaces   : ['amade-desktop'],
+    conflicts  : ['amade-desktop', 'amade-style'],
+    replaces   : ['amade-desktop', 'amade-style'],
     summary    : 'Style Manager and input settings of amadeOS',
     description: '''The controls of CDE's dtstyle for the amadeOS desktop: Color (palette and icon
 theme), Backdrop, Keyboard, Mouse, Beep and Screen. Writes
 ~/.config/amadeos/theme.conf, which the window manager, the panel and every
-amade application follow. amade-style input applies the keyboard, mouse and
+amade application follow. amadeos-style input applies the keyboard, mouse and
 bell settings at login (/etc/amadeos/autostart.d/10-amadeos-input).'''
 ]

@@ -1,5 +1,5 @@
 #!/bin/sh
-# amade-session: no longer a session manager.
+# amadeos-session: no longer a session manager.
 set -e
 
 if [ "$1" = "remove" ]; then

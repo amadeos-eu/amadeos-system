@@ -1,5 +1,5 @@
 #!/bin/sh
-# amade-dm: on removal the display manager is no longer enabled.
+# amadeos-dm: on removal the display manager is no longer enabled.
 set -e
 
 if [ "$1" = "remove" ]; then

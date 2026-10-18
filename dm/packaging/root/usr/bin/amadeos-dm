@@ -82,6 +82,6 @@ if command -v setxkbmap >/dev/null 2>&1 && [ -n "$XKBLAYOUT" ]; then
 fi
 
 echo "[amadeos-dm] Launching Java Display Manager daemon..."
-exec /usr/bin/amade-dm :0
+exec /usr/libexec/amadeos-dm :0
 
 
