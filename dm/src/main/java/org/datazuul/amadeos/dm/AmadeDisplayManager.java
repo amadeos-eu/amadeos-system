@@ -16,6 +16,7 @@ import javax.swing.SwingUtilities;
 import org.datazuul.amadeos.commons.i18n.Language;
 import org.datazuul.amadeos.dm.session.SessionType;
 import org.datazuul.amadeos.dm.session.SessionWorkerClient;
+import org.datazuul.amadeos.dm.session.LastUser;
 import org.datazuul.amadeos.dm.session.UserAccount;
 import org.datazuul.amadeos.dm.ui.AmadeLoginGreeter;
 
@@ -113,6 +114,7 @@ public final class AmadeDisplayManager {
             }
         }
         Process worker = ((SessionWorkerClient.Started) result).worker();
+        LastUser.SYSTEM.remember(username);
         greeter.setStatus("Starting session...", false);
         SwingUtilities.invokeLater(() -> greeter.setVisible(false));
         new Thread(() -> superviseSession(username, worker), "amadeOS-Session-Supervisor").start();
