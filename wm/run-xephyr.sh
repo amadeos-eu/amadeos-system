@@ -56,7 +56,7 @@ done
 # The session jar on the class path lets Super+L start the screen lock without the installed wrapper.
 echo "[run-xephyr] Starting amadeOS Window Manager on $DISPLAY_NUM..."
 DISPLAY="$DISPLAY_NUM" java --enable-native-access=ALL-UNNAMED -cp "$WM_JAR:$SESSION_JAR" \
-    org.datazuul.amadeos.wm.AmadeWindowManagerMain &
+    eu.amadeos.wm.AmadeWindowManagerMain &
 WM_PID=$!
 sleep 0.5
 

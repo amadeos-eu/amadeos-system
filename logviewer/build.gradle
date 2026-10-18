@@ -2,7 +2,7 @@
 // manager's logs and the journal of this boot, one at a time. `amadeos-logviewer`; the Tools drawer of the
 // panel starts it.
 application {
-    mainClass = 'org.datazuul.amadeos.logviewer.LogViewer'
+    mainClass = 'eu.amadeos.logviewer.LogViewer'
 }
 
 debian = [

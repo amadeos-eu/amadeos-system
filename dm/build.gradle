@@ -2,7 +2,7 @@
 // root worker and starts amadeos-session as the user. `amadeos-dm [display]`, `amadeos-dm session-worker`,
 // `amadeos-dm greeter`.
 application {
-    mainClass = 'org.datazuul.amadeos.dm.DmLauncher'
+    mainClass = 'eu.amadeos.dm.DmLauncher'
 }
 
 debian = [

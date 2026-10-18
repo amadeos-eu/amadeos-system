@@ -2,7 +2,7 @@
 // panel), the screen lock (`amadeos-session lock`, wrapped by amadeos-lock) and the screen saver with idle
 // lock (`amadeos-session screen`).
 application {
-    mainClass = 'org.datazuul.amadeos.session.SessionLauncher'
+    mainClass = 'eu.amadeos.session.SessionLauncher'
 }
 
 debian = [

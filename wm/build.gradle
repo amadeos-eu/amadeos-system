@@ -1,7 +1,7 @@
 // The window manager: a floating, reparenting X11 window manager with Motif/CDE frames, four workspaces
 // and the root menu. `amadeos-wm [display]`.
 application {
-    mainClass = 'org.datazuul.amadeos.wm.AmadeWindowManagerMain'
+    mainClass = 'eu.amadeos.wm.AmadeWindowManagerMain'
 }
 
 debian = [
