@@ -9,7 +9,7 @@ import org.datazuul.amadeos.print.ipp.IppTransport;
 
 import java.util.Locale;
 
-/** amade-print bindings; the executor, theme and language come from the CommonsModule. */
+/** amadeos-print bindings; the executor, theme and language come from the CommonsModule. */
 public final class PrintModule extends AbstractModule {
     /** The texts, {@code messages.properties} and its translations. */
     public static final String MESSAGES = "org.datazuul.amadeos.print.messages";

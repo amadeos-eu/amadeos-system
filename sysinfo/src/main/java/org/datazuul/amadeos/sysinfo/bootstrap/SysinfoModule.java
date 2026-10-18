@@ -10,7 +10,7 @@ import org.datazuul.amadeos.sysinfo.service.SystemProbe;
 import java.nio.file.Path;
 import java.util.Locale;
 
-/** amade-sysinfo bindings; the executor, theme and language come from the CommonsModule. */
+/** amadeos-sysinfo bindings; the executor, theme and language come from the CommonsModule. */
 public final class SysinfoModule extends AbstractModule {
     /** The texts, {@code messages.properties} and its translations. */
     public static final String MESSAGES = "org.datazuul.amadeos.sysinfo.messages";

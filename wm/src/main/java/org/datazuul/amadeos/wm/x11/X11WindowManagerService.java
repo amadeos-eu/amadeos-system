@@ -369,11 +369,11 @@ public final class X11WindowManagerService implements AutoCloseable {
 
             @Override
             public void openSettings() {
-                // The Style Manager is its own program (package amade-style).
+                // The Style Manager is its own program (package amadeos-style).
                 try {
-                    org.datazuul.amadeos.base.process.ProcessLauncher.start(java.util.List.of("amade-style"));
+                    org.datazuul.amadeos.base.process.ProcessLauncher.start(java.util.List.of("amadeos-style"));
                 } catch (java.io.IOException e) {
-                    LOGGER.warning(() -> "Could not start the Style Manager (amade-style): " + e.getMessage());
+                    LOGGER.warning(() -> "Could not start the Style Manager (amadeos-style): " + e.getMessage());
                 }
             }
 

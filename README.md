@@ -1,4 +1,4 @@
-# amade-system
+# amadeos-system
 
 The system components of [amadeOS](https://github.com/datazuul/amadeos), built together as one Gradle
 multi-project: one module and one Debian package per component. The standalone applications
@@ -13,14 +13,14 @@ multi-project: one module and one Debian package per component. The standalone a
 | Module | Package | What it is |
 |---|---|---|
 | `base` | (in every desktop package) | The library under the desktop modules: Xlib, Xss, Xkb, libc and PAM through JNA, the EWMH client helper, launch feedback and the lock selection, XDG directories and `.desktop` files, theme, icons and backdrops, the process and lock launchers, the session dialogs, the network service and the bell. Nothing in it depends on the other modules; they all depend on it |
-| [`wm`](wm/README.md) | `amade-wm` | The window manager: a floating, reparenting X11 window manager with Motif/CDE frames, four workspaces and the root menu (`amade-wm [display]`) |
-| [`panel-cde`](panel-cde/README.md) | `amade-panel-cde` | The CDE Front Panel: clock, calendar, workspace switch (buttons in the theme's workspace colours), lock and language buttons, network cell and the drawers of installed applications. Provides `amade-panel`, the panel the session starts |
-| `dm` | `amade-dm` | The display manager: `amadeos-dm.service` starts Xorg and the login greeter, which authenticates through PAM in a root worker and starts the session (`amade-dm [display]`; `amade-dm greeter` shows the greeter alone) |
-| `session` | `amade-session` | The X session (`amadeos-session`: window manager under supervision, autostart scripts, then the panel), the screen lock (`amade-session lock`, wrapped by `amadeos-lock`) and the screen saver with idle lock (`amade-session screen`) |
-| `style` | `amade-style` | The Style Manager (CDE's dtstyle: Color, Backdrop, Keyboard, Mouse, Beep, Screen) and the input settings tool (`amade-style input`, run at login) |
-| `logviewer` | `amade-logviewer` | Session Diagnostics & Logs: the session, window manager and application logs, the display manager's logs and the journal of this boot, one at a time with Follow; started from the panel's Tools drawer |
-| `print` | `amade-print` | Print manager: CUPS printers with their state, the jobs of each printer (cancel, hold, release), pause and resume printers, default printer, test page, CUPS administration for adding printers |
-| `sysinfo` | `amade-sysinfo` | System information: operating system, processor, memory, storage, graphics, network and battery on one page; copy or save as text |
+| [`wm`](wm/README.md) | `amadeos-wm` | The window manager: a floating, reparenting X11 window manager with Motif/CDE frames, four workspaces and the root menu (`amadeos-wm [display]`) |
+| [`panel-cde`](panel-cde/README.md) | `amadeos-panel-cde` | The CDE Front Panel: clock, calendar, workspace switch (buttons in the theme's workspace colours), lock and language buttons, network cell and the drawers of installed applications. Provides `amadeos-panel`, the panel the session starts |
+| `dm` | `amadeos-dm` | The display manager: `amadeos-dm.service` starts Xorg and the login greeter, which authenticates through PAM in a root worker and starts the session (`amadeos-dm [display]`; `amadeos-dm greeter` shows the greeter alone) |
+| `session` | `amadeos-session` | The X session (`amadeos-session`: window manager under supervision, autostart scripts, then the panel), the screen lock (`amadeos-session lock`, wrapped by `amadeos-lock`) and the screen saver with idle lock (`amadeos-session screen`) |
+| `style` | `amadeos-style` | The Style Manager (CDE's dtstyle: Color, Backdrop, Keyboard, Mouse, Beep, Screen) and the input settings tool (`amadeos-style input`, run at login) |
+| `logviewer` | `amadeos-logviewer` | Session Diagnostics & Logs: the session, window manager and application logs, the display manager's logs and the journal of this boot, one at a time with Follow; started from the panel's Tools drawer |
+| `print` | `amadeos-print` | Print manager: CUPS printers with their state, the jobs of each printer (cancel, hold, release), pause and resume printers, default printer, test page, CUPS administration for adding printers |
+| `sysinfo` | `amadeos-sysinfo` | System information: operating system, processor, memory, storage, graphics, network and battery on one page; copy or save as text |
 
 The desktop code came from the amadeos repository with its history (`git filter-repo`); that
 repository keeps the live image and its configuration. A module's `packaging/root` is a file system
@@ -29,26 +29,26 @@ maintainer scripts.
 
 ## The desktop
 
-The desktop is the five packages `amade-dm`, `amade-session`, `amade-wm`, `amade-panel-cde` and
-`amade-style`, each a jar under `/opt/<package>/` with the launcher `/usr/bin/<package>`; the programs
-of the Tools drawer (`amade-logviewer`, `amade-sysinfo`) and `amade-print` are packages of their own
-that the panel starts. `amade-dm`
-depends on `amade-session`, which depends on `amade-wm` and on `amade-panel`. `amade-panel` is a virtual
-package: `amade-panel-cde` provides it and registers `/usr/bin/amade-panel` as an alternative, and
-`amadeos-session` starts that. A second panel (say a taskbar) provides `amade-panel` the same way and
+The desktop is the five packages `amadeos-dm`, `amadeos-session`, `amadeos-wm`, `amadeos-panel-cde` and
+`amadeos-style`, each a jar under `/opt/<package>/` with the launcher `/usr/bin/<package>`; the programs
+of the Tools drawer (`amadeos-logviewer`, `amadeos-sysinfo`) and `amadeos-print` are packages of their own
+that the panel starts. `amadeos-dm`
+depends on `amadeos-session`, which depends on `amadeos-wm` and on `amadeos-panel`. `amadeos-panel` is a virtual
+package: `amadeos-panel-cde` provides it and registers `/usr/bin/amadeos-panel` as an alternative, and
+`amadeos-session` starts that. A second panel (say a taskbar) provides `amadeos-panel` the same way and
 takes the Front Panel's place when installed instead; with both installed, `update-alternatives` or
 `AUTOSTART_APP` in `session.conf` chooses. The window manager treats any window of type
 `_NET_WM_WINDOW_TYPE_DOCK` as the panel and knows none by name.
 
 | Component | Package | What it does |
 |---|---|---|
-| **Display manager** | `amade-dm` | Started by `amadeos-dm.service` once Xorg runs on VT 7. Shows the login greeter (language and time zone of the session, power actions), authenticates through PAM (`/etc/pam.d/amadeos-dm`) in a root worker process, opens a logind session and starts `amadeos-session` as the user. As root it points `/etc/localtime` at the chosen zone and writes `/etc/timezone`. |
-| **Session** | `amade-session` | `/usr/bin/amadeos-session`: the window manager under supervision, the scripts of `/etc/amadeos/autostart.d` and `~/.config/amadeos/autostart.d`, then the panel. Settings in `/etc/amadeos/session.conf`, overridden by `~/.config/amadeos/session.conf`. Registered as `x-session-manager`, so `startx` without the display manager starts the desktop too. |
-| **Window manager** | `amade-wm` | A floating, reparenting X11 window manager (Xlib via JNA) with Motif/CDE-style frames, interactive move and resize, minimize to desktop icons, four virtual workspaces, a desktop root menu and the EWMH/ICCCM hints that panels and toolkits rely on (`_NET_CLIENT_LIST`, `_NET_ACTIVE_WINDOW`, `_NET_CURRENT_DESKTOP`, `_NET_WM_STRUT_PARTIAL`, `WM_DELETE_WINDOW`, ...). |
-| **Front panel** | `amade-panel-cde` | A CDE-style dock with clock, calendar, workspace switcher, lock and language buttons, the network cell and drawers that list the installed applications from their `.desktop` files. The Tools drawer holds the terminals, the Style Manager, help and the log viewer. Programs started from the panel log to `~/.cache/amadeos/logs/<program>.log`. |
-| **Style Manager** | `amade-style` | The controls of CDE's dtstyle. Color (palette with its four workspace colours, and the icon theme), Backdrop, Keyboard, Mouse, Beep and Screen work; Font, Window and Startup are shown but not yet available. Writes `~/.config/amadeos/theme.conf`, which the window manager, the panel and every amade application follow. `amade-style input` applies keyboard repeat and click, mouse handedness, double-click time and acceleration, and the bell from `~/.config/amadeos/input.conf` with `xset`, `xmodmap` and `xrdb`; run at login (`/etc/amadeos/autostart.d/10-amadeos-input`) and on Apply in the Style Manager. |
-| **Screen saver** | `amade-session` | CDE's dtscreen: uses the X server's idle counter (MIT-SCREEN-SAVER, `libxss1`), shows a saver module (Qix, Swarm, Starfield, Floating Logo, Blank) and locks the screen after the configured time. Started by `/etc/amadeos/autostart.d/50-amadeos-screen`; settings in `~/.config/amadeos/screen.conf`. |
-| **Screen lock** | `amade-session` | Grabs keyboard and mouse and asks for the user's password (PAM, `/etc/pam.d/amadeos-lock`). `/usr/bin/amadeos-lock` is the wrapper that locks again if the lock process dies; the window manager (Super+L), the panel's lock button and the screen saver start it. |
+| **Display manager** | `amadeos-dm` | Started by `amadeos-dm.service` once Xorg runs on VT 7. Shows the login greeter (language and time zone of the session, power actions), authenticates through PAM (`/etc/pam.d/amadeos-dm`) in a root worker process, opens a logind session and starts `amadeos-session` as the user. As root it points `/etc/localtime` at the chosen zone and writes `/etc/timezone`. |
+| **Session** | `amadeos-session` | `/usr/bin/amadeos-session`: the window manager under supervision, the scripts of `/etc/amadeos/autostart.d` and `~/.config/amadeos/autostart.d`, then the panel. Settings in `/etc/amadeos/session.conf`, overridden by `~/.config/amadeos/session.conf`. Registered as `x-session-manager`, so `startx` without the display manager starts the desktop too. |
+| **Window manager** | `amadeos-wm` | A floating, reparenting X11 window manager (Xlib via JNA) with Motif/CDE-style frames, interactive move and resize, minimize to desktop icons, four virtual workspaces, a desktop root menu and the EWMH/ICCCM hints that panels and toolkits rely on (`_NET_CLIENT_LIST`, `_NET_ACTIVE_WINDOW`, `_NET_CURRENT_DESKTOP`, `_NET_WM_STRUT_PARTIAL`, `WM_DELETE_WINDOW`, ...). |
+| **Front panel** | `amadeos-panel-cde` | A CDE-style dock with clock, calendar, workspace switcher, lock and language buttons, the network cell and drawers that list the installed applications from their `.desktop` files. The Tools drawer holds the terminals, the Style Manager, help and the log viewer. Programs started from the panel log to `~/.cache/amadeos/logs/<program>.log`. |
+| **Style Manager** | `amadeos-style` | The controls of CDE's dtstyle. Color (palette with its four workspace colours, and the icon theme), Backdrop, Keyboard, Mouse, Beep and Screen work; Font, Window and Startup are shown but not yet available. Writes `~/.config/amadeos/theme.conf`, which the window manager, the panel and every amade application follow. `amadeos-style input` applies keyboard repeat and click, mouse handedness, double-click time and acceleration, and the bell from `~/.config/amadeos/input.conf` with `xset`, `xmodmap` and `xrdb`; run at login (`/etc/amadeos/autostart.d/10-amadeos-input`) and on Apply in the Style Manager. |
+| **Screen saver** | `amadeos-session` | CDE's dtscreen: uses the X server's idle counter (MIT-SCREEN-SAVER, `libxss1`), shows a saver module (Qix, Swarm, Starfield, Floating Logo, Blank) and locks the screen after the configured time. Started by `/etc/amadeos/autostart.d/50-amadeos-screen`; settings in `~/.config/amadeos/screen.conf`. |
+| **Screen lock** | `amadeos-session` | Grabs keyboard and mouse and asks for the user's password (PAM, `/etc/pam.d/amadeos-lock`). `/usr/bin/amadeos-lock` is the wrapper that locks again if the lock process dies; the window manager (Super+L), the panel's lock button and the screen saver start it. |
 
 Language: English, Deutsch, Français, Español, Italiano, chosen in the greeter or with the panel's
 language button; both write `~/.config/amadeos/locale.conf`. The panel's texts are in
@@ -59,14 +59,14 @@ file system; the files under `etc/` are conffiles):
 
 | Path | Package | What it is |
 |---|---|---|
-| `/usr/bin/amadeos-dm` | `amade-dm` | Starts Xorg on VT 7 with an authorization cookie and the display manager; applies the keyboard layout of `/etc/default/keyboard`. |
-| `/usr/lib/systemd/system/amadeos-dm.service` | `amade-dm` | The unit around it, alias `display-manager.service`; the postinst enables it and sets `graphical.target` as the default target. |
-| `/etc/pam.d/amadeos-dm` | `amade-dm` | The PAM service of the greeter. |
-| `/usr/bin/amadeos-session`, `/etc/amadeos/session.conf` | `amade-session` | The session script and its settings (`WM_COMMAND`, `AUTOSTART_APP`, logging). |
-| `/etc/amadeos/autostart.d/` | `amade-session`, `amade-style` | Run at the start of every session: `10-amadeos-input` (input settings, from `amade-style`), `50-amadeos-screen` (screen saver). Users add their own in `~/.config/amadeos/autostart.d`. |
-| `/usr/bin/amadeos-lock`, `/etc/pam.d/amadeos-lock` | `amade-session` | The screen lock wrapper and the PAM service of the lock. |
-| `/usr/share/polkit-1/rules.d/50-amadeos-network.rules` | `amade-panel-cde` | Members of `netdev` manage NetworkManager connections without a password (network cell of the panel). |
-| `x-session-manager`, `amade-panel` | `amade-session`, `amade-panel-cde` | Alternatives registered by the postinst scripts. |
+| `/usr/bin/amadeos-dm` | `amadeos-dm` | Starts Xorg on VT 7 with an authorization cookie and the display manager; applies the keyboard layout of `/etc/default/keyboard`. |
+| `/usr/lib/systemd/system/amadeos-dm.service` | `amadeos-dm` | The unit around it, alias `display-manager.service`; the postinst enables it and sets `graphical.target` as the default target. |
+| `/etc/pam.d/amadeos-dm` | `amadeos-dm` | The PAM service of the greeter. |
+| `/usr/bin/amadeos-session`, `/etc/amadeos/session.conf` | `amadeos-session` | The session script and its settings (`WM_COMMAND`, `AUTOSTART_APP`, logging). |
+| `/etc/amadeos/autostart.d/` | `amadeos-session`, `amadeos-style` | Run at the start of every session: `10-amadeos-input` (input settings, from `amadeos-style`), `50-amadeos-screen` (screen saver). Users add their own in `~/.config/amadeos/autostart.d`. |
+| `/usr/bin/amadeos-lock`, `/etc/pam.d/amadeos-lock` | `amadeos-session` | The screen lock wrapper and the PAM service of the lock. |
+| `/usr/share/polkit-1/rules.d/50-amadeos-network.rules` | `amadeos-panel-cde` | Members of `netdev` manage NetworkManager connections without a password (network cell of the panel). |
+| `x-session-manager`, `amadeos-panel` | `amadeos-session`, `amadeos-panel-cde` | Alternatives registered by the postinst scripts. |
 
 What belongs to the live image alone (the live user's password, `/etc/X11/Xwrapper.config`, live-config)
 stays in the [amadeos](https://github.com/datazuul/amadeos) repository.
@@ -91,11 +91,11 @@ machine without a display run the tests under `xvfb-run -a`. One test of `base` 
 [amade-commons](https://github.com/datazuul/amade-commons) checked out next to this repository, the build
 uses that checkout (composite build); otherwise the version from JitPack named in `build.gradle`.
 
-## amade-print and CUPS
+## amadeos-print and CUPS
 
-amade-print talks IPP (RFC 8010/8011) to CUPS itself, without `lpstat` or `cancel`: over the CUPS socket
+amadeos-print talks IPP (RFC 8010/8011) to CUPS itself, without `lpstat` or `cancel`: over the CUPS socket
 `/run/cups/cups.sock`, or `http://localhost:631` when there is no socket. On the socket CUPS asks who is
-calling and amade-print answers with `PeerCred`, as libcups does; CUPS checks that against the socket's
+calling and amadeos-print answers with `PeerCred`, as libcups does; CUPS checks that against the socket's
 peer credentials. So the owner of a job can cancel it, and members of the group `lpadmin` can pause,
 resume and choose the default printer, without a password.
 

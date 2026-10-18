@@ -31,9 +31,9 @@ public final class LockLauncher {
     }
 
     /**
-     * The installed wrapper (package amade-session) restarts the lock if it crashes. Without it
+     * The installed wrapper (package amadeos-session) restarts the lock if it crashes. Without it
      * (development in Xephyr) the lock runs directly from the current class path, which must then hold
-     * the amade-session jar too (see wm/run-xephyr.sh).
+     * the amadeos-session jar too (see wm/run-xephyr.sh).
      */
     static List<String> command() {
         if (new File(WRAPPER).canExecute()) {

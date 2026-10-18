@@ -3,8 +3,8 @@
 # only a successful unlock (exit 0) ends the loop.
 set -u
 
-# The lock is in the amade-session jar; AMADEOS_JAR lets the tests run it from their class path.
-AMADEOS_JAR="${AMADEOS_JAR:-/opt/amade-session/amade-session.jar}"
+# The lock is in the amadeos-session jar; AMADEOS_JAR lets the tests run it from their class path.
+AMADEOS_JAR="${AMADEOS_JAR:-/opt/amadeos-session/amadeos-session.jar}"
 if [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/java" ]; then
     JAVA_BIN="$JAVA_HOME/bin/java"
 elif [ -x /usr/lib/jvm/java-25-openjdk-amd64/bin/java ]; then

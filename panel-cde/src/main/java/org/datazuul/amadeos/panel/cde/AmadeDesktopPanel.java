@@ -261,14 +261,14 @@ public final class AmadeDesktopPanel extends JFrame {
         widgets.add(rightSpacer);
         rightSlots.add(rightSpacer.component());
 
-        // Slot 8: Printers (with drawer ▲): amade-print with the printers and their jobs, the other installed
+        // Slot 8: Printers (with drawer ▲): amadeos-print with the printers and their jobs, the other installed
         // Printing applications, and the CUPS web interface for adding and configuring printers
         List<DrawerTool> printerTools = new ArrayList<>(xdgTools(XdgCategory.PRINTING));
         printerTools.add(new DrawerTool("Add or Configure Printers", "printer",
                 e -> launchProcess("xdg-open", CUPS_ADMIN)));
         DrawerDockWidget printerDrawer = new DrawerDockWidget(
                 "printer", "Print Manager", "printer",
-                e -> launchProcess("amade-print"),
+                e -> launchProcess("amadeos-print"),
                 printerTools,
                 true
         );
@@ -279,15 +279,15 @@ public final class AmadeDesktopPanel extends JFrame {
         // like CDE's Tools subpanel; then the other installed Settings and System applications (the
         // installer of the live image, for example), except those the fixed entries already start.
         List<DrawerTool> toolsTools = new ArrayList<>(List.of(
-                new DrawerTool("Style Manager", "style", e -> launchProcess("amade-style")),
+                new DrawerTool("Style Manager", "style", e -> launchProcess("amadeos-style")),
                 new DrawerTool("Application Manager", "app-manager", e -> showApplicationManagerDialog(this)),
                 new DrawerTool("Terminal (xterm)", "terminal", e -> launchProcess("xterm")),
                 new DrawerTool("Root Console (sudo)", "terminal", e -> launchProcess("xterm", "-title", "Root Shell", "-e", "sudo", "sh")),
-                new DrawerTool("Session Diagnostics & Logs", "diagnostics", e -> launchProcess("amade-logviewer")),
-                new DrawerTool("Hardware & System Info", "diagnostics", e -> launchProcess("amade-sysinfo"))
+                new DrawerTool("Session Diagnostics & Logs", "diagnostics", e -> launchProcess("amadeos-logviewer")),
+                new DrawerTool("Hardware & System Info", "diagnostics", e -> launchProcess("amadeos-sysinfo"))
         ));
         toolsTools.addAll(xdgTools(List.of(XdgCategory.SETTINGS, XdgCategory.MONITOR),
-                Set.of("amade-style", "amade-logviewer", "amade-sysinfo", "xterm")));
+                Set.of("amadeos-style", "amadeos-logviewer", "amadeos-sysinfo", "xterm")));
         DrawerDockWidget toolsDrawer = new DrawerDockWidget(
                 "tools", "Tools", "app-manager",
                 e -> showApplicationManagerDialog(this),
@@ -533,7 +533,7 @@ public final class AmadeDesktopPanel extends JFrame {
         return tools;
     }
 
-    /** The program of a desktop entry: {@code /usr/bin/amade-sysinfo %F} gives {@code amade-sysinfo}. */
+    /** The program of a desktop entry: {@code /usr/bin/amadeos-sysinfo %F} gives {@code amadeos-sysinfo}. */
     static String programOf(XdgDesktopEntry app) {
         String exec = app.exec() == null ? "" : app.exec().strip();
         String first = exec.isEmpty() ? "" : exec.split("\\s+", 2)[0];

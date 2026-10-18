@@ -1,5 +1,5 @@
 #!/bin/sh
-# amade-dm: enable the display manager so the system boots into the login greeter.
+# amadeos-dm: enable the display manager so the system boots into the login greeter.
 set -e
 
 if [ "$1" = "configure" ]; then

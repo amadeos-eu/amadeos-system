@@ -13,10 +13,10 @@ fi
 export HOME="${HOME:-/home/$(id -un 2>/dev/null || echo amadeos)}"
 export USER="${USER:-$(id -un 2>/dev/null || echo amadeos)}"
 
-# Default configuration values: the window manager (package amade-wm) and the panel (/usr/bin/amade-panel,
-# the alternative registered by amade-panel-cde or another panel package)
-WM_COMMAND="${WM_COMMAND:-/usr/bin/amade-wm}"
-PANEL_COMMAND="${PANEL_COMMAND:-/usr/bin/amade-panel}"
+# Default configuration values: the window manager (package amadeos-wm) and the panel (/usr/bin/amadeos-panel,
+# the alternative registered by amadeos-panel-cde or another panel package)
+WM_COMMAND="${WM_COMMAND:-/usr/bin/amadeos-wm}"
+PANEL_COMMAND="${PANEL_COMMAND:-/usr/bin/amadeos-panel}"
 WM_ENABLED="${WM_ENABLED:-true}"
 WM_AUTO_RESTART="${WM_AUTO_RESTART:-true}"
 # Logs in ~/.cache/amadeos/logs next to the applications' logs; the Tools drawer's log viewer lists them.
@@ -74,7 +74,7 @@ report_error_and_fallback() {
 }
 
 if [ "$WM_ENABLED" = "true" ] && [ ! -x "$WM_COMMAND" ]; then
-    report_error_and_fallback "Window manager not found at $WM_COMMAND (package amade-wm)."
+    report_error_and_fallback "Window manager not found at $WM_COMMAND (package amadeos-wm)."
 fi
 
 SESSION_ACTIVE=1
@@ -158,7 +158,7 @@ done
 echo "[amadeos-session] Starting primary application: $AUTOSTART_APP"
 if [ "$AUTOSTART_APP" = "panel" ] || [ "$AUTOSTART_APP" = "cde-panel" ] || [ "$AUTOSTART_APP" = "demo" ]; then
     if [ ! -x "$PANEL_COMMAND" ]; then
-        report_error_and_fallback "Panel not found at $PANEL_COMMAND (package amade-panel-cde or another provider of amade-panel)."
+        report_error_and_fallback "Panel not found at $PANEL_COMMAND (package amadeos-panel-cde or another provider of amadeos-panel)."
     fi
     "$PANEL_COMMAND" "$@"
 else

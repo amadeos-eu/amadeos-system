@@ -5,7 +5,7 @@ import org.datazuul.amadeos.commons.app.AppInfo;
 import org.datazuul.amadeos.print.ui.MainWindow;
 
 public final class AmadePrintApplication {
-    public static final AppInfo APP = new AppInfo("amade-print", "Print Manager", "print");
+    public static final AppInfo APP = new AppInfo("amadeos-print", "Print Manager", "print");
 
     private AmadePrintApplication() {
     }

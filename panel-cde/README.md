@@ -1,4 +1,4 @@
-# amade-panel-cde
+# amadeos-panel-cde
 
 The CDE Front Panel of amadeOS: a dock with clock, calendar, workspace switcher, lock and language
 buttons, the network cell and drawers that list the installed applications from their `.desktop` files.
@@ -10,8 +10,8 @@ filled with its workspace's colour from the theme (`DesktopTheme.workspaceColor(
 colour, teal and rose in Warm Motif), its label in the Motif foreground of that colour, and the current
 workspace is the button pressed in. Custom themes set `workspace1` to `workspace4` in `theme.properties`.
 
-The package provides `amade-panel` and registers `/usr/bin/amade-panel-cde` as the alternative
-`/usr/bin/amade-panel`, which `amadeos-session` starts. Another panel package provides `amade-panel` the
+The package provides `amadeos-panel` and registers `/usr/bin/amadeos-panel-cde` as the alternative
+`/usr/bin/amadeos-panel`, which `amadeos-session` starts. Another panel package provides `amadeos-panel` the
 same way; the window manager treats any `_NET_WM_WINDOW_TYPE_DOCK` window as the panel. The panel talks
 to the window manager only through X11: the EWMH properties on the root window, the `_AMADEOS_THEME`
 atom and the `_AMADEOS_LAUNCH` message (busy cursor while a program starts).

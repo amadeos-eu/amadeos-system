@@ -1,5 +1,5 @@
 #!/bin/sh
-# amade-session: startx without the display manager starts the desktop too.
+# amadeos-session: startx without the display manager starts the desktop too.
 set -e
 
 if [ "$1" = "configure" ]; then

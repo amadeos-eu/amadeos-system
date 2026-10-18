@@ -6,9 +6,9 @@ import org.datazuul.amadeos.dm.session.SessionWorker;
 import org.datazuul.amadeos.dm.ui.AmadeLoginGreeter;
 
 /**
- * Entry point of the amade-dm jar: {@code amade-dm [display]} runs the display manager (what
- * {@code /usr/bin/amadeos-dm} starts), {@code amade-dm session-worker <display>} the root worker the
- * display manager starts for PAM and the session, {@code amade-dm greeter} the login greeter alone, for
+ * Entry point of the amadeos-dm jar: {@code amadeos-dm [display]} runs the display manager (what
+ * {@code /usr/bin/amadeos-dm} starts), {@code amadeos-dm session-worker <display>} the root worker the
+ * display manager starts for PAM and the session, {@code amadeos-dm greeter} the login greeter alone, for
  * a look at it on the current desktop.
  */
 public final class DmLauncher {

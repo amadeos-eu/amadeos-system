@@ -1,5 +1,5 @@
 // The window manager: a floating, reparenting X11 window manager with Motif/CDE frames, four workspaces
-// and the root menu. `amade-wm [display]`.
+// and the root menu. `amadeos-wm [display]`.
 application {
     mainClass = 'org.datazuul.amadeos.wm.AmadeWindowManagerMain'
 }
@@ -9,11 +9,11 @@ debian = [
     javaOptions: '--enable-native-access=ALL-UNNAMED',
     // xsetroot and xprop are what the session script and the root menu call around the window manager.
     depends    : ['x11-xserver-utils', 'x11-utils'],
-    conflicts  : ['amade-desktop'],
-    replaces   : ['amade-desktop'],
+    conflicts  : ['amade-desktop', 'amade-wm'],
+    replaces   : ['amade-desktop', 'amade-wm'],
     summary    : 'Window manager of amadeOS',
     description: '''A reparenting X11 window manager in the style of CDE: Motif frames, interactive
 move and resize, minimize to desktop icons, four virtual workspaces, a root
 menu and the EWMH/ICCCM hints that panels and toolkits rely on. Part of the
-amadeOS desktop; amade-session starts it with the front panel.'''
+amadeOS desktop; amadeos-session starts it with the front panel.'''
 ]

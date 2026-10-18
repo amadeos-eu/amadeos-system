@@ -6,8 +6,8 @@ import org.datazuul.amadeos.lock.ScreenLock;
 import org.datazuul.amadeos.screen.ScreenSaverDaemon;
 
 /**
- * Entry point of the amade-session jar: {@code amade-session lock} is the screen lock (started by
- * {@code /usr/bin/amadeos-lock}), {@code amade-session screen} the screen saver and idle lock (started
+ * Entry point of the amadeos-session jar: {@code amadeos-session lock} is the screen lock (started by
+ * {@code /usr/bin/amadeos-lock}), {@code amadeos-session screen} the screen saver and idle lock (started
  * by {@code /etc/amadeos/autostart.d/50-amadeos-screen}). The session itself is the script
  * {@code /usr/bin/amadeos-session}.
  */
@@ -22,7 +22,7 @@ public final class SessionLauncher {
             case "lock" -> ScreenLock.main(rest);
             case "screen" -> ScreenSaverDaemon.main(rest);
             default -> {
-                System.err.println("Usage: amade-session <lock|screen>");
+                System.err.println("Usage: amadeos-session <lock|screen>");
                 System.exit(2);
             }
         }

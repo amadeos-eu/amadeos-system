@@ -6,6 +6,9 @@ debian = [
     section    : 'utils',
     // The live image installs CUPS too; the package works with any CUPS server it can reach.
     recommends : ['cups', 'cups-client', 'cups-filters'],
+    // Renamed from amade-print when the system packages became amadeos-*.
+    conflicts  : ['amade-print'],
+    replaces   : ['amade-print'],
     summary    : 'Printer and print job manager for amadeOS',
     description: '''Shows the CUPS printers with their state and the print jobs of each printer.
 Cancels, holds and releases jobs, pauses and resumes printers, prints a test

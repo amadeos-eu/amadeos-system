@@ -24,9 +24,9 @@ done
 echo "[run-xephyr] Building the window manager, panel and session jars..."
 (cd .. && ./gradlew :wm:jar :panel-cde:jar :session:jar)
 
-WM_JAR="$(ls "$ROOT_DIR"/build/libs/amade-wm-*.jar 2>/dev/null | head -n 1)"
-PANEL_JAR="$(ls "$ROOT_DIR"/../panel-cde/build/libs/amade-panel-cde-*.jar 2>/dev/null | head -n 1)"
-SESSION_JAR="$(ls "$ROOT_DIR"/../session/build/libs/amade-session-*.jar 2>/dev/null | head -n 1)"
+WM_JAR="$(ls "$ROOT_DIR"/build/libs/amadeos-wm-*.jar 2>/dev/null | head -n 1)"
+PANEL_JAR="$(ls "$ROOT_DIR"/../panel-cde/build/libs/amadeos-panel-cde-*.jar 2>/dev/null | head -n 1)"
+SESSION_JAR="$(ls "$ROOT_DIR"/../session/build/libs/amadeos-session-*.jar 2>/dev/null | head -n 1)"
 for jar in "$WM_JAR" "$PANEL_JAR" "$SESSION_JAR"; do
     if [ ! -f "$jar" ]; then
         echo "[run-xephyr] Error: jar not found: $jar" >&2

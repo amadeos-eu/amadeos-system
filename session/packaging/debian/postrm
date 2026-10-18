@@ -1,5 +1,5 @@
 #!/bin/sh
-# amade-session: the configuration directory goes with the purge, if nothing else left files in it.
+# amadeos-session: the configuration directory goes with the purge, if nothing else left files in it.
 set -e
 
 if [ "$1" = "purge" ]; then
