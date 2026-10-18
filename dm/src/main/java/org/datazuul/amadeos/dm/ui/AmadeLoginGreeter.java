@@ -40,6 +40,7 @@ import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import org.datazuul.amadeos.commons.i18n.Language;
 import org.datazuul.amadeos.commons.theme.DesktopTheme;
+import org.datazuul.amadeos.dm.session.LastUser;
 import org.datazuul.amadeos.dm.session.SystemTimeZone;
 import org.datazuul.amadeos.dm.session.UserAccount;
 import org.datazuul.amadeos.base.theme.ThemeManager;
@@ -140,7 +141,9 @@ public final class AmadeLoginGreeter extends JFrame {
         rootPanel.add(bottomBar, BorderLayout.SOUTH);
 
         // Populate fields and set default focus
-        this.userField = new JTextField("amadeos", 16);
+        // The user who logged in last, else the first regular user (the live user, or the one the installer
+        // created); the greeter runs as root, so the state file under /var/lib is readable.
+        this.userField = new JTextField(LastUser.SYSTEM.propose(), 16);
         this.passField = new JPasswordField(16);
         this.sessionCombo = new JComboBox<>(new String[]{"amadeOS CDE Desktop", "Failsafe Terminal"});
         this.languageCombo = new JComboBox<>(Language.values());

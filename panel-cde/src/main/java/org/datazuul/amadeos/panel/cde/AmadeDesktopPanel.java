@@ -15,8 +15,10 @@ import java.awt.RenderingHints;
 import java.awt.Toolkit;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.awt.event.KeyEvent;
@@ -274,18 +276,22 @@ public final class AmadeDesktopPanel extends JFrame {
         rightSlots.add(printerDrawer.component());
 
         // Slot 9: Tools (with drawer ▲): desktop settings, application catalog, terminals and diagnostics,
-        // like CDE's Tools subpanel
+        // like CDE's Tools subpanel; then the other installed Settings and System applications (the
+        // installer of the live image, for example), except those the fixed entries already start.
+        List<DrawerTool> toolsTools = new ArrayList<>(List.of(
+                new DrawerTool("Style Manager", "style", e -> launchProcess("amade-style")),
+                new DrawerTool("Application Manager", "app-manager", e -> showApplicationManagerDialog(this)),
+                new DrawerTool("Terminal (xterm)", "terminal", e -> launchProcess("xterm")),
+                new DrawerTool("Root Console (sudo)", "terminal", e -> launchProcess("xterm", "-title", "Root Shell", "-e", "sudo", "sh")),
+                new DrawerTool("Session Diagnostics & Logs", "diagnostics", e -> launchProcess("amade-logviewer")),
+                new DrawerTool("Hardware & System Info", "diagnostics", e -> launchProcess("amade-sysinfo"))
+        ));
+        toolsTools.addAll(xdgTools(List.of(XdgCategory.SETTINGS, XdgCategory.MONITOR),
+                Set.of("amade-style", "amade-logviewer", "amade-sysinfo", "xterm")));
         DrawerDockWidget toolsDrawer = new DrawerDockWidget(
                 "tools", "Tools", "app-manager",
                 e -> showApplicationManagerDialog(this),
-                List.of(
-                        new DrawerTool("Style Manager", "style", e -> launchProcess("amade-style")),
-                        new DrawerTool("Application Manager", "app-manager", e -> showApplicationManagerDialog(this)),
-                        new DrawerTool("Terminal (xterm)", "terminal", e -> launchProcess("xterm")),
-                        new DrawerTool("Root Console (sudo)", "terminal", e -> launchProcess("xterm", "-title", "Root Shell", "-e", "sudo", "sh")),
-                        new DrawerTool("Session Diagnostics & Logs", "diagnostics", e -> launchProcess("amade-logviewer")),
-                        new DrawerTool("Hardware & System Info", "diagnostics", e -> launchProcess("amade-sysinfo"))
-                ),
+                toolsTools,
                 true
         );
         widgets.add(toolsDrawer);
@@ -504,17 +510,47 @@ public final class AmadeDesktopPanel extends JFrame {
             if (except != null && app.matchesCategory(except)) {
                 continue;
             }
-            tools.add(new DrawerTool(app.name(), app.icon(), e -> {
-                try {
-                    app.launch();
-                    launched();
-                } catch (Exception ex) {
-                    LOGGER.warning("Failed to launch XDG app " + app.name() + ": " + ex.getMessage());
-                    JOptionPane.showMessageDialog(this, "Failed to launch " + app.name() + ": " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-                }
-            }));
+            tools.add(xdgTool(app));
         }
         return tools;
+    }
+
+    /**
+     * The installed applications of the categories, each once, without those whose program (the first
+     * word of Exec, without its directory) is one of {@code programs}: the drawer has fixed entries for them.
+     */
+    private List<DrawerTool> xdgTools(List<XdgCategory> categories, Set<String> programs) {
+        List<DrawerTool> tools = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        for (XdgCategory category : categories) {
+            for (XdgDesktopEntry app : XdgApplicationManager.getInstance().getApplicationsByCategory(category)) {
+                if (programs.contains(programOf(app)) || !seen.add(app.id())) {
+                    continue;
+                }
+                tools.add(xdgTool(app));
+            }
+        }
+        return tools;
+    }
+
+    /** The program of a desktop entry: {@code /usr/bin/amade-sysinfo %F} gives {@code amade-sysinfo}. */
+    static String programOf(XdgDesktopEntry app) {
+        String exec = app.exec() == null ? "" : app.exec().strip();
+        String first = exec.isEmpty() ? "" : exec.split("\\s+", 2)[0];
+        int slash = first.lastIndexOf('/');
+        return slash >= 0 ? first.substring(slash + 1) : first;
+    }
+
+    private DrawerTool xdgTool(XdgDesktopEntry app) {
+        return new DrawerTool(app.name(), app.icon(), e -> {
+            try {
+                app.launch();
+                launched();
+            } catch (Exception ex) {
+                LOGGER.warning("Failed to launch XDG app " + app.name() + ": " + ex.getMessage());
+                JOptionPane.showMessageDialog(this, "Failed to launch " + app.name() + ": " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
     }
 
     private void openInFileManager(String folder) {
