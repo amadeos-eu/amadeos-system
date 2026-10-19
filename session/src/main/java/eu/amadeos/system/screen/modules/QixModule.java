@@ -4,8 +4,6 @@ import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.Random;
 
 /**
@@ -19,7 +17,12 @@ final class QixModule implements SaverModule {
     private final double[] y = new double[2];
     private final double[] dx = new double[2];
     private final double[] dy = new double[2];
-    private final Deque<double[]> trail = new ArrayDeque<>();
+    /** The last lines, newest at {@code head}: x0, y0, x1, y1, hue each; reused, not made new in every step. */
+    private final double[][] trail = new double[TRAIL][5];
+    private int head;
+    private int length;
+    private BasicStroke stroke;
+    private float strokeWidth = -1;
     private int width = 1;
     private int height = 1;
     private float hue;
@@ -46,7 +49,7 @@ final class QixModule implements SaverModule {
             dy[i] = (random.nextBoolean() ? 1 : -1) * speed * (0.6 + random.nextDouble());
         }
         hue = random.nextFloat();
-        trail.clear();
+        length = 0;
     }
 
     @Override
@@ -64,8 +67,14 @@ final class QixModule implements SaverModule {
             }
         }
         hue = (hue + 0.002f) % 1f;
-        trail.addFirst(new double[]{x[0], y[0], x[1], y[1], hue});
-        while (trail.size() > TRAIL) trail.removeLast();
+        head = (head + 1) % TRAIL;
+        double[] line = trail[head];
+        line[0] = x[0];
+        line[1] = y[0];
+        line[2] = x[1];
+        line[3] = y[1];
+        line[4] = hue;
+        length = Math.min(TRAIL, length + 1);
     }
 
     @Override
@@ -73,13 +82,17 @@ final class QixModule implements SaverModule {
         g.setColor(Color.BLACK);
         g.fillRect(0, 0, w, h);
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g.setStroke(new BasicStroke(Math.max(1f, Math.min(w, h) / 400f)));
-        int i = 0;
-        for (double[] line : trail) {
+        float width = Math.max(1f, Math.min(w, h) / 400f);
+        if (width != strokeWidth) {
+            stroke = new BasicStroke(width);
+            strokeWidth = width;
+        }
+        g.setStroke(stroke);
+        for (int i = 0; i < length; i++) {
+            double[] line = trail[(head - i + TRAIL) % TRAIL];
             float brightness = 1f - (float) i / TRAIL;
             g.setColor(Color.getHSBColor((float) line[4], 0.8f, brightness));
             g.drawLine((int) line[0], (int) line[1], (int) line[2], (int) line[3]);
-            i++;
         }
     }
 }

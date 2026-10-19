@@ -22,12 +22,17 @@ final class LogoModule implements SaverModule {
     private static final Color FACE = new Color(0xC8BEB4);
     private static final Color HIGHLIGHT = new Color(0xF0ECE8);
     private static final Color SHADOW = new Color(0x6E6660);
+    private static final Color CLOCK = new Color(0xBF, 0xB6, 0xAF);
 
     private double x;
     private double y;
     private double dx;
     private double dy;
     private float hue;
+    // The fonts depend only on the height; made again when it changes, not in every frame.
+    private int fontHeight = -1;
+    private Font title;
+    private Font clock;
 
     @Override
     public String id() {
@@ -61,8 +66,11 @@ final class LogoModule implements SaverModule {
         g.setColor(Color.BLACK);
         g.fillRect(0, 0, w, h);
         g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-        Font title = new Font(Font.SANS_SERIF, Font.BOLD, Math.max(10, h / 9));
-        Font clock = title.deriveFont(Font.PLAIN, Math.max(8f, h / 22f));
+        if (h != fontHeight) {
+            title = new Font(Font.SANS_SERIF, Font.BOLD, Math.max(10, h / 9));
+            clock = title.deriveFont(Font.PLAIN, Math.max(8f, h / 22f));
+            fontHeight = h;
+        }
         FontMetrics tm = g.getFontMetrics(title);
         FontMetrics cm = g.getFontMetrics(clock);
         String name = "amadeOS";
@@ -90,7 +98,7 @@ final class LogoModule implements SaverModule {
         g.setColor(Color.getHSBColor(hue, 0.35f, 0.9f));
         g.drawString(name, logoX + emblemW + emblemGap, baseline);
         g.setFont(clock);
-        g.setColor(new Color(0xBF, 0xB6, 0xAF));
+        g.setColor(CLOCK);
         g.drawString(time, (int) x + (blockW - cm.stringWidth(time)) / 2, (int) y + tm.getHeight() + cm.getAscent());
     }
 
