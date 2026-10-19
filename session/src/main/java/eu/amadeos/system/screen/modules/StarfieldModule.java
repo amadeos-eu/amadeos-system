@@ -7,6 +7,12 @@ import java.util.Random;
 /** Flying through a field of stars. */
 final class StarfieldModule implements SaverModule {
     private static final int STARS = 400;
+    /** Every grey a star can have, made once instead of in every frame. */
+    private static final Color[] GREYS = new Color[256];
+
+    static {
+        for (int i = 0; i < GREYS.length; i++) GREYS[i] = new Color(i, i, i);
+    }
 
     private final double[] sx = new double[STARS];
     private final double[] sy = new double[STARS];
@@ -44,6 +50,11 @@ final class StarfieldModule implements SaverModule {
     }
 
     @Override
+    public boolean halfSize() {
+        return true;
+    }
+
+    @Override
     public void paint(Graphics2D g, int w, int h) {
         g.setColor(Color.BLACK);
         g.fillRect(0, 0, w, h);
@@ -55,7 +66,7 @@ final class StarfieldModule implements SaverModule {
             int y = (int) (cy + sy[i] / sz[i] * spread * 0.5);
             if (x < 0 || y < 0 || x >= w || y >= h) continue;
             int brightness = (int) Math.min(255, 60 + (1 - sz[i]) * 220);
-            g.setColor(new Color(brightness, brightness, brightness));
+            g.setColor(GREYS[brightness]);
             int size = sz[i] < 0.3 ? 2 : 1;
             g.fillRect(x, y, size, size);
         }

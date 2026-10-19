@@ -22,4 +22,12 @@ public interface SaverModule {
 
     /** Paints the whole frame; the background is not cleared by the caller. */
     void paint(Graphics2D g, int width, int height);
+
+    /**
+     * Whether the module may be drawn at half the size and scaled up on very large screens. Fine for
+     * points and thin lines in motion, not for text or fine detail.
+     */
+    default boolean halfSize() {
+        return false;
+    }
 }

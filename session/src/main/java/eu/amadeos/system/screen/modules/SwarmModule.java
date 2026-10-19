@@ -10,6 +10,7 @@ import java.util.Random;
  */
 final class SwarmModule implements SaverModule {
     private static final int BEES = 80;
+    private static final Color BEE = new Color(0xF2, 0xC2, 0x3A);
 
     private final double[] bx = new double[BEES];
     private final double[] by = new double[BEES];
@@ -83,11 +84,16 @@ final class SwarmModule implements SaverModule {
     }
 
     @Override
+    public boolean halfSize() {
+        return true;
+    }
+
+    @Override
     public void paint(Graphics2D g, int w, int h) {
         g.setColor(Color.BLACK);
         g.fillRect(0, 0, w, h);
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g.setColor(new Color(0xF2, 0xC2, 0x3A));
+        g.setColor(BEE);
         for (int i = 0; i < BEES; i++) {
             g.drawLine((int) px[i], (int) py[i], (int) bx[i], (int) by[i]);
         }
