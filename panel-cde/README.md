@@ -1,7 +1,7 @@
 # amadeos-panel-cde
 
 The CDE Front Panel of amadeOS: a dock with clock, calendar, workspace switcher, lock and language
-buttons, the network cell and drawers that list the installed applications from their `.desktop` files.
+buttons, the network and updates cells and drawers that list the installed applications from their `.desktop` files.
 The Tools drawer holds the terminals, the Style Manager, help and the log viewer. Programs started from
 the panel log to `~/.cache/amadeos/logs/<program>.log`.
 
@@ -15,6 +15,15 @@ The package provides `amadeos-panel` and registers `/usr/bin/amadeos-panel-cde` 
 same way; the window manager treats any `_NET_WM_WINDOW_TYPE_DOCK` window as the panel. The panel talks
 to the window manager only through X11: the EWMH properties on the root window, the `_AMADEOS_THEME`
 atom and the `_AMADEOS_LAUNCH` message (busy cursor while a program starts).
+
+The status slot on the right holds up to four cells. The network cell is always there. The updates cell
+appears only while software updates wait: an arrow into a tray with their number, on red when security
+updates are among them; the tooltip says "12 updates, 3 security". Its menu lists the first updates
+(security first) and offers *Install all updates*, *Install security updates only* and *Check now*;
+*Show updates…* and *Settings…* appear once `amadeos-package-updates` (ROADMAP M15 step 3) is installed.
+The cell reads the pending updates through `PackageService` (module `packages`) every 30 minutes and when
+`/var/lib/dpkg/status` or `/var/lib/apt/lists` change, so it needs no privileges and causes no downloads;
+installing and *Check now* go through `pkexec /usr/libexec/amadeos-packages` (package `amadeos-packages`).
 
 Language: English, Deutsch, Français, Español, Italiano, chosen in the greeter or with the panel's
 language button; both write `~/.config/amadeos/locale.conf`. The texts are in
