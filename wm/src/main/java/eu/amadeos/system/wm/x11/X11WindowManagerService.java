@@ -1045,23 +1045,12 @@ public final class X11WindowManagerService implements AutoCloseable {
         return false;
     }
 
+    /**
+     * The window's title: _NET_WM_NAME (UTF-8) first, as EWMH asks, then the legacy WM_NAME. Java and every
+     * toolkit set both; WM_NAME holds non-Latin-1 titles as COMPOUND_TEXT, which read as bytes turned an
+     * em dash or an umlaut into replacement characters in the title bar.
+     */
     public String fetchWindowTitle(long win) {
-        PointerByReference nameRet = new PointerByReference();
-        if (x11.XFetchName(display, new NativeLong(win), nameRet) != 0) {
-            Pointer ptr = nameRet.getValue();
-            if (ptr != null) {
-                try {
-                    String title = ptr.getString(0);
-                    if (title != null && !title.isBlank()) {
-                        return title;
-                    }
-                } finally {
-                    x11.XFree(ptr);
-                }
-            }
-        }
-
-        // Also check _NET_WM_NAME (UTF-8)
         if (netWmName != null && utf8String != null) {
             PointerByReference actualTypeRet = new PointerByReference();
             IntByReference actualFormatRet = new IntByReference();
@@ -1078,7 +1067,23 @@ public final class X11WindowManagerService implements AutoCloseable {
             if (status == 0 && propRet.getValue() != null && nitemsRet.getValue() != null && nitemsRet.getValue().longValue() > 0) {
                 Pointer ptr = propRet.getValue();
                 try {
-                    String title = ptr.getString(0);
+                    String title = ptr.getString(0, "UTF-8");
+                    if (title != null && !title.isBlank()) {
+                        return title;
+                    }
+                } finally {
+                    x11.XFree(ptr);
+                }
+            }
+        }
+
+        PointerByReference nameRet = new PointerByReference();
+        if (x11.XFetchName(display, new NativeLong(win), nameRet) != 0) {
+            Pointer ptr = nameRet.getValue();
+            if (ptr != null) {
+                try {
+                    // WM_NAME as STRING is Latin-1 (ICCCM).
+                    String title = ptr.getString(0, "ISO-8859-1");
                     if (title != null && !title.isBlank()) {
                         return title;
                     }
