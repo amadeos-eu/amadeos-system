@@ -173,10 +173,19 @@ class MainWindowTest {
         assertEquals("Create images and edit photographs",
                 onEdt(() -> window.catalogTab(Category.APPLICATION).model().getValueAt(1, CatalogTableModel.SUMMARY)));
 
+        // Groups: gimp from its AppStream categories, abiword from its section.
+        assertEquals(List.of(new CatalogTab.GroupRow(null, 2), new CatalogTab.GroupRow(Group.GRAPHICS, 1),
+                new CatalogTab.GroupRow(Group.OTHER, 1)), onEdt(() -> window.catalogTab(Category.APPLICATION).groupRows()));
+        SwingUtilities.invokeAndWait(() -> window.catalogTab(Category.APPLICATION).selectGroup(Group.GRAPHICS));
+        assertEquals(1, onEdt(() -> window.catalogTab(Category.APPLICATION).model().getRowCount()));
+        SwingUtilities.invokeAndWait(() -> window.catalogTab(Category.APPLICATION).selectGroup(null));
+
         SwingUtilities.invokeAndWait(() -> window.searchField().setText("manipulation"));
         await(() -> onEdt(window::tabTitles).contains("Applications (1)"));
         assertEquals("GNU Image Manipulation Program",
                 onEdt(() -> window.catalogTab(Category.APPLICATION).details().titleText()));
+        assertEquals(List.of(new CatalogTab.GroupRow(null, 1), new CatalogTab.GroupRow(Group.GRAPHICS, 1)),
+                onEdt(() -> window.catalogTab(Category.APPLICATION).groupRows()));
     }
 
     @Test

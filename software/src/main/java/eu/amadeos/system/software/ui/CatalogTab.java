@@ -7,8 +7,11 @@ import eu.amadeos.system.packages.PackageInfo;
 import eu.amadeos.system.software.appstream.AppData;
 
 import javax.swing.BorderFactory;
+import javax.swing.DefaultListCellRenderer;
+import javax.swing.DefaultListModel;
 import javax.swing.Icon;
 import javax.swing.ImageIcon;
+import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
@@ -17,6 +20,7 @@ import javax.swing.ListSelectionModel;
 import javax.swing.table.DefaultTableCellRenderer;
 import java.awt.BorderLayout;
 import java.awt.Component;
+import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Image;
 import java.awt.image.BufferedImage;
@@ -43,7 +47,16 @@ final class CatalogTab extends JPanel {
     private final JTable table;
     private final CatalogDetails details;
     private final Map<Path, Icon> icons = new HashMap<>();
+    private final Messages msg;
+    /** The groups on the left of the Applications tab; null in the other tabs. */
+    private final JList<GroupRow> groupList;
+    private final DefaultListModel<GroupRow> groupRows = new DefaultListModel<>();
+    private boolean updatingGroups;
     private boolean withIcons;
+
+    /** A line of the group list: a group (null for all) and how many items the search leaves in it. */
+    record GroupRow(Group group, int count) {
+    }
 
     /**
      * @param chosen called with the package whose description to load (on the event dispatch thread)
@@ -52,6 +65,7 @@ final class CatalogTab extends JPanel {
                Consumer<CatalogEntry> chosen, Consumer<CatalogEntry> install, Consumer<CatalogEntry> remove,
                Consumer<CatalogEntry> update) {
         super(new BorderLayout());
+        this.msg = msg;
         this.category = category;
         this.model = new CatalogTableModel(msg);
         this.table = new JTable(model);
@@ -78,8 +92,76 @@ final class CatalogTab extends JPanel {
 
         JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, new JScrollPane(table), details);
         split.setResizeWeight(0.55);
-        split.setDividerLocation(560);
+        split.setDividerLocation(category == Category.APPLICATION ? 470 : 560);
+        if (category == Category.APPLICATION) {
+            groupList = new JList<>(groupRows);
+            groupList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+            groupList.setCellRenderer(new DefaultListCellRenderer() {
+                @Override
+                public Component getListCellRendererComponent(JList<?> list, Object value, int index,
+                                                              boolean selected, boolean focus) {
+                    super.getListCellRendererComponent(list, value, index, selected, focus);
+                    GroupRow row = (GroupRow) value;
+                    setText(msg.format("group.count", msg.get(row.group() == null ? "group.all" : row.group().key),
+                            row.count()));
+                    setBorder(BorderFactory.createEmptyBorder(3, 6, 3, 6));
+                    return this;
+                }
+            });
+            groupList.addListSelectionListener(e -> {
+                if (e.getValueIsAdjusting() || updatingGroups) return;
+                GroupRow row = groupList.getSelectedValue();
+                Group group = row == null ? null : row.group();
+                if (group != model.group()) {
+                    String name = selected().map(Item::name).orElse(null);
+                    model.setGroup(group);
+                    reselect(name);
+                }
+            });
+            JScrollPane groupScroll = new JScrollPane(groupList);
+            groupScroll.setPreferredSize(new Dimension(170, 100));
+            JPanel left = new JPanel(new BorderLayout());
+            left.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 8));
+            left.add(groupScroll, BorderLayout.CENTER);
+            add(left, BorderLayout.WEST);
+        } else {
+            groupList = null;
+        }
         add(split, BorderLayout.CENTER);
+    }
+
+    /** The groups with their counts for the current search; the chosen group stays chosen. */
+    private void updateGroups() {
+        if (groupList == null) return;
+        updatingGroups = true;
+        try {
+            Map<Group, Integer> counts = model.counts();
+            groupRows.clear();
+            groupRows.addElement(new GroupRow(null, model.matching()));
+            for (Group group : Group.values()) {
+                int count = counts.getOrDefault(group, 0);
+                if (count > 0 || group == model.group()) groupRows.addElement(new GroupRow(group, count));
+            }
+            for (int i = 0; i < groupRows.size(); i++) {
+                if (groupRows.get(i).group() == model.group()) groupList.setSelectedIndex(i);
+            }
+        } finally {
+            updatingGroups = false;
+        }
+    }
+
+    /** Shows only one group (null for all). */
+    void selectGroup(Group group) {
+        String name = selected().map(Item::name).orElse(null);
+        model.setGroup(group);
+        updateGroups();
+        reselect(name);
+    }
+
+    List<GroupRow> groupRows() {
+        List<GroupRow> rows = new java.util.ArrayList<>();
+        for (int i = 0; i < groupRows.size(); i++) rows.add(groupRows.get(i));
+        return rows;
     }
 
     Category category() {
@@ -92,12 +174,14 @@ final class CatalogTab extends JPanel {
         withIcons = items.stream().anyMatch(i -> i.app().flatMap(AppData::icon).isPresent());
         table.setRowHeight(withIcons ? ICON_SIZE + 6 : Math.max(new JTable().getRowHeight(), 20));
         model.setItems(items);
+        updateGroups();
         reselect(name);
     }
 
     void setFilter(CatalogFilter filter) {
         String name = selected().map(Item::name).orElse(null);
         model.setFilter(filter);
+        updateGroups();
         reselect(name);
     }
 
@@ -136,9 +220,9 @@ final class CatalogTab extends JPanel {
         details.setBusy(busy);
     }
 
-    /** The packages the filter shows. */
+    /** The packages the search lets through, in all groups. */
     int shown() {
-        return model.getRowCount();
+        return model.matching();
     }
 
     CatalogTableModel model() {
