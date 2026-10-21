@@ -60,6 +60,24 @@ public final class Apt {
         return List.of("dpkg-query", "-W", "-f=" + INSTALLED_FORMAT);
     }
 
+    /** The setting that makes Debian's apt-daily-upgrade timer run unattended-upgrades. */
+    public static List<String> unattendedUpgrade() {
+        return List.of("apt-config", "shell", "VALUE", "APT::Periodic::Unattended-Upgrade");
+    }
+
+    /**
+     * {@code apt-config shell} output ({@code VALUE='1'}) as on or off. The value is a number of days or
+     * "always"; empty and 0 mean off.
+     */
+    public static boolean parseUnattendedUpgrade(String output) {
+        for (String line : output.lines().toList()) {
+            if (!line.startsWith("VALUE=")) continue;
+            String value = line.substring("VALUE=".length()).replace("'", "").strip();
+            return !value.isEmpty() && !value.equals("0");
+        }
+        return false;
+    }
+
     public static List<String> automatic() {
         return List.of("apt-mark", "showauto");
     }

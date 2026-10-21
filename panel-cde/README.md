@@ -20,7 +20,8 @@ The status slot on the right holds up to four cells. The network cell is always 
 appears only while software updates wait: an arrow into a tray with their number, on red when security
 updates are among them; the tooltip says "12 updates, 3 security". Its menu lists the first updates
 (security first) and offers *Install all updates*, *Install security updates only* and *Check now*;
-*Show updates…* and *Settings…* appear once `amadeos-package-updates` (ROADMAP M15 step 3) is installed.
+*Show updates…* and *Settings…* open the Software program (`amadeos-software --updates` / `--settings`) and
+appear once it is installed.
 The cell reads the pending updates through `PackageService` (module `packages`) every 30 minutes and when
 `/var/lib/dpkg/status` or `/var/lib/apt/lists` change, so it needs no privileges and causes no downloads;
 installing and *Check now* go through `pkexec /usr/libexec/amadeos-packages` (package `amadeos-packages`).

@@ -203,6 +203,21 @@ class UpdatesCellTest {
         }
 
         @Override
+        public Optional<java.time.Instant> lastRefresh() {
+            return Optional.empty();
+        }
+
+        @Override
+        public boolean automaticSecurityUpdates() {
+            return false;
+        }
+
+        @Override
+        public Result setAutomaticSecurityUpdates(boolean on, ProgressListener listener) {
+            return result;
+        }
+
+        @Override
         public Result refresh(ProgressListener listener) {
             calls.add("refresh");
             return result;
