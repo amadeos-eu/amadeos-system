@@ -1,0 +1,180 @@
+#!/bin/bash
+# amadeos-packages: the one place where amadeOS changes installed software. The desktop (front panel
+# update cell, update window, app store) runs it through pkexec; root runs this script and apt, no Java.
+#
+#   refresh                          apt-get update (polkit: no password for the active local user)
+#   upgrade [--security-only] [PKG…] all upgrades, only those from a security archive, or the given packages
+#   install PKG…                     install packages (marked as installed by the user)
+#   remove PKG…                      remove packages (configuration files stay, nothing is autoremoved)
+#   check                            list the pending upgrades; read-only, needs no root
+#
+# Output for the caller: apt's progress (APT::Status-Fd: "dlstatus:…", "pmstatus:…", "pmerror:…") and the
+# script's own "@@" lines on standard output; apt's and dpkg's messages on standard error, which is also
+# appended to $LOG_FILE. "@@reboot-required" when an upgrade asks for a restart, "@@done" at the end,
+# "@@error ID MESSAGE" when something failed (ID: usage, root, locked, apt).
+#
+# The dpkg lock keeps it from colliding with unattended-upgrades or a second instance: a busy lock ends
+# the run at once with "@@error locked" instead of waiting.
+#
+# Exit codes: 0 done, 1 wrong usage, 2 apt failed, 3 another package operation holds the lock.
+set -euo pipefail
+
+VERSION="0.1.0"
+# For tests only: a fake apt-get and log. pkexec gives the script a clean environment, so these cannot be
+# set from a desktop session.
+APT_GET="${AMADEOS_PACKAGES_APT_GET:-/usr/bin/apt-get}"
+LOG_FILE="${AMADEOS_PACKAGES_LOG:-/var/log/amadeos-packages.log}"
+REBOOT_REQUIRED="${AMADEOS_PACKAGES_REBOOT_FILE:-/run/reboot-required}"
+
+export LC_ALL=C.UTF-8
+export DEBIAN_FRONTEND=noninteractive
+export APT_LISTCHANGES_FRONTEND=none
+
+usage() {
+    cat <<EOF
+Usage: amadeos-packages refresh
+       amadeos-packages upgrade [--security-only] [PACKAGE…]
+       amadeos-packages install PACKAGE…
+       amadeos-packages remove PACKAGE…
+       amadeos-packages check
+       amadeos-packages --version
+
+Installs, upgrades and removes software with apt for the amadeOS desktop. The desktop runs it through
+pkexec; from a terminal: pkexec /usr/libexec/amadeos-packages upgrade. Progress goes to standard output
+("@@" lines and apt's status lines), apt's messages to standard error and $LOG_FILE.
+EOF
+}
+
+fail() {
+    # fail ID EXIT MESSAGE
+    echo "@@error $1 $3"
+    exit "$2"
+}
+
+# Package names as Debian allows them, with an optional :architecture; nothing that apt could take as an
+# option or a file name.
+check_names() {
+    [ "$#" -gt 0 ] || fail usage 1 "no package given"
+    local name
+    for name in "$@"; do
+        [[ "$name" =~ ^[a-z0-9][a-z0-9+.-]+(:[a-z0-9-]+)?$ ]] || fail usage 1 "not a package name: $name"
+    done
+}
+
+require_root() {
+    if [ "$(id -u)" -ne 0 ] && [ -z "${AMADEOS_PACKAGES_APT_GET:-}" ]; then
+        fail root 1 "must run as root (pkexec /usr/libexec/amadeos-packages $COMMAND)"
+    fi
+}
+
+log() {
+    { printf '\n=== %s amadeos-packages %s\n' "$(date '+%F %T')" "$*"; } >>"$LOG_FILE" 2>/dev/null || true
+}
+
+# Runs apt-get with its progress on standard output and its messages on standard error and in the log.
+# A busy dpkg lock becomes "@@error locked"; any other failure "@@error apt".
+run_apt() {
+    local messages status
+    messages="$(mktemp)"
+    set +e
+    # Status lines to the caller's standard output (fd 4), apt's messages through tee to standard error.
+    { "$APT_GET" -o APT::Status-Fd=3 -o DPkg::Lock::Timeout=0 -o Dpkg::Use-Pty=0 \
+        -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold "$@" \
+        3>&4 2>&1 </dev/null | tee -a "$LOG_FILE" "$messages" >&2 2>/dev/null; } 4>&1
+    status=${PIPESTATUS[0]}
+    set -e
+    if [ "$status" -ne 0 ]; then
+        if grep -q -e "Could not get lock" -e "Unable to acquire the dpkg frontend lock" \
+                -e "Unable to lock directory" "$messages"; then
+            rm -f "$messages"
+            fail locked 3 "another package operation is running"
+        fi
+        local last
+        last="$(grep '^E: ' "$messages" | tail -n 1 | cut -c 4-)"
+        rm -f "$messages"
+        fail apt 2 "${last:-apt-get exited with $status}"
+    fi
+    rm -f "$messages"
+}
+
+# The packages apt-get -s would upgrade from an archive whose name ends in -security
+# (Debian-Security:13/stable-security, trixie-security).
+security_upgrades() {
+    "$APT_GET" -s -o Debug::NoLocking=1 --with-new-pkgs upgrade 2>/dev/null \
+        | awk '$1 == "Inst" && $3 ~ /^\[/ && match($0, /\(.*\)/) && substr($0, RSTART, RLENGTH) ~ /-security[ ,]/ { print $2 }'
+}
+
+finish() {
+    if [ -e "$REBOOT_REQUIRED" ]; then echo "@@reboot-required"; fi
+    echo "@@done"
+}
+
+COMMAND="${1:-}"
+[ "$#" -gt 0 ] && shift
+
+case "$COMMAND" in
+    refresh)
+        [ "$#" -eq 0 ] || fail usage 1 "refresh takes no arguments"
+        require_root
+        log refresh
+        run_apt update
+        finish
+        ;;
+    upgrade)
+        SECURITY_ONLY=0
+        if [ "${1:-}" = "--security-only" ]; then SECURITY_ONLY=1; shift; fi
+        [ "$#" -eq 0 ] || check_names "$@"
+        require_root
+        if [ "$SECURITY_ONLY" -eq 1 ]; then
+            mapfile -t PACKAGES < <(security_upgrades)
+            # Of the named packages, only those with a security upgrade.
+            if [ "$#" -gt 0 ]; then
+                mapfile -t PACKAGES < <(printf '%s\n' "${PACKAGES[@]}" | grep -Fx -f <(printf '%s\n' "$@") || true)
+            fi
+            if [ "${#PACKAGES[@]}" -eq 0 ]; then
+                echo "@@nothing"
+                finish
+                exit 0
+            fi
+            log upgrade --security-only "${PACKAGES[@]}"
+            run_apt -y install --only-upgrade "${PACKAGES[@]}"
+        elif [ "$#" -gt 0 ]; then
+            log upgrade "$@"
+            run_apt -y install --only-upgrade "$@"
+        else
+            log upgrade
+            # Upgrades that need new packages are done, upgrades that would remove one are held back.
+            run_apt -y --with-new-pkgs upgrade
+        fi
+        finish
+        ;;
+    install)
+        check_names "$@"
+        require_root
+        log install "$@"
+        run_apt -y install "$@"
+        finish
+        ;;
+    remove)
+        check_names "$@"
+        require_root
+        log remove "$@"
+        run_apt -y remove "$@"
+        finish
+        ;;
+    check)
+        [ "$#" -eq 0 ] || fail usage 1 "check takes no arguments"
+        "$APT_GET" -s -o Debug::NoLocking=1 --with-new-pkgs upgrade | grep '^Inst ' || true
+        echo "@@done"
+        ;;
+    --version)
+        echo "amadeos-packages $VERSION"
+        ;;
+    -h|--help)
+        usage
+        ;;
+    *)
+        usage >&2
+        fail usage 1 "unknown command: ${COMMAND:-none}"
+        ;;
+esac

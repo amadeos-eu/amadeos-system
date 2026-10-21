@@ -1,0 +1,53 @@
+Package: gimp
+Version: 3.0.4-3
+Installed-Size: 21456
+Maintainer: Debian GNOME Maintainers <pkg-gnome-maintainers@lists.alioth.debian.org>
+Architecture: amd64
+Depends: gimp-data (>= 3.0.4), gimp-data (<= 3.0.4-z), libgimp-3.0-0t64 (>= 3.0.4-3), libc6 (>= 2.38)
+Recommends: ghostscript
+Suggests: gimp-help-en | gimp-help, gimp-data-extras
+Description: GNU Image Manipulation Program
+Homepage: https://www.gimp.org/
+Description-md5: 4b24f1b7a8c6b1d77e3c4cd1d2a3a6a1
+Tag: implemented-in::c, interface::graphical, interface::x11, role::program,
+ scope::application, uitoolkit::gtk, use::editing, works-with::image,
+ works-with::image:raster
+Section: graphics
+Priority: optional
+Filename: pool/main/g/gimp/gimp_3.0.4-3_amd64.deb
+Size: 4912340
+SHA256: 0f4c3e2b0a7f2d9f6f86b2a0c3a6d0d5b8b7e2f5cfd7c7b3e6b1d4d0e9a8f7c6
+
+Package: ripgrep
+Version: 14.1.1-1+b4
+Installed-Size: 5203
+Maintainer: Debian Rust Maintainers <pkg-rust-maintainers@alioth-lists.debian.net>
+Architecture: amd64
+Depends: libc6 (>= 2.34), libgcc-s1 (>= 4.2), libpcre2-8-0 (>= 10.34)
+Description: Recursively searches directories for a regex pattern
+Homepage: https://github.com/BurntSushi/ripgrep
+Description-md5: 5e9f0b4ad8d3cd5f9a1a2f2c6c0c3a17
+Tag: interface::commandline, role::program, scope::utility
+Section: utils
+Priority: optional
+Filename: pool/main/r/rust-ripgrep/ripgrep_14.1.1-1+b4_amd64.deb
+Size: 1714096
+
+Package: libpcre2-8-0
+Version: 10.45-1
+Installed-Size: 692
+Architecture: amd64
+Multi-Arch: same
+Depends: libc6 (>= 2.34)
+Description: New Perl Compatible Regular Expression Library- 8 bit runtime files
+Section: libs
+Priority: optional
+Size: 293648
+
+Package: unrar
+Version: 1:7.1.8-1
+Installed-Size: 452
+Architecture: amd64
+Description: Unarchiver for .rar files (non-free version)
+Section: non-free/utils
+Size: 190044

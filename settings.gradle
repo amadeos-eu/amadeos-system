@@ -1,7 +1,8 @@
 rootProject.name = 'amadeos-system'
 
 // System components of amadeOS, one Debian package per module; base is the library the desktop
-// modules (wm, panel-cde, dm, session, style, logviewer) share.
+// modules (wm, panel-cde, dm, session, style, logviewer) share; packages is the apt library under the
+// package-management modules (ROADMAP M15).
 include 'base'
 include 'wm'
 include 'panel-cde'
@@ -11,6 +12,7 @@ include 'style'
 include 'logviewer'
 include 'print'
 include 'sysinfo'
+include 'packages'
 
 // Develop against a local amade-commons checkout next to this one; without it, the version from
 // JitPack given in build.gradle is used.

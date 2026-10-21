@@ -21,6 +21,7 @@ multi-project: one module and one Debian package per component. The standalone a
 | `logviewer` | `amadeos-logviewer` | Session Diagnostics & Logs: the session, window manager and application logs, the display manager's logs and the journal of this boot, one at a time with Follow; started from the panel's Tools drawer |
 | `print` | `amadeos-print` | Print manager: CUPS printers with their state, the jobs of each printer (cancel, hold, release), pause and resume printers, default printer, test page, CUPS administration for adding printers |
 | `sysinfo` | `amadeos-sysinfo` | System information: operating system, processor, memory, storage, graphics, network and battery on one page; copy or save as text |
+| `packages` | `amadeos-packages` (helper only; the library is in the packages that use it) | Package management for the update cell, the update window and the app store (ROADMAP M15): `PackageService` reads upgrades, installed and available packages and searches with apt as the user, and installs, upgrades and removes through the root helper `/usr/libexec/amadeos-packages` with progress. The only module that talks to apt |
 
 The desktop code came from the amadeos repository with its history (`git filter-repo`); that
 repository keeps the live image and its configuration. A module's `packaging/root` is a file system
@@ -66,6 +67,8 @@ file system; the files under `etc/` are conffiles):
 | `/etc/amadeos/autostart.d/` | `amadeos-session`, `amadeos-style` | Run at the start of every session: `10-amadeos-input` (input settings, from `amadeos-style`), `50-amadeos-screen` (screen saver). Users add their own in `~/.config/amadeos/autostart.d`. |
 | `/usr/bin/amadeos-lock`, `/etc/pam.d/amadeos-lock` | `amadeos-session` | The screen lock wrapper and the PAM service of the lock. |
 | `/usr/share/polkit-1/rules.d/50-amadeos-network.rules` | `amadeos-panel-cde` | Members of `netdev` manage NetworkManager connections without a password (network cell of the panel). |
+| `/usr/libexec/amadeos-packages` | `amadeos-packages` | The root helper of package management (`refresh`, `upgrade [--security-only] [PKG…]`, `install`, `remove`, `check`), a shell script run through `pkexec`. Progress on standard output (apt's `APT::Status-Fd` lines and `@@done`, `@@error ID MESSAGE`, `@@reboot-required`), apt's messages on standard error and in `/var/log/amadeos-packages.log`. A busy dpkg lock ends it at once with exit code 3. |
+| `/usr/share/polkit-1/actions/eu.amadeos.packages.policy`, `/usr/share/polkit-1/rules.d/50-amadeos-packages.rules` | `amadeos-packages` | Installing, upgrading and removing asks for the administrator's password (kept for a few minutes); refreshing the package lists does not. |
 | `x-session-manager`, `amadeos-panel` | `amadeos-session`, `amadeos-panel-cde` | Alternatives registered by the postinst scripts. |
 
 What belongs to the live image alone (the live user's password, `/etc/X11/Xwrapper.config`, live-config)
@@ -75,7 +78,7 @@ stays in the [amadeos](https://github.com/datazuul/amadeos) repository.
 
 ```sh
 ./gradlew build                 # all modules, with tests
-./gradlew deb                   # build/distributions/amade-<module>_<version>_all.deb per module
+./gradlew deb                   # build/distributions/amadeos-<module>_<version>_all.deb per module
 ./gradlew :print:installToAmadeOs   # one package into ../amadeos/config/packages.chroot/
 ./gradlew :sysinfo:run          # start a module from the build
 ./gradlew :panel-cde:run        # the front panel on your current desktop

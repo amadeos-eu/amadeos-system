@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<!-- amadeOS: the update cell, the update window and the app store run /usr/libexec/amadeos-packages
+     through pkexec. Installing, upgrading and removing needs the administrator's password, kept for a
+     few minutes so that several steps ask once; 50-amadeos-packages.rules lets the active local user
+     refresh the package lists without one. -->
+<policyconfig>
+  <vendor>amadeOS</vendor>
+  <vendor_url>https://github.com/datazuul/amadeos</vendor_url>
+  <action id="eu.amadeos.packages.manage">
+    <description>Install, update and remove software</description>
+    <description xml:lang="de">Software installieren, aktualisieren und entfernen</description>
+    <description xml:lang="fr">Installer, mettre à jour et supprimer des logiciels</description>
+    <description xml:lang="es">Instalar, actualizar y eliminar software</description>
+    <description xml:lang="it">Installare, aggiornare e rimuovere software</description>
+    <message>Authentication is required to change the installed software</message>
+    <message xml:lang="de">Zum Ändern der installierten Software ist eine Authentifizierung erforderlich</message>
+    <message xml:lang="fr">Une authentification est requise pour modifier les logiciels installés</message>
+    <message xml:lang="es">Se requiere autenticación para modificar el software instalado</message>
+    <message xml:lang="it">È richiesta l'autenticazione per modificare il software installato</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/amadeos-packages</annotate>
+  </action>
+</policyconfig>

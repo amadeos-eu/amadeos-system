@@ -2,10 +2,14 @@
 // the tasks `deb` (a Debian package) and `installToAmadeOs` (that package into
 // ../amadeos/config/packages.chroot). Each application module sets mainClass and the `debian` block in its
 // own build.gradle; `base` is the library the desktop modules share and has no package of its own.
+// `packages` is a library too (bundled into the modules that use it), but has a package: amadeos-packages
+// with the root helper and polkit action and no jar.
 
 // The modules of the desktop: they build on base, log through java.util.logging and talk to X11 through
 // JNA, so they run with native access enabled.
 def desktopModules = ['wm', 'panel-cde', 'dm', 'session', 'style', 'logviewer']
+// Libraries: no main class and no program of their own.
+def libraryModules = ['base', 'packages']
 
 subprojects {
     apply plugin: 'java'
@@ -42,12 +46,15 @@ subprojects {
 }
 
 // The application modules: a main class, a fat jar and a Debian package each.
-configure(subprojects.findAll { it.name != 'base' }) {
+configure(subprojects.findAll { !(it.name in libraryModules) }) {
     apply plugin: 'application'
 
-    ext.debian = [:]
     // The SLF4J binding of the module's jar; the desktop modules log through java.util.logging instead.
     ext.slf4jBinding = 'ch.qos.logback:logback-classic:1.5.18'
+}
+
+configure(subprojects.findAll { it.name != 'base' }) {
+    ext.debian = [:]
 }
 
 configure(subprojects.findAll { it.name in desktopModules }) {
@@ -76,12 +83,14 @@ configure(subprojects.findAll { it.name != 'base' }) {
 
     afterEvaluate {
         def packageName = "amadeos-${project.name}"
+        // A program brings its fat jar and launcher; a library's package (amadeos-packages) only its files.
+        def program = project.plugins.hasPlugin('application')
 
-        dependencies {
+        if (program) dependencies {
             runtimeOnly project.slf4jBinding
         }
 
-        jar {
+        if (program) jar {
             archiveBaseName = packageName
             manifest {
                 attributes(
@@ -103,7 +112,7 @@ configure(subprojects.findAll { it.name != 'base' }) {
         }
 
         tasks.register('deb') {
-            dependsOn jar
+            if (program) dependsOn jar
             description = "Builds a standard Debian (.deb) package for ${packageName}"
             group = 'distribution'
 
@@ -123,23 +132,26 @@ configure(subprojects.findAll { it.name != 'base' }) {
                 def docDir = new File(stagingDir, "usr/share/doc/${packageName}")
                 def debianDir = new File(stagingDir, 'DEBIAN')
                 def distDir = new File(buildDirFile, 'distributions')
-                [optDir, binDir, launcherDir, appDir, docDir, debianDir, distDir]*.mkdirs()
+                [docDir, debianDir, distDir]*.mkdirs()
 
-                copy {
-                    from jar.archiveFile
-                    into optDir
-                    rename { "${packageName}.jar" }
-                }
+                if (program) {
+                    [optDir, binDir, launcherDir, appDir]*.mkdirs()
+                    copy {
+                        from jar.archiveFile
+                        into optDir
+                        rename { "${packageName}.jar" }
+                    }
 
-                def javaOptions = deb.javaOptions ? "${deb.javaOptions} " : ''
-                def launcher = new File(launcherDir, packageName)
-                launcher.text = """#!/bin/sh
+                    def javaOptions = deb.javaOptions ? "${deb.javaOptions} " : ''
+                    def launcher = new File(launcherDir, packageName)
+                    launcher.text = """#!/bin/sh
 exec /usr/bin/java ${javaOptions}-jar /opt/${packageName}/${packageName}.jar "\$@"
 """
-                launcher.setExecutable(true, false)
+                    launcher.setExecutable(true, false)
+                }
 
                 // Applications bring a menu entry; the desktop itself has none.
-                if (file("packaging/${packageName}.desktop").exists()) {
+                if (program && file("packaging/${packageName}.desktop").exists()) {
                     copy {
                         from "packaging/${packageName}.desktop"
                         into appDir
@@ -188,7 +200,7 @@ exec /usr/bin/java ${javaOptions}-jar /opt/${packageName}/${packageName}.jar "\$
                     }
                 }
 
-                def depends = (['openjdk-25-jre | java-runtime (>= 25)'] + (deb.depends ?: [])).join(', ')
+                def depends = ((program ? ['openjdk-25-jre | java-runtime (>= 25)'] : []) + (deb.depends ?: [])).join(', ')
                 def control = """Package: ${packageName}
 Version: ${project.version}
 Section: ${deb.section}

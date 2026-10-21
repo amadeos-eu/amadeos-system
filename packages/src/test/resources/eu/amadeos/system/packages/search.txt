@@ -1,0 +1,2 @@
+ripgrep - Recursively searches directories for a regex pattern
+rga - ripgrep, but also search in PDFs, E-Books, Office documents, zip, tar.gz, etc.

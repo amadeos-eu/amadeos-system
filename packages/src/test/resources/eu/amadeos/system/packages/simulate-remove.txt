@@ -1,0 +1,10 @@
+NOTE: This is only a simulation!
+Reading package lists...
+Building dependency tree...
+Reading state information...
+The following packages will be REMOVED:
+  amade-pad gimp gimp-data
+0 upgraded, 0 newly installed, 3 to remove and 0 not upgraded.
+Remv gimp [3.0.4-3]
+Remv gimp-data [3.0.4-3]
+Remv amade-pad [0.3.0]
