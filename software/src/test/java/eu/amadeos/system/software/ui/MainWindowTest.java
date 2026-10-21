@@ -126,6 +126,17 @@ class MainWindowTest {
     }
 
     @Test
+    void withoutPackageListsTheyAreFetchedOnce() throws Exception {
+        service.lastRefresh = Optional.empty();
+        open();
+        await(() -> service.calls.contains("refresh"));
+        // Read again after the refresh, which (in the fake) still leaves no lists: no second attempt.
+        await(() -> service.calls.stream().filter("catalog"::equals).count() >= 2);
+        await(() -> !onEdt(() -> window.operation().busy()));
+        assertEquals(1, service.calls.stream().filter("refresh"::equals).count());
+    }
+
+    @Test
     void theCatalogIsSortedIntoTabsAndSearchedTogether() throws Exception {
         service.catalog = List.of(entry("fonts-x", Category.OTHER, "", "1", false),
                 entry("gimp", Category.APPLICATION, "", "2.10", false),
@@ -264,6 +275,7 @@ class MainWindowTest {
         volatile List<Change> updates = List.of();
         volatile List<CatalogEntry> catalog = List.of();
         volatile Result result = new Result(Result.Status.DONE, "", false);
+        volatile Optional<Instant> lastRefresh = Optional.of(Instant.parse("2026-10-21T08:00:00Z"));
 
         @Override
         public List<Change> upgrades() {
@@ -341,7 +353,7 @@ class MainWindowTest {
 
         @Override
         public Optional<Instant> lastRefresh() {
-            return Optional.of(Instant.parse("2026-10-21T08:00:00Z"));
+            return lastRefresh;
         }
 
         @Override

@@ -94,6 +94,8 @@ public final class MainWindow extends JFrame {
     private boolean catalogRead;
     private List<CatalogEntry> catalog = List.of();
     private boolean appStreamAfterOperation;
+    /** The package lists were fetched once already because there were none (a new image ships without them). */
+    private boolean listsFetched;
     private Map<String, AppData> apps = Map.of();
 
     @Inject
@@ -229,6 +231,12 @@ public final class MainWindow extends JFrame {
 
     void showUpdates(Snapshot snapshot) {
         updatesTab.setUpdates(snapshot.updates(), snapshot.lastRefresh());
+        if (snapshot.lastRefresh().isEmpty() && !listsFetched && !busy) {
+            // Without lists the catalog holds only the installed packages; fetching needs no password.
+            listsFetched = true;
+            appStreamAfterOperation = true;
+            perform(msg.get("progress.lists"), packages::refresh, msg.get("outcome.done"));
+        }
         int count = snapshot.updates().size();
         // The tab stays while it is looked at, so "up to date" is seen after installing.
         showUpdatesTab(count > 0 || tabs.getSelectedComponent() == updatesTab);

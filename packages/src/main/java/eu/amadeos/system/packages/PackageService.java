@@ -67,7 +67,10 @@ public interface PackageService {
      */
     AutoCloseable watch(Runnable onChange);
 
-    /** When the package lists were last fetched (by the daily timer, Check now or apt in a terminal). */
+    /**
+     * When the package lists were last fetched (by the daily timer, Check now or apt in a terminal); empty when
+     * there are none yet, as on a freshly built image.
+     */
     Optional<Instant> lastRefresh();
 
     /** Whether security updates are installed automatically (unattended-upgrades through Debian's timers). */

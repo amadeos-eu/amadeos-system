@@ -10,7 +10,7 @@ debian = [
     javaOptions: '--enable-native-access=ALL-UNNAMED',
     // The window manager and a panel (amadeos-panel-cde or another provider of amadeos-panel); xprop (the
     // script waits for the window manager), the MIT-SCREEN-SAVER library (screen saver), PAM (lock).
-    depends    : ['amadeos-wm', 'amadeos-panel', 'x11-utils', 'libxss1', 'libpam-runtime'],
+    depends    : ['amadeos-wm', 'amadeos-panel', 'x11-utils', 'libxss1', 'libpam-runtime', 'lxpolkit'],
     // xterm: the fallback of a failed session; xinit: startx without the display manager (amadeos-session
     // is registered as x-session-manager).
     recommends : ['xterm', 'xinit', 'amadeos-style'],

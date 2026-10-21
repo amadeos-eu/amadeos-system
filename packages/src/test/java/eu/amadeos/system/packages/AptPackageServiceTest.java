@@ -193,6 +193,17 @@ class AptPackageServiceTest {
     }
 
     @Test
+    void listsAreThereOnceAptFetchedPackages() throws Exception {
+        Path lists = Files.createDirectory(dir.resolve("lists"));
+        Files.createDirectory(lists.resolve("partial"));
+        Files.writeString(lists.resolve("lock"), "");
+        assertFalse(AptPackageService.hasLists(lists), "a cleaned image keeps only partial/ and lock");
+        Files.writeString(lists.resolve("deb.debian.org_debian_dists_trixie_main_binary-amd64_Packages.lz4"), "");
+        assertTrue(AptPackageService.hasLists(lists));
+        assertFalse(AptPackageService.hasLists(dir.resolve("missing")));
+    }
+
+    @Test
     void lastRefreshIsTheNewestMarker() throws Exception {
         Path lists = Files.createDirectory(dir.resolve("lists"));
         Path stamp = Files.writeString(dir.resolve("update-success-stamp"), "");
