@@ -1,0 +1,24 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=amadeOS Software
+Name[de]=amadeOS Software
+Name[fr]=amadeOS Logiciels
+Name[es]=amadeOS Software
+Name[it]=amadeOS Software
+GenericName=Software Manager
+GenericName[de]=Softwareverwaltung
+GenericName[fr]=Gestionnaire de logiciels
+GenericName[es]=Gestor de software
+GenericName[it]=Gestione software
+Comment=Install software updates and turn automatic security updates on or off
+Comment[de]=Software-Aktualisierungen installieren und automatische Sicherheitsaktualisierungen ein- oder ausschalten
+Comment[fr]=Installer les mises à jour et activer ou désactiver les mises à jour de sécurité automatiques
+Comment[es]=Instalar actualizaciones y activar o desactivar las actualizaciones de seguridad automáticas
+Comment[it]=Installare gli aggiornamenti e attivare o disattivare gli aggiornamenti di sicurezza automatici
+Icon=system-software-install
+Exec=/usr/bin/amadeos-software
+Terminal=false
+Categories=System;Settings;PackageManager;
+Keywords=software;update;upgrade;install;package;apt;security;
+StartupNotify=true

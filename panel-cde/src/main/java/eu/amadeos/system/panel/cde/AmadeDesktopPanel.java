@@ -327,7 +327,7 @@ public final class AmadeDesktopPanel extends JFrame {
         StatusDockWidget statusWidget = new StatusDockWidget(List.of(
                 new NetworkCell(new NmcliNetworkService(),
                         () -> launchProcess("xterm", "-title", "Network Settings", "-e", "nmtui")),
-                new UpdatesCell(new AptPackageService(), updateWindow(), updateWindow("--settings"))));
+                new UpdatesCell(new AptPackageService(), updateWindow("--updates"), updateWindow("--settings"))));
         widgets.add(statusWidget);
         rightSlots.add(statusWidget.component());
 
@@ -493,9 +493,9 @@ public final class AmadeDesktopPanel extends JFrame {
         showBusy(true);
     }
 
-    /** The update window of amadeos-package-updates (ROADMAP M15 step 3), or null while it is not installed. */
+    /** The Software program (amadeos-software) with the given option, or null while it is not installed. */
     private Runnable updateWindow(String... args) {
-        String program = "/usr/bin/amadeos-package-updates";
+        String program = "/usr/bin/amadeos-software";
         if (!new File(program).canExecute()) return null;
         String[] command = new String[args.length + 1];
         command[0] = program;

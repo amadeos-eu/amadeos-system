@@ -7,6 +7,7 @@
 #   install PKG…                     install packages (marked as installed by the user)
 #   remove PKG…                      remove packages (configuration files stay, nothing is autoremoved)
 #   check                            list the pending upgrades; read-only, needs no root
+#   automatic-security on|off        install security updates automatically (unattended-upgrades) or not
 #
 # Output for the caller: apt's progress (APT::Status-Fd: "dlstatus:…", "pmstatus:…", "pmerror:…") and the
 # script's own "@@" lines on standard output; apt's and dpkg's messages on standard error, which is also
@@ -25,6 +26,10 @@ VERSION="0.1.0"
 APT_GET="${AMADEOS_PACKAGES_APT_GET:-/usr/bin/apt-get}"
 LOG_FILE="${AMADEOS_PACKAGES_LOG:-/var/log/amadeos-packages.log}"
 REBOOT_REQUIRED="${AMADEOS_PACKAGES_REBOOT_FILE:-/run/reboot-required}"
+APT_CONF_DIR="${AMADEOS_PACKAGES_APT_CONF_DIR:-/etc/apt/apt.conf.d}"
+DPKG_QUERY="${AMADEOS_PACKAGES_DPKG_QUERY:-/usr/bin/dpkg-query}"
+# Sorts after Debian's 20auto-upgrades, so this file decides.
+AUTOMATIC_CONF="50amadeos-unattended"
 
 export LC_ALL=C.UTF-8
 export DEBIAN_FRONTEND=noninteractive
@@ -37,6 +42,7 @@ Usage: amadeos-packages refresh
        amadeos-packages install PACKAGE…
        amadeos-packages remove PACKAGE…
        amadeos-packages check
+       amadeos-packages automatic-security on|off
        amadeos-packages --version
 
 Installs, upgrades and removes software with apt for the amadeOS desktop. The desktop runs it through
@@ -160,6 +166,29 @@ case "$COMMAND" in
         require_root
         log remove "$@"
         run_apt -y remove "$@"
+        finish
+        ;;
+    automatic-security)
+        { [ "$#" -eq 1 ] && { [ "$1" = on ] || [ "$1" = off ]; }; } || fail usage 1 "automatic-security takes on or off"
+        require_root
+        log automatic-security "$1"
+        VALUE=0
+        if [ "$1" = on ]; then
+            VALUE=1
+            # Debian's apt-daily-upgrade timer runs unattended-upgrades, which by default installs only
+            # what comes from the security archive.
+            if ! "$DPKG_QUERY" -W -f='${db:Status-Abbrev}' unattended-upgrades 2>/dev/null | grep -q '^ii'; then
+                run_apt -y install unattended-upgrades
+            fi
+        fi
+        TMP="$(mktemp "$APT_CONF_DIR/.$AUTOMATIC_CONF.XXXXXX")"
+        cat >"$TMP" <<EOF
+// Written by amadeos-packages (Software > Settings): automatic security updates $1.
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "$VALUE";
+EOF
+        chmod 644 "$TMP"
+        mv -f "$TMP" "$APT_CONF_DIR/$AUTOMATIC_CONF"
         finish
         ;;
     check)

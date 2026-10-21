@@ -125,6 +125,14 @@ class AptTest {
     }
 
     @Test
+    void automaticSecurityUpdatesSetting() {
+        assertTrue(Apt.parseUnattendedUpgrade("VALUE='1'\n"));
+        assertTrue(Apt.parseUnattendedUpgrade("VALUE='always'\n"));
+        assertFalse(Apt.parseUnattendedUpgrade("VALUE='0'\n"));
+        assertFalse(Apt.parseUnattendedUpgrade(""), "not set at all");
+    }
+
+    @Test
     void originsWithAndWithoutVersion() {
         assertEquals(new Origin("amadeOS", "", "trixie"), Origin.parse("amadeOS:trixie"));
         assertEquals("Debian-Security:13/stable-security", Origin.parse(" Debian-Security:13/stable-security").toString());
