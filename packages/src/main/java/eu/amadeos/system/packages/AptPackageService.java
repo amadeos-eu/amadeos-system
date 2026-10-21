@@ -106,6 +106,11 @@ public final class AptPackageService implements PackageService {
     }
 
     @Override
+    public AutoCloseable watch(Runnable onChange) {
+        return PackageWatcher.start(PackageWatcher.DIRECTORIES, PackageWatcher.SETTLE_MILLIS, onChange);
+    }
+
+    @Override
     public Result refresh(ProgressListener listener) {
         return runHelper(List.of("refresh"), listener);
     }

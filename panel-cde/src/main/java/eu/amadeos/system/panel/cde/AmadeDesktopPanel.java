@@ -47,6 +47,8 @@ import eu.amadeos.system.panel.cde.widget.WorkspaceSwitcherDockWidget;
 import eu.amadeos.system.base.net.NmcliNetworkService;
 import eu.amadeos.system.panel.cde.status.NetworkCell;
 import eu.amadeos.system.panel.cde.status.StatusDockWidget;
+import eu.amadeos.system.panel.cde.status.UpdatesCell;
+import eu.amadeos.system.packages.AptPackageService;
 import eu.amadeos.commons.theme.DesktopTheme;
 import eu.amadeos.system.base.theme.IconManager;
 import eu.amadeos.system.base.theme.ThemeManager;
@@ -320,10 +322,12 @@ public final class AmadeDesktopPanel extends JFrame {
         widgets.add(trashWidget);
         rightSlots.add(trashWidget.component());
 
-        // Slot 12: Status (network now; sound, battery and Bluetooth to follow), outermost on the right
+        // Slot 12: Status (network and software updates now; sound, battery and Bluetooth to follow),
+        // outermost on the right. The updates cell shows only while updates are waiting.
         StatusDockWidget statusWidget = new StatusDockWidget(List.of(
                 new NetworkCell(new NmcliNetworkService(),
-                        () -> launchProcess("xterm", "-title", "Network Settings", "-e", "nmtui"))));
+                        () -> launchProcess("xterm", "-title", "Network Settings", "-e", "nmtui")),
+                new UpdatesCell(new AptPackageService(), updateWindow(), updateWindow("--settings"))));
         widgets.add(statusWidget);
         rightSlots.add(statusWidget.component());
 
@@ -487,6 +491,16 @@ public final class AmadeDesktopPanel extends JFrame {
     private void launched() {
         launchedAt = System.currentTimeMillis();
         showBusy(true);
+    }
+
+    /** The update window of amadeos-package-updates (ROADMAP M15 step 3), or null while it is not installed. */
+    private Runnable updateWindow(String... args) {
+        String program = "/usr/bin/amadeos-package-updates";
+        if (!new File(program).canExecute()) return null;
+        String[] command = new String[args.length + 1];
+        command[0] = program;
+        System.arraycopy(args, 0, command, 1, args.length);
+        return () -> launchProcess(command);
     }
 
     private void launchProcess(String... cmd) {

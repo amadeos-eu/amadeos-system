@@ -30,6 +30,7 @@ public final class StatusDockWidget extends AbstractDockWidget {
         super("status");
         if (cells.size() > MAX_CELLS) throw new IllegalArgumentException("at most " + MAX_CELLS + " cells");
         this.cells = List.copyOf(cells);
+        for (StatusCell cell : this.cells) cell.onAvailabilityChanged(this::relayout);
 
         slotPanel = new JPanel(new BorderLayout(0, 0)) {
             @Override

@@ -53,6 +53,13 @@ public interface PackageService {
     /** Removes the packages; their configuration files stay, nothing is removed automatically. */
     Result remove(List<String> names, ProgressListener listener);
 
+    /**
+     * Calls {@code onChange} (on a background thread) after the installed packages or the package lists have
+     * changed, once the change has settled, until the returned handle is closed. Covers changes made by this
+     * service, by apt in a terminal, by unattended-upgrades and by Debian's daily list refresh.
+     */
+    AutoCloseable watch(Runnable onChange);
+
     /** A line of {@code apt-cache search}. */
     record SearchHit(String name, String summary) {
     }
