@@ -5,6 +5,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +28,12 @@ public final class AptPackageService implements PackageService {
     private static final Logger LOGGER = Logger.getLogger(AptPackageService.class.getName());
     public static final String HELPER = "/usr/libexec/amadeos-packages";
     public static final String HELPER_VARIABLE = "AMADEOS_PACKAGES_HELPER";
+    /**
+     * Touched when the package lists are fetched: the lists directory (when a list changed) and the stamp of
+     * Debian's apt-daily service (after every successful run).
+     */
+    private static final List<Path> REFRESH_MARKERS = List.of(Path.of("/var/lib/apt/lists"),
+            Path.of("/var/lib/apt/periodic/update-success-stamp"));
     /** Reading the package database; a dumpavail of all Debian takes a few seconds. */
     private static final long READ_TIMEOUT_SECONDS = 120;
 
@@ -103,6 +112,40 @@ public final class AptPackageService implements PackageService {
     public List<SearchHit> search(String words) throws PackageException {
         if (words.isBlank()) return List.of();
         return Apt.parseSearch(read(Apt.search(words)));
+    }
+
+    @Override
+    public Optional<Instant> lastRefresh() {
+        return lastModified(REFRESH_MARKERS);
+    }
+
+    /** The newest modification time of the paths that exist. */
+    static Optional<Instant> lastModified(List<Path> paths) {
+        Instant newest = null;
+        for (Path path : paths) {
+            try {
+                Instant time = Files.getLastModifiedTime(path).toInstant();
+                if (newest == null || time.isAfter(newest)) newest = time;
+            } catch (IOException e) {
+                // not there
+            }
+        }
+        return Optional.ofNullable(newest);
+    }
+
+    @Override
+    public boolean automaticSecurityUpdates() throws PackageException {
+        return Apt.parseUnattendedUpgrade(read(Apt.unattendedUpgrade()));
+    }
+
+    @Override
+    public Result setAutomaticSecurityUpdates(boolean on, ProgressListener listener) {
+        return runHelper(List.of("automatic-security", on ? "on" : "off"), listener);
+    }
+
+    @Override
+    public AutoCloseable watch(Runnable onChange) {
+        return PackageWatcher.start(PackageWatcher.DIRECTORIES, PackageWatcher.SETTLE_MILLIS, onChange);
     }
 
     @Override

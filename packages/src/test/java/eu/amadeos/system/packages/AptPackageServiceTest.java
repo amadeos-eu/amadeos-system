@@ -166,6 +166,44 @@ class AptPackageServiceTest {
     }
 
     @Test
+    void automaticSecurityUpdatesWriteTheAptSetting() throws Exception {
+        Path conf = Files.createDirectory(dir.resolve("apt.conf.d"));
+        Path dpkgQuery = dir.resolve("dpkg-query");
+        // unattended-upgrades is not installed yet
+        Files.writeString(dpkgQuery, "#!/bin/sh\nexit 1\n");
+        assertTrue(dpkgQuery.toFile().setExecutable(true));
+        AptPackageService service = new AptPackageService(List.of("bash", HELPER.toString()), Map.of(
+                "AMADEOS_PACKAGES_APT_GET", dir.resolve("apt-get").toString(),
+                "AMADEOS_PACKAGES_LOG", log.toString(),
+                "AMADEOS_PACKAGES_APT_CONF_DIR", conf.toString(),
+                "AMADEOS_PACKAGES_DPKG_QUERY", dpkgQuery.toString()), command -> "");
+
+        assertTrue(service.setAutomaticSecurityUpdates(true, ProgressListener.NONE).success());
+        assertTrue(aptCalls().getFirst().endsWith("-y install unattended-upgrades"), aptCalls().getFirst());
+        String written = Files.readString(conf.resolve("50amadeos-unattended"));
+        assertTrue(written.contains("APT::Periodic::Unattended-Upgrade \"1\";"), written);
+
+        assertTrue(service.setAutomaticSecurityUpdates(false, ProgressListener.NONE).success());
+        assertTrue(Files.readString(conf.resolve("50amadeos-unattended"))
+                .contains("APT::Periodic::Unattended-Upgrade \"0\";"));
+        assertEquals(1, aptCalls().size(), "turning it off installs nothing");
+        try (var files = Files.list(conf)) {
+            assertEquals(1, files.count(), "no temporary file left behind");
+        }
+    }
+
+    @Test
+    void lastRefreshIsTheNewestMarker() throws Exception {
+        Path lists = Files.createDirectory(dir.resolve("lists"));
+        Path stamp = Files.writeString(dir.resolve("update-success-stamp"), "");
+        Files.setLastModifiedTime(lists, java.nio.file.attribute.FileTime.fromMillis(1_000_000));
+        Files.setLastModifiedTime(stamp, java.nio.file.attribute.FileTime.fromMillis(2_000_000));
+        assertEquals(java.time.Instant.ofEpochMilli(2_000_000),
+                AptPackageService.lastModified(List.of(lists, stamp, dir.resolve("missing"))).orElseThrow());
+        assertTrue(AptPackageService.lastModified(List.of(dir.resolve("missing"))).isEmpty());
+    }
+
+    @Test
     void readingUsesTheRunner() throws Exception {
         List<List<String>> commands = new ArrayList<>();
         PackageService service = new AptPackageService(List.of("false"), Map.of(), command -> {

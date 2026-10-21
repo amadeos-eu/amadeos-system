@@ -1,5 +1,6 @@
 package eu.amadeos.system.packages;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -52,6 +53,22 @@ public interface PackageService {
 
     /** Removes the packages; their configuration files stay, nothing is removed automatically. */
     Result remove(List<String> names, ProgressListener listener);
+
+    /**
+     * Calls {@code onChange} (on a background thread) after the installed packages or the package lists have
+     * changed, once the change has settled, until the returned handle is closed. Covers changes made by this
+     * service, by apt in a terminal, by unattended-upgrades and by Debian's daily list refresh.
+     */
+    AutoCloseable watch(Runnable onChange);
+
+    /** When the package lists were last fetched (by the daily timer, Check now or apt in a terminal). */
+    Optional<Instant> lastRefresh();
+
+    /** Whether security updates are installed automatically (unattended-upgrades through Debian's timers). */
+    boolean automaticSecurityUpdates() throws PackageException;
+
+    /** Turns automatic security updates on (installing unattended-upgrades if needed) or off. */
+    Result setAutomaticSecurityUpdates(boolean on, ProgressListener listener);
 
     /** A line of {@code apt-cache search}. */
     record SearchHit(String name, String summary) {
