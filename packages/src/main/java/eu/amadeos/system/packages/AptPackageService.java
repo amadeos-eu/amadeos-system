@@ -255,7 +255,16 @@ public final class AptPackageService implements PackageService {
 
     @Override
     public Optional<Instant> lastRefresh() {
-        return lastModified(REFRESH_MARKERS);
+        return hasLists(lists) ? lastModified(REFRESH_MARKERS) : Optional.empty();
+    }
+
+    /** Whether apt has fetched package lists; the image is built without them (apt-get clean and rm). */
+    static boolean hasLists(Path lists) {
+        try (DirectoryStream<Path> files = Files.newDirectoryStream(lists, "*_Packages*")) {
+            return files.iterator().hasNext();
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     /** The newest modification time of the paths that exist. */
