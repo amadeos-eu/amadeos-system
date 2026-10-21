@@ -43,6 +43,10 @@ public final class WallpaperManager {
         private final String label;
         ScaleMode(String label) { this.label = label; }
         public String label() { return label; }
+
+        /** The label, so lists and combo boxes show "Fill Screen (Crop)" rather than FILL. */
+        @Override
+        public String toString() { return label; }
     }
 
     /** The list entry for a plain colour without image, CDE's "NoBackdrop". */
