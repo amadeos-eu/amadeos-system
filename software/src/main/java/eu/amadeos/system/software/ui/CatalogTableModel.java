@@ -12,19 +12,19 @@ final class CatalogTableModel extends AbstractTableModel {
     static final int SUMMARY = 1;
     static final int STATUS = 2;
     static final int VERSION = 3;
-    private static final String[] COLUMNS = {"column.package", "column.summary", "column.status", "column.version"};
+    private static final String[] COLUMNS = {"column.name", "column.summary", "column.status", "column.version"};
 
     private final Messages msg;
-    private List<CatalogEntry> all = List.of();
+    private List<Item> all = List.of();
     private CatalogFilter filter = CatalogFilter.ALL;
-    private List<CatalogEntry> shown = List.of();
+    private List<Item> shown = List.of();
 
     CatalogTableModel(Messages msg) {
         this.msg = msg;
     }
 
-    void setEntries(List<CatalogEntry> entries) {
-        all = List.copyOf(entries);
+    void setItems(List<Item> items) {
+        all = List.copyOf(items);
         update();
     }
 
@@ -38,7 +38,7 @@ final class CatalogTableModel extends AbstractTableModel {
         fireTableDataChanged();
     }
 
-    CatalogEntry entry(int row) {
+    Item item(int row) {
         return shown.get(row);
     }
 
@@ -72,10 +72,11 @@ final class CatalogTableModel extends AbstractTableModel {
 
     @Override
     public Object getValueAt(int row, int column) {
-        CatalogEntry e = shown.get(row);
+        Item item = shown.get(row);
+        CatalogEntry e = item.entry();
         return switch (column) {
-            case NAME -> e.name();
-            case SUMMARY -> e.summary();
+            case NAME -> item.title();
+            case SUMMARY -> item.summary();
             case STATUS -> status(msg, e);
             case VERSION -> e.installed() ? e.installedVersion() : e.availableVersion();
             default -> "";

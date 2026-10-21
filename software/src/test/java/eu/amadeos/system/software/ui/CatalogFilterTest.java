@@ -14,14 +14,14 @@ class CatalogFilterTest {
         return new CatalogEntry(name, summary, "utils", Category.COMMAND_LINE, installed, "2.0", false);
     }
 
-    private static final List<CatalogEntry> ENTRIES = List.of(
+    private static final List<Item> ITEMS = java.util.stream.Stream.of(
             entry("neovim", "heavily refactored vim fork", ""),
             entry("vim", "Vi IMproved - enhanced vi editor", "2.0"),
             entry("vim-tiny", "Vi IMproved - enhanced vi editor - compact version", ""),
-            entry("zsh", "shell with lots of features", "1.0"));
+            entry("zsh", "shell with lots of features", "1.0")).map(Item::of).toList();
 
     private static List<String> names(CatalogFilter filter) {
-        return filter.apply(ENTRIES).stream().map(CatalogEntry::name).toList();
+        return filter.apply(ITEMS).stream().map(Item::name).toList();
     }
 
     @Test

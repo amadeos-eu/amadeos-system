@@ -9,14 +9,18 @@ application {
 dependencies {
     // PackageService, bundled into the jar like base into the desktop modules.
     implementation project(':packages')
+    // The AppStream data (DEP-11) is YAML.
+    implementation 'org.yaml:snakeyaml:2.3'
+    // The details pane: descriptions and screenshots as XHTML, like amade-web.
+    implementation 'org.xhtmlrenderer:flying-saucer-core:9.9.0'
 }
 
 debian = [
     section    : 'admin',
     // The helper that installs, upgrades and removes.
-    depends    : ['amadeos-packages'],
-    // AppStream metadata (apt fetches it once appstream is installed) tells applications from other packages.
-    recommends : ['appstream'],
+    // appstream makes apt fetch the AppStream data (names, descriptions, icons, screenshots of the
+    // applications); packaging/root/etc/apt/apt.conf.d/60amadeos-software adds the icons.
+    depends    : ['amadeos-packages', 'appstream'],
     summary    : 'Software manager of amadeOS',
     description: '''Finds, installs, updates and removes software. Applications, command-line
 programs and libraries each have a tab, with one search over all of them.

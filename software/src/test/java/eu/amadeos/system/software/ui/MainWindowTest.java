@@ -1,5 +1,6 @@
 package eu.amadeos.system.software.ui;
 
+import eu.amadeos.commons.desktop.DesktopLauncher;
 import eu.amadeos.commons.swing.EdtExecutor;
 import eu.amadeos.system.packages.CatalogEntry;
 import eu.amadeos.system.packages.Category;
@@ -10,12 +11,16 @@ import eu.amadeos.system.packages.PackageService;
 import eu.amadeos.system.packages.Progress;
 import eu.amadeos.system.packages.ProgressListener;
 import eu.amadeos.system.packages.Result;
+import eu.amadeos.system.software.appstream.AppData;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import javax.swing.SwingUtilities;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
@@ -35,6 +40,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class MainWindowTest {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final FakeService service = new FakeService();
+    private volatile Map<String, AppData> apps = Map.of();
+    @TempDir
+    Path cache;
     private MainWindow window;
 
     @AfterEach
@@ -49,7 +57,8 @@ class MainWindowTest {
 
     private void open(boolean updates) throws Exception {
         SwingUtilities.invokeAndWait(() -> {
-            window = new MainWindow(service, EN, executor, new EdtExecutor());
+            window = new MainWindow(service, EN, executor, new EdtExecutor(), new DesktopLauncher(), () -> apps,
+                    new ScreenshotCache(cache));
             window.start(updates, false);
         });
     }
@@ -143,6 +152,31 @@ class MainWindowTest {
         await(() -> onEdt(window::tabTitles).size() == 4);
         assertEquals(List.of("Applications (0)", "Command line (1)", "Other (0)", "Libraries (1)"),
                 onEdt(window::tabTitles));
+    }
+
+    @Test
+    void applicationsShowTheirAppStreamNameAndAreFoundByIt() throws Exception {
+        apps = Map.of("gimp", new AppData("org.gimp.GIMP", "gimp", "GNU Image Manipulation Program",
+                "Create images and edit photographs", "<p>GIMP is <em>free</em>.</p>", List.of("Graphics"),
+                Optional.empty(), "https://www.gimp.org/", List.of()));
+        service.catalog = List.of(entry("abiword", Category.APPLICATION, "", "3.0", false),
+                entry("gimp", Category.APPLICATION, "", "2.10", false));
+        open();
+        // The catalog first, the AppStream names when they have been read.
+        await(() -> onEdt(() -> {
+            CatalogTableModel model = window.catalogTab(Category.APPLICATION).model();
+            return model.getRowCount() == 2 && model.getValueAt(1, CatalogTableModel.NAME)
+                    .equals("GNU Image Manipulation Program");
+        }));
+        assertEquals("abiword", onEdt(() -> window.catalogTab(Category.APPLICATION).model()
+                .getValueAt(0, CatalogTableModel.NAME)));
+        assertEquals("Create images and edit photographs",
+                onEdt(() -> window.catalogTab(Category.APPLICATION).model().getValueAt(1, CatalogTableModel.SUMMARY)));
+
+        SwingUtilities.invokeAndWait(() -> window.searchField().setText("manipulation"));
+        await(() -> onEdt(window::tabTitles).contains("Applications (1)"));
+        assertEquals("GNU Image Manipulation Program",
+                onEdt(() -> window.catalogTab(Category.APPLICATION).details().titleText()));
     }
 
     @Test
