@@ -3,7 +3,7 @@
 The CDE Front Panel of amadeOS: a dock with clock, calendar, workspace switcher, lock and language
 
 buttons, the network and updates cell and drawers that list the installed applications from their `.desktop` files.
-The Games drawer lists the entries of category `Game` (the amade-*-game packages). The Tools drawer holds
+The Games drawer lists the entries of category `Game` (the amade-*-game packages). The Text & Office drawer lists the `TextEditor` and `WordProcessor` entries, then the other `Office` ones (Calendar, spreadsheets, presentations), as Mail & Internet lists `Email` and then `Network`. The Tools drawer holds
 the terminals, the Style Manager and the log viewer. The Help drawer opens the amadeOS User's Handbook
 (`/usr/share/doc/amadeos-handbook/html/index.html` from the package `amadeos-handbook`, else the copy on
 the web) with `xdg-open`, so in the web browser, and then lists the `Documentation` entries. Programs started from

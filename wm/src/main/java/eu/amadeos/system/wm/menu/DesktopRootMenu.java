@@ -130,7 +130,7 @@ public final class DesktopRootMenu {
         JMenu newWindowMenu = createStyledMenu("New Window", theme);
         newWindowMenu.add(createStyledMenuItem("Terminal Emulator", "terminal", e -> launchFirst(cmd("xterm")), theme));
         newWindowMenu.add(createStyledMenuItem("Text Editor", "text-editor",
-                e -> launchFirst(cmd("xed"), cmd("mousepad"), cmd("gedit"), cmd("xterm", "-e", "nano")), theme));
+                e -> launchFirst(cmd("amade-pad"), cmd("xed"), cmd("mousepad"), cmd("gedit"), cmd("xterm", "-e", "nano")), theme));
         newWindowMenu.add(createStyledMenuItem("File Manager", "file-manager", e -> launchFirst(cmd("xdg-open", userHome())), theme));
         menu.add(newWindowMenu);
 
@@ -227,13 +227,13 @@ public final class DesktopRootMenu {
 
         if (!hasAny) {
             parent.add(createStyledMenuItem("Terminal Emulator", "terminal", e -> launchFirst(cmd("xterm")), theme));
-            parent.add(createStyledMenuItem("Text Editor", "text-editor", e -> launchFirst(cmd("xed"), cmd("mousepad"), cmd("gedit")), theme));
+            parent.add(createStyledMenuItem("Text Editor", "text-editor", e -> launchFirst(cmd("amade-pad"), cmd("xed"), cmd("mousepad"), cmd("gedit")), theme));
             parent.add(createStyledMenuItem("File Manager", "file-manager", e -> launchFirst(cmd("xdg-open", userHome())), theme));
             parent.add(createStyledMenuItem("Calculator", "accessories-calculator", e -> launchFirst(cmd("gnome-calculator"), cmd("xcalc")), theme));
         }
     }
 
-    private JMenu createStyledMenu(String text, DesktopTheme theme) {
+    static JMenu createStyledMenu(String text, DesktopTheme theme) {
         JMenu menu = new JMenu(text);
         menu.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
         menu.setBackground(theme.base());
@@ -242,7 +242,7 @@ public final class DesktopRootMenu {
         return menu;
     }
 
-    private JMenuItem createStyledMenuItem(String text, String iconName, java.awt.event.ActionListener action, DesktopTheme theme) {
+    static JMenuItem createStyledMenuItem(String text, String iconName, java.awt.event.ActionListener action, DesktopTheme theme) {
         JMenuItem item = new JMenuItem(text, IconManager.getIcon(iconName, 16));
         styleMenuItem(item, theme);
         if (action != null) {
@@ -251,14 +251,14 @@ public final class DesktopRootMenu {
         return item;
     }
 
-    private void styleMenuItem(JMenuItem item, DesktopTheme theme) {
+    static void styleMenuItem(JMenuItem item, DesktopTheme theme) {
         item.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
         item.setBackground(theme.base());
         item.setForeground(theme.textActive());
         item.setBorder(BorderFactory.createEmptyBorder(3, 8, 3, 8));
     }
 
-    private JSeparator createSeparator(DesktopTheme theme) {
+    static JSeparator createSeparator(DesktopTheme theme) {
         JSeparator sep = new JSeparator();
         sep.setBackground(theme.shadow());
         sep.setForeground(theme.highlight());

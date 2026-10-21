@@ -9,6 +9,8 @@ import java.util.Set;
 public enum XdgCategory {
     FILE_MANAGER("FileManager", "File Management", "file-manager", Set.of("filemanager", "filetools")),
     TEXT_EDITOR("TextEditor", "Text Editors", "text-editor", Set.of("texteditor", "wordprocessor")),
+    OFFICE("Office", "Office", "text-editor", Set.of("office", "spreadsheet", "presentation", "calendar",
+            "projectmanagement", "chart", "database", "finance", "flowchart", "publishing", "dictionary")),
     TERMINAL("TerminalEmulator", "Terminals", "terminal", Set.of("terminalemulator", "terminal")),
     MAIL("Email", "Electronic Mail", "mail", Set.of("email", "mail", "contactmanagement", "news")),
     PRINTING("Printing", "Printers", "printer", Set.of("printing", "hardwareprinting", "printer", "cups")),

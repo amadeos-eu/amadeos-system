@@ -56,6 +56,23 @@ class XdgDesktopEntryTest {
     }
 
     @Test
+    void officeProgramsMatchTheOfficeCategory() throws IOException {
+        XdgDesktopEntry calendar = entry("amade-calendar.desktop", "Categories=Office;Calendar;");
+        XdgDesktopEntry writepad = entry("amade-writepad.desktop", "Categories=Office;WordProcessor;");
+        assertTrue(calendar.matchesCategory(XdgCategory.OFFICE));
+        assertFalse(calendar.matchesCategory(XdgCategory.TEXT_EDITOR));
+        // A word processor is in both; the Text & Office drawer lists it once, with the text editors.
+        assertTrue(writepad.matchesCategory(XdgCategory.TEXT_EDITOR));
+        assertTrue(writepad.matchesCategory(XdgCategory.OFFICE));
+    }
+
+    private static XdgDesktopEntry entry(String id, String categories) throws IOException {
+        String content = "[Desktop Entry]\nType=Application\nName=" + id + "\nExec=true\n" + categories + "\n";
+        return XdgDesktopEntryParser.parse(new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8)), id, null)
+                .orElseThrow();
+    }
+
+    @Test
     void testTerminalApplicationWrapping() throws IOException {
         String content = """
                 [Desktop Entry]

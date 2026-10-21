@@ -194,12 +194,13 @@ public final class AmadeDesktopPanel extends JFrame {
         widgets.add(fmDrawer);
         leftSlots.add(fmDrawer.component());
 
-        // Slot 4: Text Editor (with drawer ▲), filled from TextEditor desktop entries
+        // Slot 4: Text & Office (with drawer ▲): the TextEditor and WordProcessor desktop entries, then the
+        // other Office ones (calendar, spreadsheet, presentation, ...), as Mail & Internet does with Network
         DrawerDockWidget editorDrawer = createCategoryDrawer(
-                "editor", "Text Editor", "text-editor",
+                "editor", "Text & Office", "text-editor",
                 XdgCategory.TEXT_EDITOR,
                 e -> launchProcess("amade-pad"),
-                List.of()
+                xdgTools(XdgCategory.OFFICE, XdgCategory.TEXT_EDITOR)
         );
         widgets.add(editorDrawer);
         leftSlots.add(editorDrawer.component());
