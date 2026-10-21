@@ -1,6 +1,7 @@
 // Software: find, install, update and remove software (ROADMAP M15). One program for all of it: the Updates
 // tab lists the waiting updates (the front panel's updates cell opens it there with --updates), the
-// catalog tabs follow. Talks to apt only through PackageService (module packages).
+// catalog tabs (Applications, Command line, Other, Libraries) everything else. Talks to apt only
+// through PackageService (module packages).
 application {
     mainClass = 'eu.amadeos.system.software.bootstrap.AmadeSoftwareApplication'
 }
@@ -14,9 +15,13 @@ debian = [
     section    : 'admin',
     // The helper that installs, upgrades and removes.
     depends    : ['amadeos-packages'],
+    // AppStream metadata (apt fetches it once appstream is installed) tells applications from other packages.
+    recommends : ['appstream'],
     summary    : 'Software manager of amadeOS',
-    description: '''Installs the waiting software updates (all of them or the security updates
-only) with a progress display and the apt log, shows what each update is,
-tells when a restart is needed, and turns automatic security updates on or
-off. The front panel's updates cell opens it. Part of the amadeOS desktop.'''
+    description: '''Finds, installs, updates and removes software. Applications, command-line
+programs and libraries each have a tab, with one search over all of them.
+Installs the waiting updates (all of them or the security updates only) with
+a progress display and the apt log, tells when a restart is needed, and turns
+automatic security updates on or off. The front panel's updates cell opens
+it. Part of the amadeOS desktop.'''
 ]

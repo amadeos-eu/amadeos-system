@@ -203,6 +203,11 @@ class UpdatesCellTest {
         }
 
         @Override
+        public List<eu.amadeos.system.packages.CatalogEntry> catalog() {
+            return List.of();
+        }
+
+        @Override
         public Optional<java.time.Instant> lastRefresh() {
             return Optional.empty();
         }

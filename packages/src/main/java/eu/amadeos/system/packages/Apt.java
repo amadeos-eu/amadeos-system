@@ -6,6 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -56,6 +57,16 @@ public final class Apt {
         return List.copyOf(command);
     }
 
+    /** The installed packages owning files that match a shell pattern ({@code /usr/bin/*}). */
+    public static List<String> owners(String pattern) {
+        return List.of("dpkg-query", "-S", pattern);
+    }
+
+    /** A file of /var/lib/apt/lists, uncompressed whatever apt compressed it with. */
+    public static List<String> catFile(String path) {
+        return List.of("/usr/lib/apt/apt-helper", "cat-file", path);
+    }
+
     public static List<String> installed() {
         return List.of("dpkg-query", "-W", "-f=" + INSTALLED_FORMAT);
     }
@@ -88,6 +99,70 @@ public final class Apt {
      */
     public static boolean validName(String name) {
         return name.matches("[a-z0-9][a-z0-9+.-]+(:[a-z0-9-]+)?");
+    }
+
+    /** The part of a Packages index entry the catalog needs. */
+    public record IndexEntry(String name, String version, String section, String summary, List<String> tags) {
+    }
+
+    /**
+     * Reads a Packages index ({@code apt-cache dumpavail}) line by line and keeps only what the catalog needs,
+     * so all of Debian (some 100 MB) never has to be in memory at once. The first entry of a name wins.
+     */
+    public static final class IndexReader implements Consumer<String> {
+        private final Map<String, IndexEntry> entries = new LinkedHashMap<>();
+        private String name;
+        private String version = "";
+        private String section = "";
+        private String summary = "";
+        private StringBuilder tags;
+        private boolean inTags;
+
+        @Override
+        public void accept(String line) {
+            if (line.isBlank()) {
+                flush();
+                return;
+            }
+            if (line.startsWith(" ") || line.startsWith("\t")) {
+                if (inTags) tags.append(line);
+                return;
+            }
+            inTags = false;
+            int colon = line.indexOf(':');
+            if (colon <= 0) return;
+            String value = line.substring(colon + 1).strip();
+            switch (line.substring(0, colon)) {
+                case "Package" -> name = value;
+                case "Version" -> version = value;
+                case "Section" -> section = value.substring(value.indexOf('/') + 1);
+                case "Description", "Description-en" -> summary = value;
+                case "Tag" -> {
+                    tags = new StringBuilder(value);
+                    inTags = true;
+                }
+                default -> {
+                }
+            }
+        }
+
+        private void flush() {
+            if (name != null && !entries.containsKey(name)) {
+                entries.put(name, new IndexEntry(name, version, section, summary,
+                        tags == null ? List.of() : list(tags.toString())));
+            }
+            name = null;
+            version = "";
+            section = "";
+            summary = "";
+            tags = null;
+            inTags = false;
+        }
+
+        public List<IndexEntry> entries() {
+            flush();
+            return List.copyOf(entries.values());
+        }
     }
 
     /** The changes of a simulation, in apt's order (which installs dependencies first). */

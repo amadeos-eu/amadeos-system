@@ -33,6 +33,12 @@ public interface PackageService {
      */
     List<PackageInfo> available() throws PackageException;
 
+    /**
+     * Every package on offer or installed, sorted by name, each in its {@link Category}: the Software
+     * program's catalog. Reads all package indexes; takes a few seconds.
+     */
+    List<CatalogEntry> catalog() throws PackageException;
+
     /** One package with its long description, or empty when no repository has it. */
     Optional<PackageInfo> details(String name) throws PackageException;
 

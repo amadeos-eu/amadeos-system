@@ -5,13 +5,18 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -41,14 +46,37 @@ public final class AptPackageService implements PackageService {
     @FunctionalInterface
     public interface CommandRunner {
         String run(List<String> command) throws IOException, PackageException;
+
+        /** Hands the output to {@code sink} line by line, for output too large to keep. */
+        default void lines(List<String> command, Consumer<String> sink) throws IOException, PackageException {
+            run(command).lines().forEach(sink);
+        }
     }
+
+    /** Runs the commands as processes. */
+    private static final CommandRunner PROCESSES = new CommandRunner() {
+        @Override
+        public String run(List<String> command) throws IOException, PackageException {
+            return AptPackageService.run(command);
+        }
+
+        @Override
+        public void lines(List<String> command, Consumer<String> sink) throws IOException, PackageException {
+            AptPackageService.lines(command, sink);
+        }
+    };
+    /** Where apt keeps the package lists and the AppStream metadata (DEP-11) fetched with them. */
+    private static final Path LISTS = Path.of("/var/lib/apt/lists");
+    /** Installed programs in these directories make a package a command-line package. */
+    private static final List<String> PROGRAMS = List.of("/usr/bin/*", "/usr/sbin/*", "/bin/*", "/sbin/*");
 
     private final List<String> helper;
     private final Map<String, String> helperEnvironment;
     private final CommandRunner runner;
+    private final Path lists;
 
     public AptPackageService() {
-        this(defaultHelper(), Map.of(), AptPackageService::run);
+        this(defaultHelper(), Map.of(), PROCESSES);
     }
 
     /**
@@ -57,9 +85,15 @@ public final class AptPackageService implements PackageService {
      * @param runner            runs the read-only apt and dpkg commands
      */
     public AptPackageService(List<String> helper, Map<String, String> helperEnvironment, CommandRunner runner) {
+        this(helper, helperEnvironment, runner, LISTS);
+    }
+
+    AptPackageService(List<String> helper, Map<String, String> helperEnvironment, CommandRunner runner,
+                      Path lists) {
         this.helper = List.copyOf(helper);
         this.helperEnvironment = Map.copyOf(helperEnvironment);
         this.runner = runner;
+        this.lists = lists;
     }
 
     static List<String> defaultHelper() {
@@ -92,6 +126,111 @@ public final class AptPackageService implements PackageService {
     @Override
     public List<PackageInfo> available() throws PackageException {
         return Apt.parsePackages(read(Apt.dumpAvailable()));
+    }
+
+    @Override
+    public List<CatalogEntry> catalog() throws PackageException {
+        Apt.IndexReader index = new Apt.IndexReader();
+        try {
+            runner.lines(Apt.dumpAvailable(), index);
+        } catch (IOException e) {
+            throw new PackageException("apt-cache: " + e.getMessage());
+        }
+        return merge(index.entries(), installed(), hints());
+    }
+
+    /** The index entries and the installed packages as one list sorted by name. */
+    static List<CatalogEntry> merge(List<Apt.IndexEntry> index, List<InstalledPackage> installed,
+                                    Categories.Hints hints) {
+        Map<String, InstalledPackage> byName = new HashMap<>();
+        for (InstalledPackage p : installed) {
+            String plain = p.name().contains(":") ? p.name().substring(0, p.name().indexOf(':')) : p.name();
+            byName.putIfAbsent(plain, p);
+        }
+        List<CatalogEntry> entries = new ArrayList<>();
+        for (Apt.IndexEntry e : index) {
+            InstalledPackage p = byName.remove(e.name());
+            entries.add(new CatalogEntry(e.name(), e.summary(), e.section(),
+                    Categories.of(e.name(), e.section(), e.tags(), hints), p == null ? "" : p.version(), e.version(),
+                    p != null && p.automatic()));
+        }
+        // Installed, but no repository has it (any more).
+        for (Map.Entry<String, InstalledPackage> left : byName.entrySet()) {
+            InstalledPackage p = left.getValue();
+            String section = p.section().substring(p.section().indexOf('/') + 1);
+            entries.add(new CatalogEntry(left.getKey(), p.summary(), section,
+                    Categories.of(left.getKey(), section, List.of(), hints), p.version(), "", p.automatic()));
+        }
+        entries.sort(Comparator.comparing(CatalogEntry::name));
+        return entries;
+    }
+
+    /** What AppStream and the files of the installed packages say about the kind of each package. */
+    Categories.Hints hints() {
+        Categories.Dep11Reader dep11 = new Categories.Dep11Reader();
+        boolean appstream = false;
+        try (DirectoryStream<Path> files = Files.newDirectoryStream(lists, "*_Components-*.yml*")) {
+            for (Path file : files) {
+                try {
+                    runner.lines(Apt.catFile(file.toString()), dep11);
+                    appstream = true;
+                } catch (IOException | PackageException e) {
+                    LOGGER.log(Level.FINE, "Cannot read " + file, e);
+                }
+            }
+        } catch (IOException e) {
+            LOGGER.log(Level.FINE, "Cannot list " + lists, e);
+        }
+        Set<String> desktop = new HashSet<>(dep11.desktop());
+        Set<String> console = new HashSet<>(dep11.console());
+        for (Categories.Owned entry : owners("/usr/share/applications/*.desktop")) {
+            switch (menuEntry(Path.of(entry.path()))) {
+                case APPLICATION -> desktop.add(entry.pkg());
+                case COMMAND_LINE -> console.add(entry.pkg());
+                default -> {
+                }
+            }
+        }
+        for (String pattern : PROGRAMS) {
+            for (Categories.Owned entry : owners(pattern)) console.add(entry.pkg());
+        }
+        return new Categories.Hints(appstream, desktop, console);
+    }
+
+    private List<Categories.Owned> owners(String pattern) {
+        try {
+            return Categories.parseOwners(runner.run(Apt.owners(pattern)));
+        } catch (IOException | PackageException e) {
+            // dpkg-query fails when nothing matches, /sbin/* on a merged /usr for one.
+            return List.of();
+        }
+    }
+
+    /**
+     * What a menu entry shows: an application, a terminal program ({@code Terminal=true}), or nothing
+     * ({@code NoDisplay} or {@code Hidden}, which Debian uses for helpers and MIME handlers).
+     */
+    static Category menuEntry(Path file) {
+        List<String> lines;
+        try {
+            lines = Files.readAllLines(file, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            return Category.OTHER;
+        }
+        boolean main = false;
+        boolean terminal = false;
+        for (String line : lines) {
+            String l = line.strip();
+            if (l.startsWith("[")) {
+                main = l.equals("[Desktop Entry]");
+            } else if (main) {
+                if (l.equals("NoDisplay=true") || l.equals("Hidden=true") || l.equals("Type=Link")) {
+                    return Category.OTHER;
+                }
+                if (l.equals("Terminal=true")) terminal = true;
+            }
+        }
+        return terminal ? Category.COMMAND_LINE : Category.APPLICATION;
     }
 
     @Override
@@ -281,13 +420,28 @@ public final class AptPackageService implements PackageService {
 
     /** Runs a read-only command; a non-zero exit becomes a PackageException with apt's last error. */
     static String run(List<String> command) throws IOException, PackageException {
+        StringBuilder out = new StringBuilder();
+        lines(command, line -> out.append(line).append('\n'));
+        return out.toString();
+    }
+
+    /** apt's last "E: " line without the prefix, or the fallback. */
+    static String errorMessage(String stderr, String fallback) {
+        return stderr.lines().filter(l -> l.startsWith("E: ")).reduce((a, b) -> b).map(l -> l.substring(3).strip())
+                .orElse(fallback);
+    }
+
+    /** Runs a read-only command and hands its output over line by line. */
+    static void lines(List<String> command, Consumer<String> sink) throws IOException, PackageException {
         ProcessBuilder builder = new ProcessBuilder(command);
-        // Untranslated output for the parsers, UTF-8 descriptions left intact
         builder.environment().put("LC_ALL", "C.UTF-8");
         Process process = builder.start();
         process.getOutputStream().close();
         CompletableFuture<String> stderr = CompletableFuture.supplyAsync(() -> readAll(process.getErrorStream()));
-        String stdout = readAll(process.getInputStream());
+        try (BufferedReader out = reader(process.getInputStream())) {
+            String line;
+            while ((line = out.readLine()) != null) sink.accept(line);
+        }
         try {
             if (!process.waitFor(READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
                 process.destroyForcibly();
@@ -301,13 +455,6 @@ public final class AptPackageService implements PackageService {
         if (process.exitValue() != 0) {
             throw new PackageException(errorMessage(stderr.join(), command.getFirst() + " failed"));
         }
-        return stdout;
-    }
-
-    /** apt's last "E: " line without the prefix, or the fallback. */
-    static String errorMessage(String stderr, String fallback) {
-        return stderr.lines().filter(l -> l.startsWith("E: ")).reduce((a, b) -> b).map(l -> l.substring(3).strip())
-                .orElse(fallback);
     }
 
     private static BufferedReader reader(InputStream in) {
