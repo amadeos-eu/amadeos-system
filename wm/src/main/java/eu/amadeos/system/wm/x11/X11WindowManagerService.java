@@ -35,6 +35,7 @@ import eu.amadeos.system.base.x11.LockSelection;
 import eu.amadeos.system.base.sound.BellPlayer;
 import eu.amadeos.system.wm.menu.DesktopMenuActions;
 import eu.amadeos.system.wm.menu.DesktopRootMenu;
+import eu.amadeos.system.wm.menu.WindowMenu;
 import eu.amadeos.system.base.x11.LaunchFeedback;
 import eu.amadeos.commons.theme.DesktopTheme;
 import eu.amadeos.system.base.theme.ThemeManager;
@@ -135,6 +136,11 @@ public final class X11WindowManagerService implements AutoCloseable {
     private volatile int currentDesktop = 0;
     private final Map<Long, Integer> clientToDesktop = new HashMap<>();
     private final DesktopRootMenu desktopMenu;
+    private final WindowMenu windowMenu;
+    /** The last click on a window menu button, for CDE's double click that closes the window. */
+    private long lastMenuButtonWin;
+    private long lastMenuButtonTime;
+    private static final long MENU_DOUBLE_CLICK_MS = 400;
 
     private final java.util.Set<Long> dockWindows = new java.util.HashSet<>();
     private int dockMarginBottom = 0;
@@ -388,6 +394,35 @@ public final class X11WindowManagerService implements AutoCloseable {
             }
         };
         this.desktopMenu = new DesktopRootMenu(menuActions);
+        this.windowMenu = new WindowMenu(new WindowMenu.Actions() {
+            @Override
+            public void restore(long clientWin) {
+                runOnEventThread(() -> withFrame(clientWin, f -> { if (f.isMaximized()) toggleMaximize(f); }));
+            }
+
+            @Override
+            public void minimize(long clientWin) {
+                runOnEventThread(() -> withFrame(clientWin, X11WindowManagerService.this::minimizeWindow));
+            }
+
+            @Override
+            public void maximize(long clientWin) {
+                runOnEventThread(() -> withFrame(clientWin, f -> { if (!f.isMaximized()) toggleMaximize(f); }));
+            }
+
+            @Override
+            public void lower(long clientWin) {
+                runOnEventThread(() -> {
+                    core.lower(clientWin);
+                    x11.XFlush(display);
+                });
+            }
+
+            @Override
+            public void close(long clientWin) {
+                runOnEventThread(() -> core.close(clientWin));
+            }
+        });
 
         NativeLong createdCheck = x11.XCreateSimpleWindow(
                 display, new NativeLong(rootWindow), 0, 0, 1, 1, 0, new NativeLong(0), new NativeLong(0));
@@ -1557,6 +1592,7 @@ public final class X11WindowManagerService implements AutoCloseable {
                     return;
                 }
                 desktopMenu.hide();
+                windowMenu.hide();
                 if (eventWin == rootWindow) {
                     x11.XFlush(display);
                     return;
@@ -2070,8 +2106,21 @@ public final class X11WindowManagerService implements AutoCloseable {
                 minimizeWindow(frame);
             }
             case MENU -> {
-                LOGGER.info(() -> "Menu button clicked for window " + clientWin);
-                core.close(clientWin);
+                // As in dtwm: a click opens the window menu below the button, a double click closes.
+                long now = System.currentTimeMillis();
+                if (lastMenuButtonWin == clientWin && now - lastMenuButtonTime <= MENU_DOUBLE_CLICK_MS) {
+                    LOGGER.info(() -> "Menu button double-clicked, closing window " + clientWin);
+                    lastMenuButtonWin = 0;
+                    windowMenu.hide();
+                    core.close(clientWin);
+                } else {
+                    LOGGER.info(() -> "Menu button clicked, window menu for window " + clientWin);
+                    lastMenuButtonWin = clientWin;
+                    lastMenuButtonTime = now;
+                    FrameMetrics m = frame.metrics();
+                    windowMenu.show(clientWin, frame.isMaximized(),
+                            frame.frameX() + m.borderWidth(), frame.frameY() + m.borderWidth() + m.titleBarHeight());
+                }
             }
         }
     }
@@ -2147,6 +2196,14 @@ public final class X11WindowManagerService implements AutoCloseable {
             return false;
         } finally {
             x11.XFree(ptr);
+        }
+    }
+
+    /** Runs the action with the frame of the client window, if it is still managed. */
+    private void withFrame(long clientWin, java.util.function.Consumer<FrameWindow> action) {
+        FrameWindow frame = clientToFrame.get(clientWin);
+        if (frame != null) {
+            action.accept(frame);
         }
     }
 
@@ -2319,6 +2376,7 @@ public final class X11WindowManagerService implements AutoCloseable {
             }
         }
         desktopMenu.dispose();
+        windowMenu.dispose();
         if (bellPlayer != null) {
             bellPlayer.close();
         }

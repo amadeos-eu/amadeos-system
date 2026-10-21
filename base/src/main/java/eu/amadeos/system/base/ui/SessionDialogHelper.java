@@ -75,7 +75,7 @@ public final class SessionDialogHelper {
             JButton logoutBtn = actionButton("logout", "Log Out", "Restart desktop session");
             logoutBtn.addActionListener(e -> requestSessionAction("restart"));
 
-            JButton shellBtn = actionButton("terminal", "Exit to Shell", "Drop to tty1 console");
+            JButton shellBtn = actionButton("terminal", "Exit to Shell", "Log out and switch to the text console (tty1)");
             shellBtn.addActionListener(e -> requestSessionAction("shell"));
 
             JButton shutdownBtn = actionButton("shutdown", "Shut Down", "Power off computer");

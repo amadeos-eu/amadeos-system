@@ -158,10 +158,25 @@ public final class AmadeDisplayManager {
                     handlePowerAction("poweroff");
                 } else if ("reboot".equalsIgnoreCase(action)) {
                     handlePowerAction("reboot");
+                } else if ("shell".equalsIgnoreCase(action)) {
+                    switchToTextConsole();
                 }
             } catch (Exception e) {
                 LOGGER.log(Level.WARNING, "Error processing session action file: " + e.getMessage());
             }
+        }
+    }
+
+    /**
+     * "Exit to Shell" of the session dialog: the session has ended, so switch the screen to the text
+     * console on tty1 (its login prompt); the greeter stays on its own virtual terminal, Ctrl+Alt+F7.
+     */
+    private void switchToTextConsole() {
+        LOGGER.info("Switching to the text console on tty1");
+        try {
+            new ProcessBuilder("chvt", "1").start();
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Failed to switch to tty1: " + e.getMessage());
         }
     }
 

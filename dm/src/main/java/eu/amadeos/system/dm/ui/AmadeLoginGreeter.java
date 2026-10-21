@@ -21,6 +21,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -41,6 +42,7 @@ import javax.swing.Timer;
 import eu.amadeos.commons.i18n.Language;
 import eu.amadeos.commons.theme.DesktopTheme;
 import eu.amadeos.system.dm.session.LastUser;
+import eu.amadeos.system.dm.session.KeyboardLayouts;
 import eu.amadeos.system.dm.session.SystemTimeZone;
 import eu.amadeos.system.dm.session.UserAccount;
 import eu.amadeos.system.base.theme.ThemeManager;
@@ -60,6 +62,8 @@ public final class AmadeLoginGreeter extends JFrame {
     private final JComboBox<String> sessionCombo;
     private final JComboBox<Language> languageCombo;
     private final JComboBox<String> timeZoneCombo;
+    private final JComboBox<KeyboardLayouts.Layout> keyboardCombo;
+    private final KeyboardLayouts.SystemLayout systemLayout = KeyboardLayouts.SYSTEM.system();
     private final JLabel statusLabel;
     private final JLabel clockLabel;
     private final JButton loginBtn;
@@ -168,6 +172,15 @@ public final class AmadeLoginGreeter extends JFrame {
         timeZoneCombo.setPrototypeDisplayValue("America/Argentina/Buenos_Aires");
         timeZoneCombo.setMaximumRowCount(16);
         timeZoneCombo.setToolTipText("Time zone of the computer's clock; set for the whole system at login");
+        // The layouts of xkeyboard-config, starting with the computer's own (/etc/default/keyboard); a
+        // choice switches the X server at once, so the password is typed with it
+        List<KeyboardLayouts.Layout> layouts = KeyboardLayouts.SYSTEM.list();
+        this.keyboardCombo = new JComboBox<>(layouts.toArray(new KeyboardLayouts.Layout[0]));
+        keyboardCombo.setPrototypeDisplayValue(new KeyboardLayouts.Layout("latam", "Spanish (Latin American)"));
+        keyboardCombo.setMaximumRowCount(16);
+        keyboardCombo.setToolTipText("Keyboard layout, switched at once for typing the password");
+        KeyboardLayouts.find(layouts, systemLayout.code()).ifPresent(keyboardCombo::setSelectedItem);
+        keyboardCombo.addActionListener(e -> applySelectedKeyboardLayout());
         this.statusLabel = new JLabel("Please enter your password to begin session.", SwingConstants.CENTER);
         this.loginBtn = createMotifButton("  Log In  ", theme);
 
@@ -177,7 +190,7 @@ public final class AmadeLoginGreeter extends JFrame {
         addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
             public void windowOpened(java.awt.event.WindowEvent e) {
-                applyKeyboardLayout("de");
+                applySelectedKeyboardLayout();
                 preselectLanguage();
                 preselectTimeZone();
                 passField.requestFocusInWindow();
@@ -295,18 +308,6 @@ public final class AmadeLoginGreeter extends JFrame {
         formPanel.add(kbLabel, gbc);
 
         gbc.gridx = 1; gbc.gridy = 4; gbc.weightx = 0.7;
-        JComboBox<String> keyboardCombo = new JComboBox<>(new String[]{
-                "German (DE - QWERTZ)",
-                "English (US - QWERTY)"
-        });
-        keyboardCombo.addActionListener(e -> {
-            String selected = (String) keyboardCombo.getSelectedItem();
-            if (selected != null && selected.startsWith("German")) {
-                applyKeyboardLayout("de");
-            } else {
-                applyKeyboardLayout("us");
-            }
-        });
         formPanel.add(keyboardCombo, gbc);
 
         // Time zone row: the display manager runs as root, so this is where the system's zone is set
@@ -474,16 +475,12 @@ public final class AmadeLoginGreeter extends JFrame {
         }
     }
 
-    private void applyKeyboardLayout(String layout) {
-        new Thread(() -> {
-            try {
-                if ("de".equals(layout)) {
-                    new ProcessBuilder("setxkbmap", "-layout", "de,us", "-option", "grp:alt_shift_toggle").start();
-                } else {
-                    new ProcessBuilder("setxkbmap", "-layout", "us,de", "-option", "grp:alt_shift_toggle").start();
-                }
-            } catch (Exception ignored) {
-            }
-        }, "amadeOS-Setxkbmap").start();
+    /** Switches to the chosen layout; the computer's own layout keeps its variant (nodeadkeys, ...). */
+    private void applySelectedKeyboardLayout() {
+        if (!(keyboardCombo.getSelectedItem() instanceof KeyboardLayouts.Layout layout)) {
+            return;
+        }
+        String variant = layout.code().equals(systemLayout.code()) ? systemLayout.variant() : "";
+        Thread.ofVirtual().name("amadeOS-Setxkbmap").start(() -> KeyboardLayouts.apply(layout.code(), variant));
     }
 }
