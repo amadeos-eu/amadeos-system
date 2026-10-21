@@ -4,7 +4,11 @@ import eu.amadeos.commons.i18n.Messages;
 import eu.amadeos.system.packages.CatalogEntry;
 
 import javax.swing.table.AbstractTableModel;
+import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /** The packages of one catalog tab that the filter lets through. */
 final class CatalogTableModel extends AbstractTableModel {
@@ -12,20 +16,54 @@ final class CatalogTableModel extends AbstractTableModel {
     static final int SUMMARY = 1;
     static final int STATUS = 2;
     static final int VERSION = 3;
-    private static final String[] COLUMNS = {"column.package", "column.summary", "column.status", "column.version"};
+    private static final String[] COLUMNS = {"column.name", "column.summary", "column.status", "column.version"};
 
     private final Messages msg;
-    private List<CatalogEntry> all = List.of();
+    private List<Item> all = List.of();
     private CatalogFilter filter = CatalogFilter.ALL;
-    private List<CatalogEntry> shown = List.of();
+    /** What the filter lets through, in all groups. */
+    private List<Item> matching = List.of();
+    /** The chosen group, null for all. */
+    private Group group;
+    private List<Item> shown = List.of();
+    private final Map<String, Set<Group>> groups = new HashMap<>();
 
     CatalogTableModel(Messages msg) {
         this.msg = msg;
     }
 
-    void setEntries(List<CatalogEntry> entries) {
-        all = List.copyOf(entries);
+    void setItems(List<Item> items) {
+        all = List.copyOf(items);
+        groups.clear();
         update();
+    }
+
+    /** Only the items of a group; null for all. */
+    void setGroup(Group group) {
+        this.group = group;
+        update();
+    }
+
+    Group group() {
+        return group;
+    }
+
+    Set<Group> groups(Item item) {
+        return groups.computeIfAbsent(item.name(), n -> Group.of(item));
+    }
+
+    /** How many items the filter lets through in each group. */
+    Map<Group, Integer> counts() {
+        Map<Group, Integer> counts = new EnumMap<>(Group.class);
+        for (Item item : matching) {
+            for (Group g : groups(item)) counts.merge(g, 1, Integer::sum);
+        }
+        return counts;
+    }
+
+    /** How many items the filter lets through, in all groups. */
+    int matching() {
+        return matching.size();
     }
 
     void setFilter(CatalogFilter filter) {
@@ -34,11 +72,12 @@ final class CatalogTableModel extends AbstractTableModel {
     }
 
     private void update() {
-        shown = filter.apply(all);
+        matching = filter.apply(all);
+        shown = group == null ? matching : matching.stream().filter(i -> groups(i).contains(group)).toList();
         fireTableDataChanged();
     }
 
-    CatalogEntry entry(int row) {
+    Item item(int row) {
         return shown.get(row);
     }
 
@@ -72,10 +111,11 @@ final class CatalogTableModel extends AbstractTableModel {
 
     @Override
     public Object getValueAt(int row, int column) {
-        CatalogEntry e = shown.get(row);
+        Item item = shown.get(row);
+        CatalogEntry e = item.entry();
         return switch (column) {
-            case NAME -> e.name();
-            case SUMMARY -> e.summary();
+            case NAME -> item.title();
+            case SUMMARY -> item.summary();
             case STATUS -> status(msg, e);
             case VERSION -> e.installed() ? e.installedVersion() : e.availableVersion();
             default -> "";

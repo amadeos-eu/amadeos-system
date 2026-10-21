@@ -1,0 +1,3 @@
+// amadeos-software: fetch the 64x64 icons of the AppStream data too, which Software shows next to the
+// applications. Sorts after appstream's 50appstream, which defines the target and leaves it off.
+Acquire::IndexTargets::deb::DEP-11-icons::DefaultEnabled "true";

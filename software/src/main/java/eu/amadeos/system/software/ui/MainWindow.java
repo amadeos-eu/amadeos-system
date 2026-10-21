@@ -2,6 +2,7 @@ package eu.amadeos.system.software.ui;
 
 import com.google.inject.Inject;
 import eu.amadeos.commons.i18n.Messages;
+import eu.amadeos.commons.desktop.DesktopLauncher;
 import eu.amadeos.commons.i18n.Mnemonics;
 import eu.amadeos.commons.swing.EdtExecutor;
 import eu.amadeos.system.packages.CatalogEntry;
@@ -11,6 +12,8 @@ import eu.amadeos.system.packages.PackageService;
 import eu.amadeos.system.packages.Progress;
 import eu.amadeos.system.packages.ProgressListener;
 import eu.amadeos.system.packages.Result;
+import eu.amadeos.system.software.appstream.AppData;
+import eu.amadeos.system.software.appstream.AppStreamSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,8 +44,10 @@ import java.awt.event.KeyEvent;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
@@ -70,6 +75,9 @@ public final class MainWindow extends JFrame {
     private final Messages msg;
     private final ExecutorService executor;
     private final EdtExecutor edt;
+    private final DesktopLauncher launcher;
+    private final AppStreamSource appStream;
+    private final ScreenshotCache screenshots;
 
     private final JTabbedPane tabs = new JTabbedPane();
     private final UpdatesTab updatesTab;
@@ -84,21 +92,28 @@ public final class MainWindow extends JFrame {
     private final Action settings;
     private boolean busy;
     private boolean catalogRead;
+    private List<CatalogEntry> catalog = List.of();
+    private boolean appStreamAfterOperation;
+    private Map<String, AppData> apps = Map.of();
 
     @Inject
-    public MainWindow(PackageService packages, Messages msg, ExecutorService executor, EdtExecutor edt) {
+    public MainWindow(PackageService packages, Messages msg, ExecutorService executor, EdtExecutor edt,
+                      DesktopLauncher launcher, AppStreamSource appStream, ScreenshotCache screenshots) {
         super(msg.get("app.title"));
         this.packages = packages;
         this.msg = msg;
         this.executor = executor;
         this.edt = edt;
+        this.launcher = launcher;
+        this.appStream = appStream;
+        this.screenshots = screenshots;
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
 
         updatesTab = new UpdatesTab(msg, this::loadDetails, this::installUpdates, this::installSecurityUpdates);
         for (Category category : List.of(Category.APPLICATION, Category.COMMAND_LINE, Category.OTHER,
                 Category.LIBRARY)) {
-            catalogTabs.put(category, new CatalogTab(msg, category, this::loadDetails, this::install, this::remove,
-                    this::update));
+            catalogTabs.put(category, new CatalogTab(msg, category, this::loadScreenshot, this::browse,
+                    this::loadDetails, this::install, this::remove, this::update));
         }
         operation = new OperationBar(msg);
 
@@ -186,7 +201,16 @@ public final class MainWindow extends JFrame {
             tabs.setSelectedComponent(updatesTab);
         }
         reload();
+        readAppStream();
         if (openSettings) openSettings();
+    }
+
+    /** Names, icons, descriptions and screenshots of the applications; read after the catalog, as it takes a while. */
+    void readAppStream() {
+        background(appStream::applications, read -> {
+            apps = read;
+            showItems();
+        }, error -> LOG.warn("Cannot read the AppStream data", error));
     }
 
     /** Reads the waiting updates, the time of the last check and the catalog again. */
@@ -214,14 +238,41 @@ public final class MainWindow extends JFrame {
         }
     }
 
-    void showCatalog(List<CatalogEntry> catalog) {
-        Map<Category, List<CatalogEntry>> byCategory = new EnumMap<>(Category.class);
-        for (Category category : Category.values()) byCategory.put(category, new ArrayList<>());
-        for (CatalogEntry entry : catalog) byCategory.get(entry.category()).add(entry);
-        catalogTabs.forEach((category, tab) -> tab.setEntries(byCategory.get(category)));
+    void showCatalog(List<CatalogEntry> read) {
+        catalog = read;
         if (!catalogRead && !busy) operation.end(" ");
         catalogRead = true;
+        showItems();
+    }
+
+    /** The catalog in its tabs, each package with its application's AppStream data, sorted by name. */
+    private void showItems() {
+        Map<Category, List<Item>> byCategory = new EnumMap<>(Category.class);
+        for (Category category : Category.values()) byCategory.put(category, new ArrayList<>());
+        for (CatalogEntry entry : catalog) {
+            byCategory.get(entry.category()).add(new Item(entry, Optional.ofNullable(apps.get(entry.name()))));
+        }
+        Comparator<Item> byTitle = Comparator.comparing((Item i) -> i.title().toLowerCase(Locale.ROOT))
+                .thenComparing(Item::name);
+        catalogTabs.forEach((category, tab) -> tab.setItems(byCategory.get(category).stream().sorted(byTitle).toList()));
         updateTabTitles();
+    }
+
+    private void loadScreenshot(java.net.URI image, Consumer<java.nio.file.Path> done, Consumer<Throwable> failed) {
+        background(() -> screenshots.get(image), done, error -> {
+            LOG.info("No screenshot {}: {}", image, error.toString());
+            failed.accept(error);
+        });
+    }
+
+    /** A link in the details: the home page, in the web browser. */
+    private void browse(String uri) {
+        if (!uri.startsWith("https://") && !uri.startsWith("http://")) return;
+        try {
+            launcher.browse(uri);
+        } catch (IOException e) {
+            operation.end(msg.format("error.browse", e.getMessage()));
+        }
     }
 
     private void showUpdatesTab(boolean shown) {
@@ -367,6 +418,9 @@ public final class MainWindow extends JFrame {
     }
 
     private void checkNow() {
+        if (busy) return;
+        // New package lists bring new AppStream data; read once the refresh is done.
+        appStreamAfterOperation = true;
         perform(msg.get("progress.checking"), packages::refresh, msg.get("outcome.done"));
     }
 
@@ -403,6 +457,10 @@ public final class MainWindow extends JFrame {
 
     private void finished(Result result, String doneText) {
         setBusy(false);
+        if (appStreamAfterOperation) {
+            appStreamAfterOperation = false;
+            readAppStream();
+        }
         operation.end(outcome(msg, result, doneText));
         if (result.rebootRequired()) restartBar.setVisible(true);
         if (result.status() == Result.Status.FAILED) {
