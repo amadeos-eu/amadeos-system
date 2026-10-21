@@ -6,10 +6,15 @@ session   required  pam_env.so readenv=1
 session   required  pam_env.so readenv=1 envfile=/etc/default/locale
 
 @include common-auth
+# Keeps the login password for the session part below, which unlocks the login keyring with it
+-auth     optional  pam_gnome_keyring.so
 @include common-account
 
 session   required  pam_limits.so
 session   required  pam_loginuid.so
 @include common-session
+# Starts gnome-keyring-daemon (the Secret Service of the Mailer and other programs) and unlocks the
+# login keyring with the password; creates it on the first login. '-' skips it when the module is missing.
+-session  optional  pam_gnome_keyring.so auto_start
 @include common-password
 
