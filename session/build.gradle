@@ -1,6 +1,6 @@
 // The session: the amadeos-session script (window manager under supervision, autostart scripts, then the
-// panel), the screen lock (`amadeos-session lock`, wrapped by amadeos-lock) and the screen saver with idle
-// lock (`amadeos-session screen`).
+// panel), the screen lock (`amadeos-session lock`, wrapped by amadeos-lock), the screen saver with idle
+// lock (`amadeos-session screen`) and the polkit authentication agent (`amadeos-session polkit-agent`).
 application {
     mainClass = 'eu.amadeos.system.session.SessionLauncher'
 }
@@ -9,17 +9,25 @@ debian = [
     section    : 'x11',
     javaOptions: '--enable-native-access=ALL-UNNAMED',
     // The window manager and a panel (amadeos-panel-cde or another provider of amadeos-panel); xprop (the
-    // script waits for the window manager), the MIT-SCREEN-SAVER library (screen saver), PAM (lock).
-    depends    : ['amadeos-wm', 'amadeos-panel', 'x11-utils', 'libxss1', 'libpam-runtime'],
+    // script waits for the window manager), the MIT-SCREEN-SAVER library (screen saver), PAM (lock);
+    // polkitd for the agent, which asks for the password when a program of the session uses pkexec.
+    depends    : ['amadeos-wm', 'amadeos-panel', 'x11-utils', 'libxss1', 'libpam-runtime', 'polkitd'],
     // xterm: the fallback of a failed session; xinit: startx without the display manager (amadeos-session
     // is registered as x-session-manager).
     recommends : ['xterm', 'xinit', 'amadeos-style'],
     conflicts  : ['amade-desktop', 'amade-session'],
     replaces   : ['amade-desktop', 'amade-session'],
-    summary    : 'Desktop session, screen lock and screen saver of amadeOS',
+    summary    : 'Desktop session, screen lock, screen saver and polkit agent of amadeOS',
     description: '''The X session of the amadeOS desktop: amadeos-session starts the window manager under
 supervision, the autostart scripts of /etc/amadeos/autostart.d and the front
 panel; settings in /etc/amadeos/session.conf. With it the screen lock
 (amadeos-lock, PAM through /etc/pam.d/amadeos-lock) and the screen saver with
-idle lock in the style of CDE's dtscreen.'''
+idle lock in the style of CDE's dtscreen, and the polkit authentication agent
+that asks for the administrator's password when a program needs it.'''
 ]
+
+dependencies {
+    // The polkit authentication agent talks to polkitd over the system bus.
+    implementation 'com.github.hypfvieh:dbus-java-core:5.1.1'
+    implementation 'com.github.hypfvieh:dbus-java-transport-native-unixsocket:5.1.1'
+}
