@@ -1,0 +1,18 @@
+#!/bin/sh
+# amadeOS polkit authentication agent: asks for the administrator's password when a program of the session
+# runs something through pkexec (Software installing or removing packages, for example). Without an agent,
+# pkexec refuses every action that polkit does not allow outright.
+# Restarted if it crashes; stops on a clean exit (0, the system bus is gone) or when it cannot serve the
+# session (1 no session, 2 usage, 3 another agent is registered).
+set -u
+
+LOG_FILE="${HOME:-/tmp}/.amadeos-polkit-agent.log"
+
+while :; do
+    /usr/libexec/amadeos-session polkit-agent >> "$LOG_FILE" 2>&1
+    case "$?" in
+        0|1|2|3) exit 0 ;;
+        126|127) exit 1 ;;
+        *) echo "[amadeos-polkit-agent] restarting in 5s" >> "$LOG_FILE"; sleep 5 ;;
+    esac
+done
