@@ -1,0 +1,5 @@
+adduser	3.152	ii 	429	admin	add and remove users and groups
+libc6:amd64	2.41-12	ii 	12345	libs	GNU C Library: Shared libraries
+openssl	3.5.1-1	ii 	2345	utils	Secure Sockets Layer toolkit - cryptographic utility
+old-thing	1.0	rc 		utils	removed, configuration left
+held-pkg	2.0	hi 	10	utils	held package

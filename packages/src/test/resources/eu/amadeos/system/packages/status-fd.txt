@@ -1,0 +1,15 @@
+dlstatus:1:0.0000:Retrieving file 1 of 1
+dlstatus:1:0.0000:Retrieving file 1 of 1
+dlstatus:1:0.0000:Retrieving file 1 of 1
+dlstatus:1:0.0000:Retrieving file 1 of 1
+dlstatus:1:0.0000:Retrieving file 1 of 1
+dlstatus:1:80.0000:Retrieving file 1 of 1
+dlstatus:1:100.0000:Retrieving file 1 of 1
+pmstatus:dpkg-exec:0.0000:Running dpkg
+pmstatus:distro-info-data:0.0000:Preparing distro-info-data (amd64)
+pmstatus:distro-info-data:20.0000:Unpacking distro-info-data (amd64)
+pmstatus:distro-info-data:40.0000:Installing distro-info-data (amd64)
+pmstatus:dpkg-exec:40.0000:Running dpkg
+pmstatus:distro-info-data:40.0000:Preparing to configure distro-info-data (amd64)
+pmstatus:distro-info-data:60.0000:Configuring distro-info-data (amd64)
+pmstatus:distro-info-data:80.0000:Installed distro-info-data (amd64)

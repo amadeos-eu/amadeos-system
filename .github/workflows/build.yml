@@ -28,7 +28,7 @@ jobs:
         run: xvfb-run --auto-servernum ./gradlew test --no-daemon
       - name: Check that the tests ran
         run: |
-          for module in base wm panel-cde dm session style logviewer print sysinfo; do
+          for module in base wm panel-cde dm session style logviewer print sysinfo packages; do
             count=$(grep -ho 'tests="[0-9]*"' $module/build/test-results/test/*.xml | grep -o '[0-9]*' | paste -sd+ | bc)
             skipped=$(grep -ho 'skipped="[0-9]*"' $module/build/test-results/test/*.xml | grep -o '[0-9]*' | paste -sd+ | bc)
             echo "$module: tests run: $count, skipped: $skipped"
@@ -70,6 +70,19 @@ jobs:
               done
             fi
           done
+      - name: Check the helper package
+        run: |
+          # amadeos-packages has no jar: only the root helper, its polkit action and rule.
+          deb=$(ls packages/build/distributions/amadeos-packages_*_all.deb)
+          dpkg-deb --info "$deb"
+          dpkg-deb --contents "$deb" > contents.txt
+          ! grep -q '\.jar$' contents.txt || { echo "amadeos-packages must not contain a jar"; exit 1; }
+          for f in usr/libexec/amadeos-packages usr/share/polkit-1/actions/eu.amadeos.packages.policy \
+                   usr/share/polkit-1/rules.d/50-amadeos-packages.rules usr/share/doc/amadeos-packages/copyright; do
+            grep -q "$f" contents.txt || { echo "missing in amadeos-packages: $f"; exit 1; }
+          done
+          grep -q '^-rwxr-xr-x .* ./usr/libexec/amadeos-packages$' contents.txt
+          bash -n packages/packaging/root/usr/libexec/amadeos-packages
       - name: Upload the Debian packages
         uses: actions/upload-artifact@v7
         with:

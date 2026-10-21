@@ -1,0 +1,9 @@
+// amadeOS: refreshing the package lists (apt-get update) changes no installed software, so the active
+// local user may do it without a password ("Check now" in the update cell). Everything else
+// amadeos-packages does keeps the password prompt of eu.amadeos.packages.policy.
+polkit.addRule(function (action, subject) {
+    if (action.id === "eu.amadeos.packages.manage" && subject.local && subject.active
+            && action.lookup("command_line") === "/usr/libexec/amadeos-packages refresh") {
+        return polkit.Result.YES;
+    }
+});

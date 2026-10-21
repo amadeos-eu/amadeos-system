@@ -1,0 +1,20 @@
+// The package-management library: PackageService over apt (upgrades, installed and available packages,
+// search, install/upgrade/remove with progress), used by the front panel's update cell, the update window
+// and the app store. Bundled into their jars like base. Its package `amadeos-packages` holds no Java, only
+// the root helper /usr/libexec/amadeos-packages and its polkit action, which those programs depend on.
+apply plugin: 'java-library'
+
+jar {
+    archiveBaseName = 'amadeos-packages-lib'
+}
+
+debian = [
+    section    : 'admin',
+    depends    : ['apt', 'pkexec', 'polkitd'],
+    summary    : 'Software installation helper of amadeOS',
+    description: '''The privileged helper /usr/libexec/amadeos-packages and its polkit action: the
+front panel's update cell, the update window and the app store of amadeOS
+refresh the package lists, upgrade, install and remove software through it
+with apt. The administrator's password is asked for everything except
+refreshing the lists.'''
+]
