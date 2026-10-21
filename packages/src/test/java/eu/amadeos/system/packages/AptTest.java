@@ -139,4 +139,19 @@ class AptTest {
         assertTrue(Origin.parse("Debian:13/trixie-security").security());
         assertFalse(Set.of(Origin.parse("Debian:13.1/stable")).iterator().next().security());
     }
+
+    @Test
+    void indexReaderKeepsWhatTheCatalogNeeds() throws Exception {
+        Apt.IndexReader reader = new Apt.IndexReader();
+        Fixtures.read("dumpavail.txt").lines().forEach(reader);
+        List<Apt.IndexEntry> entries = reader.entries();
+        assertEquals(List.of("gimp", "ripgrep", "libpcre2-8-0", "unrar"),
+                entries.stream().map(Apt.IndexEntry::name).toList());
+        Apt.IndexEntry gimp = entries.getFirst();
+        assertEquals("graphics", gimp.section());
+        assertTrue(gimp.tags().contains("interface::x11"), gimp.tags().toString());
+        assertTrue(gimp.tags().contains("role::program"));
+        assertEquals("utils", entries.get(3).section(), "the component is left out");
+        assertEquals(List.of(), entries.get(2).tags());
+    }
 }

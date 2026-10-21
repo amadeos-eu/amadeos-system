@@ -232,4 +232,53 @@ class AptPackageServiceTest {
                 .refresh(ProgressListener.NONE);
         assertEquals(Result.Status.NOT_AUTHORIZED, result.status());
     }
+
+    @Test
+    void theCatalogMergesTheIndexTheInstalledPackagesAndTheHints() throws Exception {
+        Path lists = dir.resolve("lists");
+        Files.createDirectories(lists);
+        Files.writeString(lists.resolve("deb.debian.org_debian_dists_trixie_main_dep11_Components-amd64.yml.gz"), "");
+        Path menu = dir.resolve("gimp.desktop");
+        Files.writeString(menu, "[Desktop Entry]\nType=Application\nName=GIMP\nExec=gimp\n");
+        Path hidden = dir.resolve("helper.desktop");
+        Files.writeString(hidden, "[Desktop Entry]\nType=Application\nNoDisplay=true\n");
+        PackageService service = new AptPackageService(List.of("false"), Map.of(), command -> {
+            String first = command.getFirst();
+            if (first.equals("apt-cache")) return Fixtures.read("dumpavail.txt");
+            if (first.equals("apt-mark")) return Fixtures.read("showauto.txt");
+            if (first.endsWith("apt-helper")) return "---\nType: console-application\nPackage: ripgrep\n";
+            if (first.equals("dpkg-query") && command.get(1).equals("-W")) return Fixtures.read("dpkg-query.txt");
+            return switch (command.get(2)) {
+                case "/usr/share/applications/*.desktop" -> "gimp: " + menu + "\nadduser: " + hidden + "\n";
+                case "/usr/bin/*" -> "openssl: /usr/bin/openssl\n";
+                default -> throw new PackageService.PackageException("dpkg-query: no path found matching pattern");
+            };
+        }, lists);
+        List<CatalogEntry> catalog = service.catalog();
+        assertEquals(List.of("adduser", "gimp", "held-pkg", "libc6", "libpcre2-8-0", "openssl", "ripgrep", "unrar"),
+                catalog.stream().map(CatalogEntry::name).toList());
+        Map<String, CatalogEntry> byName = new java.util.HashMap<>();
+        catalog.forEach(e -> byName.put(e.name(), e));
+        assertEquals(Category.APPLICATION, byName.get("gimp").category());
+        assertEquals(Category.COMMAND_LINE, byName.get("ripgrep").category());
+        assertEquals(Category.COMMAND_LINE, byName.get("openssl").category());
+        assertEquals(Category.COMMAND_LINE, byName.get("adduser").category(), "a hidden menu entry is no application");
+        assertEquals(Category.LIBRARY, byName.get("libc6").category());
+        assertTrue(byName.get("libc6").automatic());
+        assertTrue(byName.get("libc6").installed());
+        assertEquals("", byName.get("libc6").availableVersion(), "no repository in the fixture has it");
+        assertFalse(byName.get("gimp").installed());
+        assertEquals("graphics", byName.get("gimp").section());
+    }
+
+    @Test
+    void menuEntriesSayWhatTheyShow() throws Exception {
+        Path app = dir.resolve("app.desktop");
+        Files.writeString(app, "[Desktop Entry]\nType=Application\nExec=app\n[Desktop Action new]\nNoDisplay=true\n");
+        Path terminal = dir.resolve("top.desktop");
+        Files.writeString(terminal, "[Desktop Entry]\nType=Application\nTerminal=true\n");
+        assertEquals(Category.APPLICATION, AptPackageService.menuEntry(app));
+        assertEquals(Category.COMMAND_LINE, AptPackageService.menuEntry(terminal));
+        assertEquals(Category.OTHER, AptPackageService.menuEntry(dir.resolve("missing.desktop")));
+    }
 }

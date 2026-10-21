@@ -1,6 +1,8 @@
 package eu.amadeos.system.software.ui;
 
 import eu.amadeos.commons.swing.EdtExecutor;
+import eu.amadeos.system.packages.CatalogEntry;
+import eu.amadeos.system.packages.Category;
 import eu.amadeos.system.packages.Change;
 import eu.amadeos.system.packages.InstalledPackage;
 import eu.amadeos.system.packages.PackageInfo;
@@ -27,6 +29,7 @@ import static eu.amadeos.system.software.ui.UpdateTableModelTest.STABLE;
 import static eu.amadeos.system.software.ui.UpdateTableModelTest.update;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MainWindowTest {
@@ -41,10 +44,19 @@ class MainWindowTest {
     }
 
     private void open() throws Exception {
+        open(false);
+    }
+
+    private void open(boolean updates) throws Exception {
         SwingUtilities.invokeAndWait(() -> {
             window = new MainWindow(service, EN, executor, new EdtExecutor());
-            window.start(false);
+            window.start(updates, false);
         });
+    }
+
+    private static CatalogEntry entry(String name, Category category, String installed, String available,
+                                      boolean automatic) {
+        return new CatalogEntry(name, name + " summary", "misc", category, installed, available, automatic);
     }
 
     @Test
@@ -73,12 +85,12 @@ class MainWindowTest {
         // All ticked: everything is upgraded.
         SwingUtilities.invokeAndWait(() -> window.updatesTab().installSelectedButton().doClick());
         await(() -> onEdt(window::restartBarShown));
-        assertEquals("upgrade [] security=false", service.calls.get(1));
+        assertTrue(service.calls.contains("upgrade [] security=false"));
         assertEquals("The updates are installed.", onEdt(() -> window.operation().statusText()));
         assertTrue(onEdt(() -> window.operation().logText()).contains("Unpacking bash"));
 
         // One unticked: only the others.
-        await(() -> service.calls.size() >= 3);
+        await(() -> service.calls.stream().filter("upgrades"::equals).count() >= 2);
         SwingUtilities.invokeAndWait(() -> {
             window.updatesTab().model().setValueAt(false, 1, UpdateTableModel.SELECTED);
             window.updatesTab().installSelectedButton().doClick();
@@ -87,8 +99,8 @@ class MainWindowTest {
     }
 
     @Test
-    void anEmptyListSaysSoInTheTab() throws Exception {
-        open();
+    void anEmptyListSaysSoInTheTabWhenItIsAskedFor() throws Exception {
+        open(true);
         await(() -> service.calls.contains("upgrades"));
         await(() -> onEdt(() -> window.updatesTab().summaryText()).equals("Your software is up to date."));
         assertEquals("Updates", onEdt(window::updatesTabTitle));
@@ -96,14 +108,94 @@ class MainWindowTest {
     }
 
     @Test
+    void withoutUpdatesThereIsNoUpdatesTab() throws Exception {
+        open();
+        await(() -> service.calls.contains("catalog"));
+        await(() -> !onEdt(() -> window.operation().busy()));
+        assertEquals(List.of("Applications", "Command line", "Other"), onEdt(window::tabTitles));
+        assertNull(onEdt(window::updatesTabTitle));
+    }
+
+    @Test
+    void theCatalogIsSortedIntoTabsAndSearchedTogether() throws Exception {
+        service.catalog = List.of(entry("fonts-x", Category.OTHER, "", "1", false),
+                entry("gimp", Category.APPLICATION, "", "2.10", false),
+                entry("libfoo1", Category.LIBRARY, "1.0", "1.0", true),
+                entry("vim", Category.COMMAND_LINE, "9.0", "9.1", false));
+        open();
+        await(() -> onEdt(() -> window.catalogTab(Category.APPLICATION).shown()) == 1);
+        assertEquals(1, onEdt(() -> window.catalogTab(Category.COMMAND_LINE).shown()));
+        assertEquals(1, onEdt(() -> window.catalogTab(Category.LIBRARY).shown()));
+
+        // A search narrows all tabs, counts their hits and moves to a tab with some.
+        SwingUtilities.invokeAndWait(() -> window.searchField().setText("vim"));
+        await(() -> onEdt(window::tabTitles).contains("Command line (1)"));
+        assertEquals(List.of("Applications (0)", "Command line (1)", "Other (0)"), onEdt(window::tabTitles));
+        assertEquals("vim", onEdt(() -> window.catalogTab(Category.COMMAND_LINE).selected().orElseThrow().name()));
+        assertEquals("Installed: version 9.0. Version 9.1 is available.",
+                onEdt(() -> window.catalogTab(Category.COMMAND_LINE).details().stateText()));
+
+        SwingUtilities.invokeAndWait(() -> {
+            window.searchField().setText("");
+            window.showFilter().setSelectedIndex(1);
+            window.librariesSwitch().doClick();
+        });
+        await(() -> onEdt(window::tabTitles).size() == 4);
+        assertEquals(List.of("Applications (0)", "Command line (1)", "Other (0)", "Libraries (1)"),
+                onEdt(window::tabTitles));
+    }
+
+    @Test
+    void installUpdateAndRemoveGoThroughTheService() throws Exception {
+        service.catalog = List.of(entry("gimp", Category.APPLICATION, "", "2.10", false),
+                entry("vim", Category.COMMAND_LINE, "9.0", "9.1", false));
+        open();
+        await(() -> onEdt(() -> window.catalogTab(Category.APPLICATION).shown()) == 1);
+        SwingUtilities.invokeAndWait(() -> {
+            CatalogTab tab = window.catalogTab(Category.APPLICATION);
+            tab.select("gimp");
+            assertTrue(tab.details().installButton().isEnabled());
+            assertFalse(tab.details().removeButton().isEnabled());
+            tab.details().installButton().doClick();
+        });
+        // gimp needs nothing else, so no question.
+        await(() -> service.calls.contains("install [gimp]"));
+        await(() -> onEdt(() -> window.operation().statusText()).equals("gimp is installed."));
+
+        SwingUtilities.invokeAndWait(() -> {
+            CatalogTab tab = window.catalogTab(Category.COMMAND_LINE);
+            tab.select("vim");
+            tab.details().updateButton().doClick();
+        });
+        await(() -> service.calls.contains("upgrade [vim] security=false"));
+    }
+
+    @Test
+    void confirmationsNameWhatElseChanges() throws Exception {
+        open();
+        Change dependency = new Change(Change.Kind.INSTALL, "libgimp2.0", "", "2.10", List.of(STABLE), "amd64");
+        Change itself = new Change(Change.Kind.INSTALL, "gimp", "", "2.10", List.of(STABLE), "amd64");
+        assertEquals("", onEdt(() -> window.confirmation("gimp", List.of(itself), false)));
+        assertEquals("gimp needs one more package: libgimp2.0",
+                onEdt(() -> window.confirmation("gimp", List.of(dependency, itself), false)));
+        List<Change> removals = new java.util.ArrayList<>();
+        for (int i = 0; i < 14; i++) {
+            removals.add(new Change(Change.Kind.REMOVE, "pkg" + i + ":amd64", "1", "", List.of(), ""));
+        }
+        assertEquals("This also removes 14 packages that need it: pkg0, pkg1, pkg2, pkg3, pkg4, pkg5, pkg6, "
+                + "pkg7, pkg8, pkg9, pkg10, pkg11, and 2 more", onEdt(() -> window.confirmation("x", removals, true)));
+    }
+
+    @Test
     void outcomesAreSaidPlainly() {
         assertEquals("Another program is installing software right now. Try again in a moment.",
-                MainWindow.outcome(EN, new Result(Result.Status.LOCKED, "", false), true));
+                MainWindow.outcome(EN, new Result(Result.Status.LOCKED, "", false), "x"));
         assertEquals("Not done: the password was not given.",
-                MainWindow.outcome(EN, new Result(Result.Status.NOT_AUTHORIZED, "", false), true));
+                MainWindow.outcome(EN, new Result(Result.Status.NOT_AUTHORIZED, "", false), "x"));
         assertEquals("That did not work: no space left",
-                MainWindow.outcome(EN, new Result(Result.Status.FAILED, "no space left", false), true));
-        assertEquals("Done.", MainWindow.outcome(EN, new Result(Result.Status.DONE, "", false), false));
+                MainWindow.outcome(EN, new Result(Result.Status.FAILED, "no space left", false), "x"));
+        assertEquals("gimp is installed.", MainWindow.outcome(EN, new Result(Result.Status.DONE, "", false),
+                EN.format("outcome.package-installed", "gimp")));
     }
 
     private static <T> T onEdt(Supplier<T> read) throws Exception {
@@ -127,6 +219,7 @@ class MainWindowTest {
     private static final class FakeService implements PackageService {
         final List<String> calls = new CopyOnWriteArrayList<>();
         volatile List<Change> updates = List.of();
+        volatile List<CatalogEntry> catalog = List.of();
         volatile Result result = new Result(Result.Status.DONE, "", false);
 
         @Override
@@ -137,7 +230,14 @@ class MainWindowTest {
 
         @Override
         public List<Change> simulateInstall(List<String> names) {
-            return List.of();
+            return names.stream().map(n -> new Change(Change.Kind.INSTALL, n, "", "1", List.of(STABLE), "amd64"))
+                    .toList();
+        }
+
+        @Override
+        public List<CatalogEntry> catalog() {
+            calls.add("catalog");
+            return catalog;
         }
 
         @Override
@@ -182,6 +282,7 @@ class MainWindowTest {
 
         @Override
         public Result install(List<String> names, ProgressListener listener) {
+            calls.add("install " + names);
             return result;
         }
 
