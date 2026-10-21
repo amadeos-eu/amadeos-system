@@ -93,7 +93,6 @@ public final class MainWindow extends JFrame {
     private boolean busy;
     private boolean catalogRead;
     private List<CatalogEntry> catalog = List.of();
-    private boolean appStreamAfterOperation;
     /** The package lists were fetched once already because there were none (a new image ships without them). */
     private boolean listsFetched;
     private Map<String, AppData> apps = Map.of();
@@ -234,7 +233,6 @@ public final class MainWindow extends JFrame {
         if (snapshot.lastRefresh().isEmpty() && !listsFetched && !busy) {
             // Without lists the catalog holds only the installed packages; fetching needs no password.
             listsFetched = true;
-            appStreamAfterOperation = true;
             perform(msg.get("progress.lists"), packages::refresh, msg.get("outcome.done"));
         }
         int count = snapshot.updates().size();
@@ -427,8 +425,6 @@ public final class MainWindow extends JFrame {
 
     private void checkNow() {
         if (busy) return;
-        // New package lists bring new AppStream data; read once the refresh is done.
-        appStreamAfterOperation = true;
         perform(msg.get("progress.checking"), packages::refresh, msg.get("outcome.done"));
     }
 
@@ -465,10 +461,8 @@ public final class MainWindow extends JFrame {
 
     private void finished(Result result, String doneText) {
         setBusy(false);
-        if (appStreamAfterOperation) {
-            appStreamAfterOperation = false;
-            readAppStream();
-        }
+        // New package lists bring new AppStream data, an installed package its desktop entry and metainfo.
+        readAppStream();
         operation.end(outcome(msg, result, doneText));
         if (result.rebootRequired()) restartBar.setVisible(true);
         if (result.status() == Result.Status.FAILED) {

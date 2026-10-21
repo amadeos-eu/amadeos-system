@@ -50,8 +50,9 @@ final class DetailsPage {
         String homepage = item.app().map(AppData::homepage).filter(h -> !h.isBlank())
                 .or(() -> info.map(PackageInfo::homepage).filter(h -> !h.isBlank())).orElse("");
         StringBuilder meta = new StringBuilder();
-        info.ifPresent(i -> meta.append(Html.escape(msg.format("details.size", Sizes.bytes(i.downloadSize()),
-                Sizes.kib(i.installedSize())))));
+        // A package no repository offers (installed by hand) has no sizes to tell.
+        info.filter(i -> i.downloadSize() > 0 || i.installedSize() > 0).ifPresent(i -> meta.append(Html.escape(
+                msg.format("details.size", Sizes.bytes(i.downloadSize()), Sizes.kib(i.installedSize())))));
         if (homepage.startsWith("https://") || homepage.startsWith("http://")) {
             if (!meta.isEmpty()) meta.append(" · ");
             meta.append("<a href='").append(Html.escape(homepage)).append("'>")

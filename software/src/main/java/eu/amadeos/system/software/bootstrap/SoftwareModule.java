@@ -7,10 +7,14 @@ import eu.amadeos.commons.i18n.Messages;
 import eu.amadeos.system.packages.AptPackageService;
 import eu.amadeos.system.packages.PackageService;
 import eu.amadeos.system.software.appstream.AppStream;
+import eu.amadeos.system.software.appstream.AppData;
 import eu.amadeos.system.software.appstream.AppStreamSource;
+import eu.amadeos.system.software.appstream.InstalledApps;
 import eu.amadeos.system.software.ui.ScreenshotCache;
 
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 
 /** amadeos-software bindings; the executor, theme and language come from the CommonsModule. */
 public final class SoftwareModule extends AbstractModule {
@@ -32,7 +36,15 @@ public final class SoftwareModule extends AbstractModule {
     @Provides
     @Singleton
     AppStreamSource appStream(Locale locale) {
-        return () -> AppStream.read(AppStream.LISTS, AppStream.ICONS, locale);
+        // The repositories' AppStream data first; packages it does not know (the amade applications, a .deb
+        // installed by hand) get what their installed desktop entry and metainfo say.
+        return () -> {
+            Map<String, AppData> apps = new HashMap<>(AppStream.read(AppStream.LISTS, AppStream.ICONS, locale));
+            new InstalledApps(locale, InstalledApps.ICONS, InstalledApps.PIXMAPS)
+                    .read(InstalledApps.dpkg(), InstalledApps.APPLICATIONS, InstalledApps.METAINFO)
+                    .forEach(apps::putIfAbsent);
+            return apps;
+        };
     }
 
     @Provides
