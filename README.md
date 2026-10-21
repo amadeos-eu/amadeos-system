@@ -64,7 +64,7 @@ file system; the files under `etc/` are conffiles):
 |---|---|---|
 | `/usr/bin/amadeos-dm` | `amadeos-dm` | Starts Xorg on VT 7 with an authorization cookie and the display manager; applies the keyboard layout of `/etc/default/keyboard`. |
 | `/usr/lib/systemd/system/amadeos-dm.service` | `amadeos-dm` | The unit around it, alias `display-manager.service`; the postinst enables it and sets `graphical.target` as the default target. |
-| `/etc/pam.d/amadeos-dm` | `amadeos-dm` | The PAM service of the greeter. |
+| `/etc/pam.d/amadeos-dm` | `amadeos-dm` | The PAM service of the greeter. With `libpam-gnome-keyring` installed (the amadeOS image has it), `pam_gnome_keyring` starts `gnome-keyring-daemon` and unlocks the login keyring with the login password, so programs keep their passwords in the Secret Service (`secret-tool`) without asking again. |
 | `/usr/bin/amadeos-session`, `/etc/amadeos/session.conf` | `amadeos-session` | The session script and its settings (`WM_COMMAND`, `AUTOSTART_APP`, logging). |
 | `/etc/amadeos/autostart.d/` | `amadeos-session`, `amadeos-style` | Run at the start of every session: `10-amadeos-input` (input settings, from `amadeos-style`), `30-amadeos-polkit-agent` (polkit agent), `50-amadeos-screen` (screen saver). Users add their own in `~/.config/amadeos/autostart.d`. |
 | `/usr/bin/amadeos-lock`, `/etc/pam.d/amadeos-lock` | `amadeos-session` | The screen lock wrapper and the PAM service of the lock. |
