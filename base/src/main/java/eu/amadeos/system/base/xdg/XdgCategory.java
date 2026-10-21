@@ -20,6 +20,8 @@ public enum XdgCategory {
     GRAPHICS("Graphics", "Graphics", "graphics", Set.of("graphics", "viewer", "rastergraphics", "2dgraphics", "vectorgraphics", "3dgraphics", "photography", "scanning")),
     NETWORK("Network", "Internet & Network", "window", Set.of("network", "webbrowser", "chat")),
     AUDIO_VIDEO("AudioVideo", "Sound & Video", "multimedia", Set.of("audiovideo", "audio", "video", "player", "recorder")),
+    GAMES("Game", "Games", "games", Set.of("game", "actiongame", "adventuregame", "arcadegame", "boardgame", "blocksgame",
+            "cardgame", "kidsgame", "logicgame", "roleplaying", "shooter", "sportsgame", "strategygame")),
     OTHER("Other", "Applications", "app-manager", Set.of());
 
     private final String key;

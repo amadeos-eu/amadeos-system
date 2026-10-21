@@ -2,7 +2,10 @@
 
 The CDE Front Panel of amadeOS: a dock with clock, calendar, workspace switcher, lock and language
 buttons, the network cell and drawers that list the installed applications from their `.desktop` files.
-The Tools drawer holds the terminals, the Style Manager, help and the log viewer. Programs started from
+The Games drawer lists the entries of category `Game` (the amade-*-game packages). The Tools drawer holds
+the terminals, the Style Manager and the log viewer. The Help drawer opens the amadeOS User's Handbook
+(`/usr/share/doc/amadeos-handbook/html/index.html` from the package `amadeos-handbook`, else the copy on
+the web) with `xdg-open`, so in the web browser, and then lists the `Documentation` entries. Programs started from
 the panel log to `~/.cache/amadeos/logs/<program>.log`.
 
 The workspace switch in the middle follows CDE's palettes: each of the four buttons "One" to "Four" is

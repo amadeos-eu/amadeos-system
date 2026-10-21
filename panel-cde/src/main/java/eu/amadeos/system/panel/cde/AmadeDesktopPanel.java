@@ -62,7 +62,9 @@ public final class AmadeDesktopPanel extends JFrame {
     /** The desktop help, installed with the image and shown in amade-web. */
     /** The CUPS web interface, where printers are added and configured. */
     private static final String CUPS_ADMIN = "http://localhost:631/admin";
-    private static final String DESKTOP_HELP = "/usr/share/doc/amadeos/help/index.html";
+    /** The amadeOS User's Handbook of the package amadeos-handbook, and the same book on the web. */
+    private static final String DESKTOP_HELP = "/usr/share/doc/amadeos-handbook/html/index.html";
+    private static final String DESKTOP_HELP_ONLINE = "https://datazuul.github.io/amadeos/";
     private static java.nio.channels.FileLock panelLock = null;
 
     private static boolean acquireSingleInstanceLock() {
@@ -163,7 +165,7 @@ public final class AmadeDesktopPanel extends JFrame {
                 CdePanelChrome.FRAME_INSET_V, CdePanelChrome.FRAME_INSET_H));
         setContentPane(rootPanel);
 
-        // 1. LEFT SLOTS (Slots 1-7): Clock, Calendar, File Manager, Text Editor, Mail, Multimedia, Graphics
+        // 1. LEFT SLOTS (Slots 1-8): Clock, Calendar, File Manager, Text Editor, Mail, Multimedia, Graphics, Games
         leftSlots = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         leftSlots.setBackground(initialTheme.base());
 
@@ -233,6 +235,17 @@ public final class AmadeDesktopPanel extends JFrame {
         widgets.add(graphicsDrawer);
         leftSlots.add(graphicsDrawer.component());
 
+        // Slot 9: Games (with drawer ▲), filled from Game desktop entries
+        DrawerDockWidget gamesDrawer = createCategoryDrawer(
+                "games", "Games", "games",
+                XdgCategory.GAMES,
+                e -> showApplicationManagerDialog(this),
+                List.of(),
+                true
+        );
+        widgets.add(gamesDrawer);
+        leftSlots.add(gamesDrawer.component());
+
         // The narrow empty bay before the workspace switch, as in CDE
         SlotSpacerDockWidget leftSpacer = new SlotSpacerDockWidget("spacer-left");
         widgets.add(leftSpacer);
@@ -252,7 +265,7 @@ public final class AmadeDesktopPanel extends JFrame {
         widgets.add(switcher);
         rootPanel.add(switcher.component(), BorderLayout.CENTER);
 
-        // 3. RIGHT SLOTS (Slots 8-12): Printer, Tools, Help, Trash, Status
+        // 3. RIGHT SLOTS (Slots 9-13): Printer, Tools, Help, Trash, Status
         rightSlots = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         rightSlots.setBackground(initialTheme.base());
 
@@ -261,7 +274,7 @@ public final class AmadeDesktopPanel extends JFrame {
         widgets.add(rightSpacer);
         rightSlots.add(rightSpacer.component());
 
-        // Slot 8: Printers (with drawer ▲): amadeos-print with the printers and their jobs, the other installed
+        // Slot 9: Printers (with drawer ▲): amadeos-print with the printers and their jobs, the other installed
         // Printing applications, and the CUPS web interface for adding and configuring printers
         List<DrawerTool> printerTools = new ArrayList<>(xdgTools(XdgCategory.PRINTING));
         printerTools.add(new DrawerTool("Add or Configure Printers", "printer",
@@ -275,7 +288,7 @@ public final class AmadeDesktopPanel extends JFrame {
         widgets.add(printerDrawer);
         rightSlots.add(printerDrawer.component());
 
-        // Slot 9: Tools (with drawer ▲): desktop settings, application catalog, terminals and diagnostics,
+        // Slot 10: Tools (with drawer ▲): desktop settings, application catalog, terminals and diagnostics,
         // like CDE's Tools subpanel; then the other installed Settings and System applications (the
         // installer of the live image, for example), except those the fixed entries already start.
         List<DrawerTool> toolsTools = new ArrayList<>(List.of(
@@ -297,9 +310,10 @@ public final class AmadeDesktopPanel extends JFrame {
         widgets.add(toolsDrawer);
         rightSlots.add(toolsDrawer.component());
 
-        // Slot 10: Help (with drawer ▲): the desktop help in amade-web, then the Documentation entries
+        // Slot 11: Help (with drawer ▲): the User's Handbook in the web browser, then the Documentation
+        // entries (other handbooks such as the Game Developer's Handbook bring their own)
         List<DrawerTool> helpTools = new ArrayList<>();
-        helpTools.add(new DrawerTool("amadeOS Desktop Help", "help", e -> openDesktopHelp()));
+        helpTools.add(new DrawerTool("amadeOS User's Handbook", "help", e -> openDesktopHelp()));
         helpTools.addAll(xdgTools(XdgCategory.HELP));
         DrawerDockWidget helpDrawer = new DrawerDockWidget(
                 "help", "Help & Information Viewer", "help",
@@ -310,7 +324,7 @@ public final class AmadeDesktopPanel extends JFrame {
         widgets.add(helpDrawer);
         rightSlots.add(helpDrawer.component());
 
-        // Slot 11: Trash Can (flat notch tab, no drawer ▲): the trash folder in amade-files
+        // Slot 12: Trash Can (flat notch tab, no drawer ▲): the trash folder in amade-files
         DrawerDockWidget trashWidget = new DrawerDockWidget(
                 "trash", "Trash Can", "trash",
                 e -> openTrash(),
@@ -320,7 +334,7 @@ public final class AmadeDesktopPanel extends JFrame {
         widgets.add(trashWidget);
         rightSlots.add(trashWidget.component());
 
-        // Slot 12: Status (network now; sound, battery and Bluetooth to follow), outermost on the right
+        // Slot 13: Status (network now; sound, battery and Bluetooth to follow), outermost on the right
         StatusDockWidget statusWidget = new StatusDockWidget(List.of(
                 new NetworkCell(new NmcliNetworkService(),
                         () -> launchProcess("xterm", "-title", "Network Settings", "-e", "nmtui"))));
@@ -562,8 +576,12 @@ public final class AmadeDesktopPanel extends JFrame {
         openInFileManager("trash:");
     }
 
+    /**
+     * Opens the User's Handbook with xdg-open, so in the web browser (Firefox in amadeOS): its MkDocs
+     * pages need JavaScript and CSS 3, which amade-web does not have. Without the package, the online copy.
+     */
     private void openDesktopHelp() {
-        launchProcess("amade-web", DESKTOP_HELP);
+        launchProcess("xdg-open", new File(DESKTOP_HELP).isFile() ? DESKTOP_HELP : DESKTOP_HELP_ONLINE);
     }
 
     private void showApplicationManagerDialog(JFrame parent) {
