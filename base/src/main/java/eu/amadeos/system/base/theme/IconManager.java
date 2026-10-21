@@ -61,6 +61,7 @@ public final class IconManager {
         map.put("mail", List.of("Mail", "mail", "internet-mail", "evolution", "thunderbird", "kmail", "email"));
         map.put("multimedia", List.of("amadeos-multimedia", "applications-multimedia", "multimedia-volume-control", "audio-card", "audio-x-generic"));
         map.put("graphics", List.of("amadeos-graphics", "applications-graphics", "gnome-graphics", "package_graphics", "image-x-generic"));
+        map.put("games", List.of("amadeos-games", "applications-games", "package_games", "input-gaming"));
         map.put("printer", List.of("printer", "document-print", "printmgr", "cups", "stock_printers", "gnome-dev-printer"));
         map.put("style", List.of("style", "preferences-desktop-theme", "preferences-desktop", "preferences-system"));
         map.put("app-manager", List.of("system-application-manager", "application", "applications-other", "gnome-applications", "application-menu"));
@@ -662,6 +663,24 @@ public final class IconManager {
                 // Calculator / card
                 g.setColor(new Color(0x40, 0x60, 0x80));
                 g.fillRect(11, 5, 3, 6);
+            }
+            case "games", "game" -> {
+                // Two dice
+                g.setColor(new Color(0xF0, 0xF0, 0xF0));
+                g.fillRoundRect(3, 9, 11, 11, 3, 3);
+                g.fillRoundRect(11, 3, 10, 10, 3, 3);
+                g.setColor(Color.BLACK);
+                g.drawRoundRect(3, 9, 11, 11, 3, 3);
+                g.drawRoundRect(11, 3, 10, 10, 3, 3);
+                g.setColor(new Color(0xC0, 0x20, 0x20));
+                g.fillOval(5, 11, 2, 2);
+                g.fillOval(8, 14, 2, 2);
+                g.fillOval(11, 17, 2, 2);
+                g.setColor(Color.BLACK);
+                g.fillOval(13, 5, 2, 2);
+                g.fillOval(18, 5, 2, 2);
+                g.fillOval(13, 10, 2, 2);
+                g.fillOval(18, 10, 2, 2);
             }
             case "help", "system-help" -> {
                 // Books on shelf with ?
