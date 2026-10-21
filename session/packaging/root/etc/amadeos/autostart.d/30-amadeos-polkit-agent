@@ -1,8 +1,0 @@
-#!/bin/sh
-# Polkit authentication agent: asks for the administrator's password when a program of the session runs
-# something through pkexec (Software installing or removing packages, for example). Without an agent
-# pkexec refuses every action that is not allowed outright by a polkit rule.
-set -u
-
-[ -x /usr/bin/lxpolkit ] || exit 0
-exec /usr/bin/lxpolkit >> "${HOME:-/tmp}/.amadeos-polkit-agent.log" 2>&1
