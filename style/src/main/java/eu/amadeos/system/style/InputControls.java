@@ -34,7 +34,8 @@ final class InputControls {
     String saveAndApply(InputSettings settings, List<XCommands.Command> commands, String what) {
         store.save(settings);
         List<XCommands.Command> failed = applier.apply(commands);
-        return failed.isEmpty() ? what + " applied" : what + " saved; could not run: " + failed.getFirst().args().getFirst();
+        return failed.isEmpty() ? StyleTexts.format("status.applied", what)
+                : StyleTexts.format("status.not.run", what, failed.getFirst().args().getFirst());
     }
 
     /** Applies commands without saving, e.g. to try out the bell. */

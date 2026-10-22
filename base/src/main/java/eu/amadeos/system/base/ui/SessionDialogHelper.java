@@ -9,6 +9,8 @@ import java.awt.event.KeyEvent;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.Locale;
+import java.util.Optional;
 import java.util.logging.Logger;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -20,6 +22,8 @@ import javax.swing.JPanel;
 import javax.swing.KeyStroke;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
+import eu.amadeos.commons.i18n.LocaleResolution;
+import eu.amadeos.commons.i18n.Messages;
 import eu.amadeos.commons.theme.DesktopTheme;
 import eu.amadeos.system.base.theme.IconManager;
 import eu.amadeos.system.base.theme.ThemeManager;
@@ -30,7 +34,16 @@ import eu.amadeos.system.base.theme.ThemeManager;
 public final class SessionDialogHelper {
     private static final Logger LOGGER = Logger.getLogger(SessionDialogHelper.class.getName());
 
+    /** The texts of the dialog, {@code session.properties} and its translations. */
+    public static final String TEXTS = "eu.amadeos.system.base.ui.session";
+
     private SessionDialogHelper() {}
+
+    /** The texts in the language of the session, which the session sets from {@code locale.conf}. */
+    static Messages texts() {
+        Locale locale = LocaleResolution.resolve(Optional.empty(), Optional.empty(), System.getenv()).language().locale();
+        return Messages.load(SessionDialogHelper.class, TEXTS, locale);
+    }
 
     public static void requestSessionAction(String action) {
         try {
@@ -48,9 +61,10 @@ public final class SessionDialogHelper {
 
     public static void showSessionPowerDialog(Component parent) {
         SwingUtilities.invokeLater(() -> {
+            Messages texts = texts();
             JDialog dialog = new JDialog(
                     parent != null ? JOptionPane.getFrameForComponent(parent) : null,
-                    "amadeOS Session & Power Control",
+                    texts.get("title"),
                     true);
             dialog.setLayout(new BorderLayout(12, 12));
             DesktopTheme t = ThemeManager.currentTheme();
@@ -59,10 +73,10 @@ public final class SessionDialogHelper {
             JPanel header = new JPanel(new GridLayout(2, 1, 4, 4));
             header.setBackground(t.base());
             header.setBorder(BorderFactory.createEmptyBorder(12, 16, 0, 16));
-            JLabel title = new JLabel("amadeOS Desktop Session", JLabel.CENTER);
+            JLabel title = new JLabel(texts.get("heading"), JLabel.CENTER);
             title.setFont(title.getFont().deriveFont(15.0f));
             title.setForeground(t.textActive());
-            JLabel subtitle = new JLabel("Select an action to end or control your session:", JLabel.CENTER);
+            JLabel subtitle = new JLabel(texts.get("subtitle"), JLabel.CENTER);
             subtitle.setForeground(t.textActive());
             header.add(title);
             header.add(subtitle);
@@ -72,18 +86,18 @@ public final class SessionDialogHelper {
             grid.setBackground(t.base());
             grid.setBorder(BorderFactory.createEmptyBorder(8, 16, 8, 16));
 
-            JButton logoutBtn = actionButton("logout", "Log Out", "Restart desktop session");
+            JButton logoutBtn = actionButton("logout", texts.get("logout"), texts.get("logout.explanation"));
             logoutBtn.addActionListener(e -> requestSessionAction("restart"));
 
-            JButton shellBtn = actionButton("terminal", "Exit to Shell", "Log out and switch to the text console (tty1)");
+            JButton shellBtn = actionButton("terminal", texts.get("shell"), texts.get("shell.explanation"));
             shellBtn.addActionListener(e -> requestSessionAction("shell"));
 
-            JButton shutdownBtn = actionButton("shutdown", "Shut Down", "Power off computer");
+            JButton shutdownBtn = actionButton("shutdown", texts.get("shutdown"), texts.get("shutdown.explanation"));
             shutdownBtn.addActionListener(e -> {
                 int confirm = JOptionPane.showConfirmDialog(
                         dialog,
-                        "Are you sure you want to shut down the computer?",
-                        "Confirm Power Off",
+                        texts.get("shutdown.confirm"),
+                        texts.get("shutdown.confirm.title"),
                         JOptionPane.YES_NO_OPTION,
                         JOptionPane.WARNING_MESSAGE);
                 if (confirm == JOptionPane.YES_OPTION) {
@@ -91,12 +105,12 @@ public final class SessionDialogHelper {
                 }
             });
 
-            JButton rebootBtn = actionButton("reboot", "Reboot", "Restart computer");
+            JButton rebootBtn = actionButton("reboot", texts.get("reboot"), texts.get("reboot.explanation"));
             rebootBtn.addActionListener(e -> {
                 int confirm = JOptionPane.showConfirmDialog(
                         dialog,
-                        "Are you sure you want to restart the computer?",
-                        "Confirm Reboot",
+                        texts.get("reboot.confirm"),
+                        texts.get("reboot.confirm.title"),
                         JOptionPane.YES_NO_OPTION,
                         JOptionPane.QUESTION_MESSAGE);
                 if (confirm == JOptionPane.YES_OPTION) {
@@ -113,7 +127,7 @@ public final class SessionDialogHelper {
             JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT));
             footer.setBackground(t.base());
             footer.setBorder(BorderFactory.createEmptyBorder(0, 16, 12, 16));
-            JButton cancelBtn = new JButton("Cancel");
+            JButton cancelBtn = new JButton(texts.get("cancel"));
             cancelBtn.addActionListener(e -> dialog.dispose());
             footer.add(cancelBtn);
             dialog.add(footer, BorderLayout.SOUTH);

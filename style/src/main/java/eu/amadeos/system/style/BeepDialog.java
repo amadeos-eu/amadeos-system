@@ -27,17 +27,17 @@ final class BeepDialog extends StyleDialog {
         super(owner, StyleCategory.BEEP, status);
         this.controls = controls;
         InputSettings.Beep b = controls.load().beep();
-        volume = new LabeledSlider(0, 100, b.volume(), v -> v == 0 ? "Off" : v + " %");
+        volume = new LabeledSlider(0, 100, b.volume(), v -> v == 0 ? StyleTexts.get("value.off") : v + " %");
         pitch = new LabeledSlider(55, 4000, b.pitchHz(), v -> v + " Hz");
         duration = new LabeledSlider(10, 2000, b.durationMs(), v -> v + " ms");
 
-        JButton test = new JButton("Test");
+        JButton test = new JButton(StyleTexts.get("button.test"));
         test.addActionListener(e -> {
             controls.preview(XCommands.beep(settings()));
             previewed = true;
             Toolkit.getDefaultToolkit().beep();
         });
-        JButton defaults = new JButton("Defaults");
+        JButton defaults = new JButton(StyleTexts.get("button.defaults"));
         defaults.addActionListener(e -> {
             InputSettings.Beep d = InputSettings.Beep.DEFAULTS;
             volume.setValue(d.volume());
@@ -49,7 +49,8 @@ final class BeepDialog extends StyleDialog {
         buttons.add(test);
         buttons.add(defaults);
         JPanel content = new JPanel(new BorderLayout(0, 6));
-        content.add(InputControls.form("Volume:", volume, "Tone:", pitch, "Duration:", duration), BorderLayout.CENTER);
+        content.add(InputControls.form(StyleTexts.get("beep.volume"), volume, StyleTexts.get("beep.tone"), pitch,
+                StyleTexts.get("beep.duration"), duration), BorderLayout.CENTER);
         content.add(buttons, BorderLayout.SOUTH);
         layoutDialog(content);
     }
@@ -62,7 +63,7 @@ final class BeepDialog extends StyleDialog {
     protected String apply() {
         InputSettings.Beep b = settings();
         previewed = false;
-        return controls.saveAndApply(controls.load().withBeep(b), XCommands.beep(b), "Beep");
+        return controls.saveAndApply(controls.load().withBeep(b), XCommands.beep(b), StyleCategory.BEEP.label());
     }
 
     @Override

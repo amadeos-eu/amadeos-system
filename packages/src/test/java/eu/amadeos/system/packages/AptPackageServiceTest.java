@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -297,5 +299,27 @@ class AptPackageServiceTest {
         assertEquals(Category.APPLICATION, AptPackageService.menuEntry(app));
         assertEquals(Category.COMMAND_LINE, AptPackageService.menuEntry(terminal));
         assertEquals(Category.OTHER, AptPackageService.menuEntry(dir.resolve("missing.desktop")));
+    }
+
+    // --8<-- [start:hang]
+    @Test
+    void theTimeLimitHoldsForACommandThatHangsWithoutClosingItsOutput() throws IOException {
+        List<String> read = new ArrayList<>();
+        long start = System.nanoTime();
+        PackageService.PackageException e = assertThrows(PackageService.PackageException.class,
+                () -> AptPackageService.lines(List.of("sh", "-c", "echo first; exec sleep 30"), read::add,
+                        Duration.ofMillis(500)));
+        assertEquals("sh did not answer", e.getMessage());
+        assertEquals(List.of("first"), read);
+        assertTrue(System.nanoTime() - start < Duration.ofSeconds(10).toNanos(), "stopped long before sleep ended");
+    }
+    // --8<-- [end:hang]
+
+    @Test
+    void readingGivesTheOutputAndAptsErrorOnFailure() throws Exception {
+        assertEquals("one\ntwo\n", AptPackageService.run(List.of("printf", "one\\ntwo\\n")));
+        PackageService.PackageException e = assertThrows(PackageService.PackageException.class,
+                () -> AptPackageService.run(List.of("sh", "-c", "echo 'E: Unable to locate package x' >&2; exit 100")));
+        assertEquals("Unable to locate package x", e.getMessage());
     }
 }

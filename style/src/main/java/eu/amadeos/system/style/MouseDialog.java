@@ -31,8 +31,8 @@ import java.util.function.Consumer;
  */
 final class MouseDialog extends StyleDialog {
     private final InputControls controls;
-    private final JRadioButton right = new JRadioButton("Right-handed");
-    private final JRadioButton left = new JRadioButton("Left-handed");
+    private final JRadioButton right = new JRadioButton(StyleTexts.get("mouse.right"));
+    private final JRadioButton left = new JRadioButton(StyleTexts.get("mouse.left"));
     private final LabeledSlider doubleClick;
     private final LabeledSlider acceleration;
     private final LabeledSlider threshold;
@@ -50,17 +50,17 @@ final class MouseDialog extends StyleDialog {
         handRow.add(left);
 
         doubleClick = new LabeledSlider(100, 1500, m.doubleClickMs(), v -> v + " ms");
-        acceleration = new LabeledSlider(1, 10, m.acceleration(), v -> v == 1 ? "None" : v + " ×");
+        acceleration = new LabeledSlider(1, 10, m.acceleration(), v -> v == 1 ? StyleTexts.get("value.none") : v + " ×");
         threshold = new LabeledSlider(1, 50, m.threshold(), v -> v + " px");
         DoubleClickTarget target = new DoubleClickTarget(doubleClick);
-        JButton defaults = new JButton("Defaults");
+        JButton defaults = new JButton(StyleTexts.get("button.defaults"));
         defaults.addActionListener(e -> show(InputSettings.Mouse.DEFAULTS));
 
         JPanel form = InputControls.form(
-                "Handedness:", handRow,
-                "Double-click:", doubleClick,
-                "Acceleration:", acceleration,
-                "Threshold:", threshold);
+                StyleTexts.get("mouse.handedness"), handRow,
+                StyleTexts.get("mouse.double.click"), doubleClick,
+                StyleTexts.get("mouse.acceleration"), acceleration,
+                StyleTexts.get("mouse.threshold"), threshold);
         JPanel bottom = new JPanel(new BorderLayout(10, 0));
         JPanel defaultsRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         defaultsRow.add(defaults);
@@ -88,8 +88,8 @@ final class MouseDialog extends StyleDialog {
     protected String apply() {
         InputSettings.Mouse m = settings();
         String message = controls.saveAndApply(controls.load().withMouse(m),
-                XCommands.mouse(m, controls.pointerButtons()), "Mouse");
-        return message + " (double-click time applies to programs started from now on)";
+                XCommands.mouse(m, controls.pointerButtons()), StyleCategory.MOUSE.label());
+        return StyleTexts.format("mouse.applied", message);
     }
 
     /** Toggles between closed and open when double-clicked within the slider's time, like dtstyle's test box. */
@@ -101,7 +101,7 @@ final class MouseDialog extends StyleDialog {
         DoubleClickTarget(LabeledSlider time) {
             this.time = time;
             setPreferredSize(new Dimension(150, 44));
-            setToolTipText("Double-click here to test the double-click time");
+            setToolTipText(StyleTexts.get("mouse.test.tooltip"));
             addMouseListener(new MouseAdapter() {
                 @Override
                 public void mousePressed(MouseEvent e) {
@@ -127,7 +127,7 @@ final class MouseDialog extends StyleDialog {
             AmadeUI.paintBevel(g2, 0, 0, getWidth(), getHeight(), !open, 2);
             g2.setFont(getFont() == null ? new Font(Font.SANS_SERIF, Font.BOLD, 12) : getFont().deriveFont(Font.BOLD));
             g2.setColor(open ? t.selectionText() : t.textActive());
-            String text = open ? "Double-click OK" : "Double-click test";
+            String text = StyleTexts.get(open ? "mouse.test.done" : "mouse.test");
             FontMetrics fm = g2.getFontMetrics();
             g2.drawString(text, (getWidth() - fm.stringWidth(text)) / 2, (getHeight() + fm.getAscent()) / 2 - 2);
             g2.dispose();

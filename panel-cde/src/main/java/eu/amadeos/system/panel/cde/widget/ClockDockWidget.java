@@ -19,6 +19,7 @@ import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.FormatStyle;
 import javax.swing.ButtonGroup;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
@@ -28,6 +29,7 @@ import javax.swing.Timer;
 import javax.swing.event.PopupMenuEvent;
 import javax.swing.event.PopupMenuListener;
 import eu.amadeos.commons.theme.DesktopTheme;
+import eu.amadeos.system.panel.cde.PanelTexts;
 
 /**
  * Authentic CDE Workstation Front Panel Clock module:
@@ -47,7 +49,8 @@ public final class ClockDockWidget extends AbstractDockWidget {
 
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm:ss");
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("MMM dd");
-    private static final DateTimeFormatter TOOLTIP_FMT = DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy HH:mm:ss");
+    private static final DateTimeFormatter TOOLTIP_FMT = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.FULL, FormatStyle.MEDIUM)
+            .withLocale(PanelTexts.texts().locale());
 
     private static final Color HAND_COLOR = new Color(0x9A, 0xC8, 0xD6);
     private static final Color DIAL_BG = new Color(0xA8, 0x98, 0x8F);
@@ -107,8 +110,8 @@ public final class ClockDockWidget extends AbstractDockWidget {
         contextMenu = new JPopupMenu();
         contextMenu.setBorder(new MotifBevelBorder(true, 2));
 
-        analogItem = new JRadioButtonMenuItem("Analog Clock");
-        digitalItem = new JRadioButtonMenuItem("Digital Clock");
+        analogItem = new JRadioButtonMenuItem(PanelTexts.get("clock.analog"));
+        digitalItem = new JRadioButtonMenuItem(PanelTexts.get("clock.digital"));
 
         ButtonGroup group = new ButtonGroup();
         group.add(analogItem);
@@ -186,8 +189,8 @@ public final class ClockDockWidget extends AbstractDockWidget {
     private void updateTooltip() {
         LocalTime nowTime = LocalTime.now();
         LocalDate nowDate = LocalDate.now();
-        String fullInfo = nowDate.atTime(nowTime).format(TOOLTIP_FMT);
-        panel.setToolTipText("Clock (" + fullInfo + ") - Right-click to change style");
+        String fullInfo = nowDate.atTime(nowTime).atZone(java.time.ZoneId.systemDefault()).format(TOOLTIP_FMT);
+        panel.setToolTipText(PanelTexts.format("clock.tooltip", fullInfo));
     }
 
     private void paintAnalogClock(Graphics2D g2, int usableW, int h, int topOffset, DesktopTheme t) {

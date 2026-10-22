@@ -6,6 +6,7 @@ import eu.amadeos.system.input.InputSettingsStore;
 import eu.amadeos.system.input.XCommands;
 import eu.amadeos.system.screen.ScreenSettings;
 import eu.amadeos.system.screen.ScreenSettingsStore;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -16,6 +17,7 @@ import java.awt.Window;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -40,6 +42,12 @@ class StyleManagerTest {
             """;
     @TempDir
     Path dir;
+
+    @BeforeAll
+    static void english() {
+        // The tests compare English texts, whatever the desktop language of the machine.
+        StyleTexts.use(Locale.ENGLISH);
+    }
 
     @Test
     void showsAllCdeControlsAndEnablesTheImplementedOnes() throws Exception {

@@ -29,6 +29,7 @@ import eu.amadeos.commons.i18n.Language;
 import eu.amadeos.commons.i18n.LocaleResolution;
 import eu.amadeos.commons.i18n.LocaleStore;
 import eu.amadeos.commons.i18n.Messages;
+import eu.amadeos.system.panel.cde.PanelTexts;
 import eu.amadeos.commons.theme.DesktopTheme;
 import eu.amadeos.system.base.theme.backdrop.MotifColors;
 
@@ -55,7 +56,10 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
     static final int PAD_WIDTH = 2 * COLUMN_WIDTH + 212;
     /** Thickness of a workspace button's Motif bevel. */
     private static final int BEVEL = 2;
-    static final String[] WORKSPACE_NAMES = {"One", "Two", "Three", "Four"};
+    /** The names of the four workspaces on their buttons, as in CDE: One to Four in the panel's language. */
+    static String workspaceName(int index) {
+        return PanelTexts.get("workspace." + (index + 1));
+    }
     private final JPanel pad;
     private final JPanel leftPillar;
     private final JPanel rightPillar;
@@ -130,7 +134,7 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
 
         for (int i = 0; i < 4; i++) {
             int wsNum = i + 1;
-            WorkspaceButton btn = new WorkspaceButton(i, WORKSPACE_NAMES[i]);
+            WorkspaceButton btn = new WorkspaceButton(i, workspaceName(i));
             btn.addActionListener(e -> {
                 activeWorkspace = wsNum;
                 if (this.workspaceListener != null) {
@@ -222,7 +226,7 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
             setOpaque(false);
             setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 11));
             setBackground(currentTheme.workspaceColor(index));
-            setToolTipText("Workspace " + name);
+            setToolTipText(PanelTexts.format("workspace.tooltip", name));
         }
 
         /** The workspace colour the button is painted with. */
@@ -274,7 +278,7 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
             setBorderPainted(false);
             setContentAreaFilled(false);
             setOpaque(false);
-            setToolTipText("Lock Screen");
+            setToolTipText(PanelTexts.get("lock.tooltip"));
             if (action != null) {
                 addActionListener(action);
             }
@@ -505,7 +509,7 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
             setBorderPainted(false);
             setContentAreaFilled(false);
             setOpaque(false);
-            setToolTipText("Session & Exit Controls");
+            setToolTipText(PanelTexts.get("session.tooltip"));
             if (action != null) {
                 addActionListener(action);
             }
@@ -593,7 +597,7 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
     final class StatusIndicator extends JComponent {
         StatusIndicator() {
             setOpaque(false);
-            setToolTipText("System Activity & Status");
+            setToolTipText(PanelTexts.get("activity.tooltip"));
         }
 
         @Override

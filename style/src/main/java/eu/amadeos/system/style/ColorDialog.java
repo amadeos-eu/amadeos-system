@@ -59,7 +59,7 @@ final class ColorDialog extends StyleDialog {
         themes.addListSelectionListener(e -> updatePalette());
 
         JPanel paletteBox = new JPanel(new BorderLayout(10, 0));
-        paletteBox.setBorder(BorderFactory.createTitledBorder("Palette"));
+        paletteBox.setBorder(BorderFactory.createTitledBorder(StyleTexts.get("color.palette")));
         JScrollPane list = new JScrollPane(themes);
         list.setPreferredSize(new Dimension(230, 150));
         paletteBox.add(list, BorderLayout.WEST);
@@ -83,9 +83,9 @@ final class ColorDialog extends StyleDialog {
         }
         iconThemes.addActionListener(e -> updateIconPreview());
         JPanel iconBox = new JPanel(new BorderLayout(0, 6));
-        iconBox.setBorder(BorderFactory.createTitledBorder("Icons"));
+        iconBox.setBorder(BorderFactory.createTitledBorder(StyleTexts.get("color.icons")));
         JPanel iconRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
-        iconRow.add(new JLabel("Icon theme:"));
+        iconRow.add(new JLabel(StyleTexts.get("color.icon.theme")));
         iconRow.add(iconThemes);
         iconBox.add(iconRow, BorderLayout.NORTH);
         iconBox.add(iconPreview, BorderLayout.CENTER);
@@ -103,10 +103,10 @@ final class ColorDialog extends StyleDialog {
         Color[] colors = {t.base(), t.activeTitleBg(), t.inactiveTitleBg(), t.highlight(), t.softHighlight(),
                 t.sunkenBg(), t.shadow(), t.darkShadow(), t.textActive(), t.textInactive(),
                 t.workspaceColor(0), t.workspaceColor(1), t.workspaceColor(2), t.workspaceColor(3)};
-        String[] names = {"Base", "Active title", "Inactive title", "Highlight", "Soft highlight",
-                "Sunken", "Shadow", "Dark shadow", "Text", "Inactive text",
-                "Workspace One", "Workspace Two", "Workspace Three", "Workspace Four"};
-        for (int i = 0; i < colors.length; i++) palette.add(chip(colors[i], names[i]));
+        String[] names = {"base", "active.title", "inactive.title", "highlight", "soft.highlight",
+                "sunken", "shadow", "dark.shadow", "text", "inactive.text",
+                "workspace.1", "workspace.2", "workspace.3", "workspace.4"};
+        for (int i = 0; i < colors.length; i++) palette.add(chip(colors[i], StyleTexts.get("color.chip." + names[i])));
         palette.revalidate();
         palette.repaint();
     }
@@ -151,15 +151,15 @@ final class ColorDialog extends StyleDialog {
             } catch (Exception e) {
                 LOGGER.fine("No X11 theme broadcast: " + e.getMessage());
             }
-            message.append("Palette: ").append(theme.name());
+            message.append(StyleTexts.format("color.status.palette", theme.name()));
         }
         IconManager.IconThemeInfo icons = (IconManager.IconThemeInfo) iconThemes.getSelectedItem();
         if (icons != null && !icons.id().equalsIgnoreCase(ThemeManager.currentTheme().iconTheme())) {
             ThemeManager.applyIconTheme(icons.id());
             if (!message.isEmpty()) message.append(", ");
-            message.append("icons: ").append(icons.name());
+            message.append(StyleTexts.format("color.status.icons", icons.name()));
         }
-        return message.isEmpty() ? "Color unchanged" : message.toString();
+        return message.isEmpty() ? StyleTexts.get("color.unchanged") : message.toString();
     }
     // --8<-- [end:apply]
 

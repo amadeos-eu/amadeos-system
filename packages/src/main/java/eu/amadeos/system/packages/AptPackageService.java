@@ -4,10 +4,12 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -18,7 +20,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -446,29 +450,53 @@ public final class AptPackageService implements PackageService {
 
     /** Runs a read-only command and hands its output over line by line. */
     static void lines(List<String> command, Consumer<String> sink) throws IOException, PackageException {
+        lines(command, sink, Duration.ofSeconds(READ_TIMEOUT_SECONDS));
+    }
+
+    // --8<-- [start:lines]
+    /**
+     * Runs a read-only command and hands its output over line by line, on a thread of its own, so that the time
+     * limit also holds for a command that hangs without printing or closing its output.
+     */
+    static void lines(List<String> command, Consumer<String> sink, Duration timeout)
+            throws IOException, PackageException {
         ProcessBuilder builder = new ProcessBuilder(command);
         builder.environment().put("LC_ALL", "C.UTF-8");
         Process process = builder.start();
         process.getOutputStream().close();
         CompletableFuture<String> stderr = CompletableFuture.supplyAsync(() -> readAll(process.getErrorStream()));
-        try (BufferedReader out = reader(process.getInputStream())) {
-            String line;
-            while ((line = out.readLine()) != null) sink.accept(line);
-        }
-        try {
-            if (!process.waitFor(READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
-                process.destroyForcibly();
-                throw new PackageException(command.getFirst() + " did not answer");
+        CompletableFuture<Void> stdout = CompletableFuture.runAsync(() -> {
+            try (BufferedReader out = reader(process.getInputStream())) {
+                String line;
+                while ((line = out.readLine()) != null) sink.accept(line);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
             }
+        });
+        long deadline = System.nanoTime() + timeout.toNanos();
+        try {
+            if (!process.waitFor(timeout.toNanos(), TimeUnit.NANOSECONDS)) {
+                throw new TimeoutException();
+            }
+            stdout.get(Math.max(0, deadline - System.nanoTime()), TimeUnit.NANOSECONDS);
+        } catch (TimeoutException e) {
+            process.destroyForcibly();
+            throw new PackageException(command.getFirst() + " did not answer");
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             process.destroyForcibly();
             throw new PackageException("interrupted");
+        } catch (ExecutionException e) {
+            process.destroyForcibly();
+            if (e.getCause() instanceof UncheckedIOException io) throw io.getCause();
+            if (e.getCause() instanceof RuntimeException r) throw r;
+            throw new IOException(e.getCause());
         }
         if (process.exitValue() != 0) {
             throw new PackageException(errorMessage(stderr.join(), command.getFirst() + " failed"));
         }
     }
+    // --8<-- [end:lines]
 
     private static BufferedReader reader(InputStream in) {
         return new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));

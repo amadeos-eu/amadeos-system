@@ -80,5 +80,22 @@ class DrawerDockWidgetTest {
         widget.tabBtn.doClick();
         assertFalse(widget.drawerPopup.isVisible(), "Popup should never open on flat notch tabs");
     }
-}
 
+    @Test
+    void updateReplacesTheEntriesAndTheButtonsAction() {
+        List<String> started = new java.util.ArrayList<>();
+        DrawerDockWidget widget = new DrawerDockWidget("graphics", "Graphics", "graphics", e -> started.add("fallback"),
+                List.of(new DrawerDockWidget.DrawerTool("Old", null, e -> {})), true);
+        widget.tabBtn.doClick();
+        assertTrue(widget.drawerPopup.isVisible());
+
+        widget.update(e -> started.add("gimp"), List.of(new DrawerDockWidget.DrawerTool("GIMP", null, e -> {}),
+                new DrawerDockWidget.DrawerTool("Inkscape", null, e -> {})));
+
+        assertFalse(widget.drawerPopup.isVisible(), "an open drawer closes");
+        assertEquals(2, widget.drawerPopup.getComponentCount());
+        assertEquals("GIMP", ((javax.swing.JMenuItem) widget.drawerPopup.getComponent(0)).getText());
+        ((javax.swing.AbstractButton) widget.mainBtn).doClick();
+        assertEquals(List.of("gimp"), started);
+    }
+}

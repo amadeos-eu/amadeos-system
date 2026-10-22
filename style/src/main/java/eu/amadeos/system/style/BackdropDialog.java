@@ -7,6 +7,7 @@ import eu.amadeos.system.base.theme.WallpaperManager.ScaleMode;
 import eu.amadeos.system.base.theme.WallpaperManager.WallpaperItem;
 
 import javax.swing.BorderFactory;
+import javax.swing.DefaultListCellRenderer;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import javax.swing.JColorChooser;
@@ -21,6 +22,7 @@ import javax.swing.JTextField;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
@@ -28,6 +30,7 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.image.BufferedImage;
+import java.util.Locale;
 import java.util.function.Consumer;
 
 /**
@@ -47,6 +50,15 @@ final class BackdropDialog extends StyleDialog {
 
     BackdropDialog(JFrame owner, Consumer<String> status) {
         super(owner, StyleCategory.BACKDROP, status);
+        scale.setRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean selected,
+                                                          boolean focused) {
+                Object text = value instanceof ScaleMode mode
+                        ? StyleTexts.get("backdrop.scale." + mode.name().toLowerCase(Locale.ROOT)) : value;
+                return super.getListCellRendererComponent(list, text, index, selected, focused);
+            }
+        });
         for (WallpaperItem item : WallpaperManager.availableWallpapers()) model.addElement(item);
         wallpapers.setVisibleRowCount(8);
         String current = WallpaperManager.currentWallpaperPath();
@@ -72,10 +84,10 @@ final class BackdropDialog extends StyleDialog {
         scale.setSelectedItem(WallpaperManager.currentScaleMode());
         scale.addActionListener(e -> refresh());
 
-        JButton browse = new JButton("Browse…");
+        JButton browse = new JButton(StyleTexts.get("backdrop.browse"));
         browse.addActionListener(e -> {
             JFileChooser chooser = new JFileChooser();
-            chooser.setFileFilter(new FileNameExtensionFilter("Images and CDE backdrops (*.png, *.jpg, *.pm, *.bm)",
+            chooser.setFileFilter(new FileNameExtensionFilter(StyleTexts.get("backdrop.filter"),
                     "png", "jpg", "jpeg", "pm", "xpm", "bm", "xbm"));
             if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
                 path.setText(chooser.getSelectedFile().getAbsolutePath());
@@ -85,9 +97,9 @@ final class BackdropDialog extends StyleDialog {
         colorChip.setPreferredSize(new Dimension(40, 20));
         colorChip.setBackground(color);
         colorChip.setBorder(AmadeUI.sunken());
-        JButton pickColor = new JButton("Color…");
+        JButton pickColor = new JButton(StyleTexts.get("backdrop.pick.color"));
         pickColor.addActionListener(e -> {
-            Color chosen = JColorChooser.showDialog(this, "Backdrop Color", color);
+            Color chosen = JColorChooser.showDialog(this, StyleTexts.get("backdrop.color.title"), color);
             if (chosen != null) {
                 color = chosen;
                 colorChip.setBackground(chosen);
@@ -113,7 +125,7 @@ final class BackdropDialog extends StyleDialog {
         c.fill = GridBagConstraints.HORIZONTAL;
         c.gridy = 1;
         c.weightx = 0;
-        controls.add(new JLabel("Image:"), c);
+        controls.add(new JLabel(StyleTexts.get("backdrop.image")), c);
         c.gridx = 1;
         c.weightx = 1;
         controls.add(path, c);
@@ -122,12 +134,12 @@ final class BackdropDialog extends StyleDialog {
         controls.add(browse, c);
         c.gridy = 2;
         c.gridx = 0;
-        controls.add(new JLabel("Scaling:"), c);
+        controls.add(new JLabel(StyleTexts.get("backdrop.scaling")), c);
         c.gridx = 1;
         controls.add(scale, c);
         c.gridy = 3;
         c.gridx = 0;
-        controls.add(new JLabel("Color:"), c);
+        controls.add(new JLabel(StyleTexts.get("backdrop.color")), c);
         c.gridx = 1;
         c.fill = GridBagConstraints.NONE;
         controls.add(colorChip, c);
@@ -142,7 +154,7 @@ final class BackdropDialog extends StyleDialog {
             }
         };
         preview.setPreferredSize(new Dimension(260, 180));
-        preview.setBorder(BorderFactory.createTitledBorder("Preview"));
+        preview.setBorder(BorderFactory.createTitledBorder(StyleTexts.get("backdrop.preview")));
 
         JPanel content = new JPanel(new BorderLayout(12, 0));
         content.add(controls, BorderLayout.CENTER);
@@ -190,6 +202,6 @@ final class BackdropDialog extends StyleDialog {
         String image = path.getText().strip();
         WallpaperManager.applyWallpaper(image, (ScaleMode) scale.getSelectedItem(), color);
         boolean plain = image.isEmpty() || WallpaperManager.NO_BACKDROP.equalsIgnoreCase(image);
-        return "Backdrop: " + (plain ? "solid color" : image);
+        return StyleTexts.format("backdrop.status", plain ? StyleTexts.get("backdrop.solid") : image);
     }
 }

@@ -19,8 +19,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -52,6 +54,7 @@ import eu.amadeos.system.packages.AptPackageService;
 import eu.amadeos.commons.theme.DesktopTheme;
 import eu.amadeos.system.base.theme.IconManager;
 import eu.amadeos.system.base.theme.ThemeManager;
+import eu.amadeos.system.base.xdg.ApplicationsWatcher;
 import eu.amadeos.system.base.xdg.XdgApplicationManager;
 import eu.amadeos.system.base.xdg.XdgCategory;
 import eu.amadeos.system.base.xdg.XdgDesktopEntry;
@@ -93,6 +96,9 @@ public final class AmadeDesktopPanel extends JFrame {
     private final Timer pollTimer;
     /** When the panel last started an application; the window manager's busy flag may lag behind. */
     private long launchedAt;
+    /** Fill the drawers again from the desktop entries, one per drawer. */
+    private final List<Runnable> refills = new ArrayList<>();
+    private AutoCloseable applicationsWatch;
 
     // --8<-- [start:main]
     public static void main(String[] args) {
@@ -185,12 +191,12 @@ public final class AmadeDesktopPanel extends JFrame {
 
         // Slot 3: File Manager (with drawer ▲)
         DrawerDockWidget fmDrawer = createCategoryDrawer(
-                "file-manager", "File Manager", "file-manager",
+                "file-manager", PanelTexts.get("panel.drawer.file.manager"), "file-manager",
                 XdgCategory.FILE_MANAGER,
                 e -> openInFileManager(System.getProperty("user.home", "/")),
-                List.of(
-                        new DrawerTool("Home Directory (~)", "file-manager", e -> openInFileManager(System.getProperty("user.home", "/"))),
-                        new DrawerTool("Root Filesystem (/)", "file-manager", e -> openInFileManager("/"))
+                () -> List.of(
+                        new DrawerTool(PanelTexts.get("panel.tool.home"), "file-manager", e -> openInFileManager(System.getProperty("user.home", "/"))),
+                        new DrawerTool(PanelTexts.get("panel.tool.root"), "file-manager", e -> openInFileManager("/"))
                 )
         );
         widgets.add(fmDrawer);
@@ -199,10 +205,10 @@ public final class AmadeDesktopPanel extends JFrame {
         // Slot 4: Text & Office (with drawer ▲): the TextEditor and WordProcessor desktop entries, then the
         // other Office ones (calendar, spreadsheet, presentation, ...), as Mail & Internet does with Network
         DrawerDockWidget editorDrawer = createCategoryDrawer(
-                "editor", "Text & Office", "text-editor",
+                "editor", PanelTexts.get("panel.drawer.editor"), "text-editor",
                 XdgCategory.TEXT_EDITOR,
                 e -> launchProcess("amade-pad"),
-                xdgTools(XdgCategory.OFFICE, XdgCategory.TEXT_EDITOR)
+                () -> xdgTools(XdgCategory.OFFICE, XdgCategory.TEXT_EDITOR)
         );
         widgets.add(editorDrawer);
         leftSlots.add(editorDrawer.component());
@@ -210,20 +216,20 @@ public final class AmadeDesktopPanel extends JFrame {
         // Slot 5: Mail & Internet (with drawer ▲): the Email desktop entries, then the other
         // Network ones such as the web browser
         DrawerDockWidget mailDrawer = createCategoryDrawer(
-                "mail", "Mail & Internet", "mail",
+                "mail", PanelTexts.get("panel.drawer.mail"), "mail",
                 XdgCategory.MAIL,
                 e -> launchProcess("amade-mail"),
-                xdgTools(XdgCategory.NETWORK, XdgCategory.MAIL)
+                () -> xdgTools(XdgCategory.NETWORK, XdgCategory.MAIL)
         );
         widgets.add(mailDrawer);
         leftSlots.add(mailDrawer.component());
 
         // Slot 6: Multimedia (with drawer ▲), filled from AudioVideo desktop entries
         DrawerDockWidget multimediaDrawer = createCategoryDrawer(
-                "multimedia", "Sound & Video", "multimedia",
+                "multimedia", PanelTexts.get("panel.drawer.multimedia"), "multimedia",
                 XdgCategory.AUDIO_VIDEO,
                 e -> showApplicationManagerDialog(this),
-                List.of(),
+                List::of,
                 true
         );
         widgets.add(multimediaDrawer);
@@ -231,10 +237,10 @@ public final class AmadeDesktopPanel extends JFrame {
 
         // Slot 7: Graphics (with drawer ▲), filled from Graphics desktop entries
         DrawerDockWidget graphicsDrawer = createCategoryDrawer(
-                "graphics", "Graphics", "graphics",
+                "graphics", PanelTexts.get("panel.drawer.graphics"), "graphics",
                 XdgCategory.GRAPHICS,
                 e -> showApplicationManagerDialog(this),
-                List.of(),
+                List::of,
                 true
         );
         widgets.add(graphicsDrawer);
@@ -242,10 +248,10 @@ public final class AmadeDesktopPanel extends JFrame {
 
         // Slot 9: Games (with drawer ▲), filled from Game desktop entries
         DrawerDockWidget gamesDrawer = createCategoryDrawer(
-                "games", "Games", "games",
+                "games", PanelTexts.get("panel.drawer.games"), "games",
                 XdgCategory.GAMES,
                 e -> showApplicationManagerDialog(this),
-                List.of(),
+                List::of,
                 true
         );
         widgets.add(gamesDrawer);
@@ -281,14 +287,16 @@ public final class AmadeDesktopPanel extends JFrame {
 
         // Slot 9: Printers (with drawer ▲): amadeos-print with the printers and their jobs, the other installed
         // Printing applications, and the CUPS web interface for adding and configuring printers
-        List<DrawerTool> printerTools = new ArrayList<>(xdgTools(XdgCategory.PRINTING));
-        printerTools.add(new DrawerTool("Add or Configure Printers", "printer",
-                e -> launchProcess("xdg-open", CUPS_ADMIN)));
-        DrawerDockWidget printerDrawer = new DrawerDockWidget(
-                "printer", "Print Manager", "printer",
+        Supplier<List<DrawerTool>> printerTools = () -> {
+            List<DrawerTool> tools = new ArrayList<>(xdgTools(XdgCategory.PRINTING));
+            tools.add(new DrawerTool(PanelTexts.get("panel.tool.printers"), "printer",
+                    e -> launchProcess("xdg-open", CUPS_ADMIN)));
+            return tools;
+        };
+        DrawerDockWidget printerDrawer = fixedDrawer(
+                "printer", PanelTexts.get("panel.drawer.printer"), "printer",
                 e -> launchProcess("amadeos-print"),
-                printerTools,
-                true
+                printerTools
         );
         widgets.add(printerDrawer);
         rightSlots.add(printerDrawer.component());
@@ -297,21 +305,23 @@ public final class AmadeDesktopPanel extends JFrame {
         // Slot 10: Tools (with drawer ▲): desktop settings, application catalog, terminals and diagnostics,
         // like CDE's Tools subpanel; then the other installed Settings and System applications (the
         // installer of the live image, for example), except those the fixed entries already start.
-        List<DrawerTool> toolsTools = new ArrayList<>(List.of(
-                new DrawerTool("Style Manager", "style", e -> launchProcess("amadeos-style")),
-                new DrawerTool("Application Manager", "app-manager", e -> showApplicationManagerDialog(this)),
-                new DrawerTool("Terminal (xterm)", "terminal", e -> launchProcess("xterm")),
-                new DrawerTool("Root Console (sudo)", "terminal", e -> launchProcess("xterm", "-title", "Root Shell", "-e", "sudo", "sh")),
-                new DrawerTool("Session Diagnostics & Logs", "diagnostics", e -> launchProcess("amadeos-logviewer")),
-                new DrawerTool("Hardware & System Info", "diagnostics", e -> launchProcess("amadeos-sysinfo"))
-        ));
-        toolsTools.addAll(xdgTools(List.of(XdgCategory.SETTINGS, XdgCategory.MONITOR),
-                Set.of("amadeos-style", "amadeos-logviewer", "amadeos-sysinfo", "xterm")));
-        DrawerDockWidget toolsDrawer = new DrawerDockWidget(
-                "tools", "Tools", "app-manager",
+        Supplier<List<DrawerTool>> toolsTools = () -> {
+            List<DrawerTool> tools = new ArrayList<>(List.of(
+                    new DrawerTool(PanelTexts.get("panel.tool.style"), "style", e -> launchProcess("amadeos-style")),
+                    new DrawerTool(PanelTexts.get("panel.tool.apps"), "app-manager", e -> showApplicationManagerDialog(this)),
+                    new DrawerTool(PanelTexts.get("panel.tool.terminal"), "terminal", e -> launchProcess("xterm")),
+                    new DrawerTool(PanelTexts.get("panel.tool.root.console"), "terminal", e -> launchProcess("xterm", "-title", "Root Shell", "-e", "sudo", "sh")),
+                    new DrawerTool(PanelTexts.get("panel.tool.logs"), "diagnostics", e -> launchProcess("amadeos-logviewer")),
+                    new DrawerTool(PanelTexts.get("panel.tool.sysinfo"), "diagnostics", e -> launchProcess("amadeos-sysinfo"))
+            ));
+            tools.addAll(xdgTools(List.of(XdgCategory.SETTINGS, XdgCategory.MONITOR),
+                    Set.of("amadeos-style", "amadeos-logviewer", "amadeos-sysinfo", "xterm")));
+            return tools;
+        };
+        DrawerDockWidget toolsDrawer = fixedDrawer(
+                "tools", PanelTexts.get("panel.drawer.tools"), "app-manager",
                 e -> showApplicationManagerDialog(this),
-                toolsTools,
-                true
+                toolsTools
         );
         widgets.add(toolsDrawer);
         rightSlots.add(toolsDrawer.component());
@@ -319,21 +329,23 @@ public final class AmadeDesktopPanel extends JFrame {
 
         // Slot 11: Help (with drawer ▲): the User's Handbook in the web browser, then the Documentation
         // entries (other handbooks such as the Game Developer's Handbook bring their own)
-        List<DrawerTool> helpTools = new ArrayList<>();
-        helpTools.add(new DrawerTool("amadeOS User's Handbook", "help", e -> openDesktopHelp()));
-        helpTools.addAll(xdgTools(XdgCategory.HELP));
-        DrawerDockWidget helpDrawer = new DrawerDockWidget(
-                "help", "Help & Information Viewer", "help",
+        Supplier<List<DrawerTool>> helpTools = () -> {
+            List<DrawerTool> tools = new ArrayList<>();
+            tools.add(new DrawerTool(PanelTexts.get("panel.tool.handbook"), "help", e -> openDesktopHelp()));
+            tools.addAll(xdgTools(XdgCategory.HELP));
+            return tools;
+        };
+        DrawerDockWidget helpDrawer = fixedDrawer(
+                "help", PanelTexts.get("panel.drawer.help"), "help",
                 e -> openDesktopHelp(),
-                helpTools,
-                true
+                helpTools
         );
         widgets.add(helpDrawer);
         rightSlots.add(helpDrawer.component());
 
         // Slot 12: Trash Can (flat notch tab, no drawer ▲): the trash folder in amade-files
         DrawerDockWidget trashWidget = new DrawerDockWidget(
-                "trash", "Trash Can", "trash",
+                "trash", PanelTexts.get("panel.drawer.trash"), "trash",
                 e -> openTrash(),
                 List.of(),
                 false
@@ -358,6 +370,16 @@ public final class AmadeDesktopPanel extends JFrame {
         for (DockWidget w : widgets) {
             w.start();
         }
+
+        // --8<-- [start:follow]
+        // The drawers follow programs that are installed or removed: read the desktop entries again in the
+        // background, then fill the drawers on the EDT.
+        applicationsWatch = ApplicationsWatcher.start(XdgApplicationManager.getApplicationDirectories(),
+                ApplicationsWatcher.SETTLE_MILLIS, () -> {
+                    XdgApplicationManager.getInstance().reload();
+                    SwingUtilities.invokeLater(this::refillDrawers);
+                });
+        // --8<-- [end:follow]
 
         // Listen for internal ThemeManager changes
         ThemeManager.addListener(this::applyTheme);
@@ -459,49 +481,65 @@ public final class AmadeDesktopPanel extends JFrame {
             String title,
             String iconKey,
             XdgCategory category,
-            java.awt.event.ActionListener fallbackPrimaryAction,
-            List<DrawerTool> defaultTools) {
+            ActionListener fallbackPrimaryAction,
+            Supplier<List<DrawerTool>> defaultTools) {
         return createCategoryDrawer(id, title, iconKey, category, fallbackPrimaryAction, defaultTools, true);
     }
 
     // --8<-- [start:drawer]
+    /**
+     * A drawer for a category: the installed applications of the category, then the panel's own entries. Its
+     * button starts the first application of the category, or {@code fallbackPrimaryAction} while there is none.
+     * The drawer is filled again whenever programs are installed or removed.
+     */
     private DrawerDockWidget createCategoryDrawer(
             String id,
             String title,
             String iconKey,
             XdgCategory category,
-            java.awt.event.ActionListener fallbackPrimaryAction,
-            List<DrawerTool> defaultTools,
+            ActionListener fallbackPrimaryAction,
+            Supplier<List<DrawerTool>> defaultTools,
             boolean hasDrawer) {
+        Supplier<List<DrawerTool>> tools = () -> {
+            List<DrawerTool> list = new ArrayList<>(xdgTools(category));
+            list.addAll(defaultTools.get());
+            return list;
+        };
+        Supplier<ActionListener> primary = () -> primaryAction(category, fallbackPrimaryAction);
+        DrawerDockWidget drawer = new DrawerDockWidget(id, title, iconKey, primary.get(), tools.get(), hasDrawer);
+        refills.add(() -> drawer.update(primary.get(), tools.get()));
+        return drawer;
+    }
 
+    /** A drawer whose button always does the same; its entries are filled again like a category drawer's. */
+    private DrawerDockWidget fixedDrawer(String id, String title, String iconKey, ActionListener primaryAction,
+                                         Supplier<List<DrawerTool>> tools) {
+        DrawerDockWidget drawer = new DrawerDockWidget(id, title, iconKey, primaryAction, tools.get(), true);
+        refills.add(() -> drawer.update(primaryAction, tools.get()));
+        return drawer;
+    }
+
+    /** Starts the first installed application of the category, or the fallback while there is none. */
+    private ActionListener primaryAction(XdgCategory category, ActionListener fallback) {
         List<XdgDesktopEntry> apps = XdgApplicationManager.getInstance().getApplicationsByCategory(category);
-
-        // 1. Add discovered XDG applications for this category
-        List<DrawerTool> tools = new ArrayList<>(xdgTools(category));
-
-        // 2. Add default/auxiliary tools
-        if (defaultTools != null) {
-            tools.addAll(defaultTools);
+        if (apps.isEmpty()) {
+            return fallback;
         }
+        XdgDesktopEntry primaryApp = apps.get(0);
+        return e -> {
+            try {
+                primaryApp.launch();
+                launched();
+            } catch (Exception ex) {
+                LOGGER.warning("Failed to launch primary app " + primaryApp.name() + ": " + ex.getMessage());
+                launchFailed(primaryApp.name(), ex);
+            }
+        };
+    }
 
-        // 3. Primary action: if an external XDG application is installed for this category, launch it;
-        // otherwise, use the fallback primary action!
-        java.awt.event.ActionListener primaryAction;
-        if (!apps.isEmpty()) {
-            XdgDesktopEntry primaryApp = apps.get(0);
-            primaryAction = e -> {
-                try {
-                    primaryApp.launch();
-                } catch (Exception ex) {
-                    LOGGER.warning("Failed to launch primary app " + primaryApp.name() + ": " + ex.getMessage());
-                    JOptionPane.showMessageDialog(this, "Failed to launch " + primaryApp.name() + ": " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-                }
-            };
-        } else {
-            primaryAction = fallbackPrimaryAction;
-        }
-
-        return new DrawerDockWidget(id, title, iconKey, primaryAction, tools, hasDrawer);
+    /** Fills the drawers again from the desktop entries just read; on the EDT. */
+    void refillDrawers() {
+        refills.forEach(Runnable::run);
     }
     // --8<-- [end:drawer]
 
@@ -528,12 +566,17 @@ public final class AmadeDesktopPanel extends JFrame {
         return () -> launchProcess(command);
     }
 
+    private void launchFailed(String program, Exception e) {
+        JOptionPane.showMessageDialog(this, PanelTexts.format("panel.launch.failed", program, e.getMessage()),
+                PanelTexts.get("panel.error"), JOptionPane.ERROR_MESSAGE);
+    }
+
     private void launchProcess(String... cmd) {
         try {
             eu.amadeos.system.base.process.ProcessLauncher.start(java.util.List.of(cmd));
             launched();
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "Failed to launch " + cmd[0] + ": " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            launchFailed(cmd[0], e);
         }
     }
 
@@ -587,7 +630,7 @@ public final class AmadeDesktopPanel extends JFrame {
                 launched();
             } catch (Exception ex) {
                 LOGGER.warning("Failed to launch XDG app " + app.name() + ": " + ex.getMessage());
-                JOptionPane.showMessageDialog(this, "Failed to launch " + app.name() + ": " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                launchFailed(app.name(), ex);
             }
         });
     }
@@ -610,7 +653,7 @@ public final class AmadeDesktopPanel extends JFrame {
     }
 
     private void showApplicationManagerDialog(JFrame parent) {
-        JDialog dialog = new JDialog(parent, "amadeOS Application Manager", false);
+        JDialog dialog = new JDialog(parent, PanelTexts.get("apps.title"), false);
         dialog.setLayout(new BorderLayout(8, 8));
         DesktopTheme t = ThemeManager.currentTheme();
         dialog.getContentPane().setBackground(t.base());
@@ -618,10 +661,10 @@ public final class AmadeDesktopPanel extends JFrame {
         JPanel header = new JPanel(new GridLayout(2, 1, 2, 2));
         header.setBackground(t.base());
         header.setBorder(BorderFactory.createEmptyBorder(10, 14, 6, 14));
-        JLabel title = new JLabel("amadeOS Application Manager", JLabel.LEFT);
+        JLabel title = new JLabel(PanelTexts.get("apps.title"), JLabel.LEFT);
         title.setFont(title.getFont().deriveFont(Font.BOLD, 14.0f));
         title.setForeground(t.textActive());
-        JLabel subtitle = new JLabel("Registered applications and desktop tools:", JLabel.LEFT);
+        JLabel subtitle = new JLabel(PanelTexts.get("apps.subtitle"), JLabel.LEFT);
         subtitle.setForeground(t.textActive());
         header.add(title);
         header.add(subtitle);
@@ -652,12 +695,13 @@ public final class AmadeDesktopPanel extends JFrame {
                         + "</html>");
                 textLbl.setForeground(t.textActive());
 
-                JButton launchBtn = new JButton("Launch");
+                JButton launchBtn = new JButton(PanelTexts.get("apps.launch"));
                 launchBtn.addActionListener(e -> {
                     try {
                         app.launch();
                     } catch (Exception ex) {
-                        JOptionPane.showMessageDialog(dialog, "Failed to launch " + app.name() + ": " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                        JOptionPane.showMessageDialog(dialog, PanelTexts.format("panel.launch.failed", app.name(), ex.getMessage()),
+                                PanelTexts.get("panel.error"), JOptionPane.ERROR_MESSAGE);
                     }
                 });
 
@@ -669,7 +713,7 @@ public final class AmadeDesktopPanel extends JFrame {
 
             JScrollPane scroll = new JScrollPane(listPanel);
             scroll.getVerticalScrollBar().setUnitIncrement(16);
-            tabs.addTab(cat.displayName(), scroll);
+            tabs.addTab(PanelTexts.get("category." + cat.name().toLowerCase(java.util.Locale.ROOT)), scroll);
         }
 
         dialog.add(tabs, BorderLayout.CENTER);
@@ -678,13 +722,14 @@ public final class AmadeDesktopPanel extends JFrame {
         footer.setBackground(t.base());
         footer.setBorder(BorderFactory.createEmptyBorder(4, 14, 10, 14));
 
-        JButton reloadBtn = new JButton("Reload Cache");
+        JButton reloadBtn = new JButton(PanelTexts.get("apps.reload"));
         reloadBtn.addActionListener(e -> {
             XdgApplicationManager.getInstance().reload();
+            refillDrawers();
             dialog.dispose();
             showApplicationManagerDialog(parent);
         });
-        JButton closeBtn = new JButton("Close");
+        JButton closeBtn = new JButton(PanelTexts.get("apps.close"));
         closeBtn.addActionListener(e -> dialog.dispose());
 
         footer.add(reloadBtn);

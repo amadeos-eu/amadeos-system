@@ -12,8 +12,8 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.format.FormatStyle;
 import java.time.format.TextStyle;
-import java.util.Locale;
 import java.util.List;
 import eu.amadeos.system.base.process.ProcessLauncher;
 import javax.swing.JComponent;
@@ -23,6 +23,7 @@ import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.Timer;
 import eu.amadeos.commons.theme.DesktopTheme;
+import eu.amadeos.system.panel.cde.PanelTexts;
 
 /**
  * Authentic CDE Workstation Front Panel Calendar Dock Widget:
@@ -37,7 +38,8 @@ import eu.amadeos.commons.theme.DesktopTheme;
  * - Seamless button plate matching the rest of the launcher row.
  */
 public final class CalendarDockWidget extends AbstractDockWidget {
-    private static final DateTimeFormatter TOOLTIP_FMT = DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy");
+    private static final DateTimeFormatter TOOLTIP_FMT = DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL)
+            .withLocale(PanelTexts.texts().locale());
 
     // Dimensions of the tear-off calendar sheet
     private static final int SHEET_W = 35;
@@ -125,7 +127,7 @@ public final class CalendarDockWidget extends AbstractDockWidget {
 
         // Context menu
         contextMenu = new JPopupMenu();
-        JMenuItem todayItem = new JMenuItem("Show Today's Date...");
+        JMenuItem todayItem = new JMenuItem(PanelTexts.get("calendar.today"));
         todayItem.addActionListener(e -> showTodayDialog());
         contextMenu.add(todayItem);
 
@@ -151,7 +153,7 @@ public final class CalendarDockWidget extends AbstractDockWidget {
 
     private void updateTooltip() {
         LocalDate today = LocalDate.now();
-        panel.setToolTipText("Calendar (" + today.format(TOOLTIP_FMT) + ") - Click to launch");
+        panel.setToolTipText(PanelTexts.format("calendar.tooltip", today.format(TOOLTIP_FMT)));
     }
 
     private void paintCalendarSheet(Graphics2D g2, int w, int h, int topOffset, DesktopTheme t) {
@@ -200,7 +202,7 @@ public final class CalendarDockWidget extends AbstractDockWidget {
 
         // Render current month and day text onto the paper sheet
         LocalDate today = LocalDate.now();
-        String monthStr = today.getMonth().getDisplayName(TextStyle.SHORT, Locale.ENGLISH);
+        String monthStr = today.getMonth().getDisplayName(TextStyle.SHORT_STANDALONE, PanelTexts.texts().locale());
         // Capitalize first letter only (e.g. "Jul", "Oct")
         if (monthStr.length() > 1) {
             monthStr = monthStr.substring(0, 1).toUpperCase() + monthStr.substring(1).toLowerCase();
@@ -249,8 +251,8 @@ public final class CalendarDockWidget extends AbstractDockWidget {
 
     private void showTodayDialog() {
         LocalDate today = LocalDate.now();
-        String msg = "Today is:\n" + today.format(TOOLTIP_FMT);
-        JOptionPane.showMessageDialog(panel, msg, "amadeOS Calendar", JOptionPane.INFORMATION_MESSAGE);
+        String msg = PanelTexts.format("calendar.today.message", today.format(TOOLTIP_FMT));
+        JOptionPane.showMessageDialog(panel, msg, PanelTexts.get("calendar.title"), JOptionPane.INFORMATION_MESSAGE);
     }
 
     @Override
