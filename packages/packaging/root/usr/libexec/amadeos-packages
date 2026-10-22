@@ -2,12 +2,14 @@
 # amadeos-packages: the one place where amadeOS changes installed software. The desktop (front panel
 # update cell, update window, app store) runs it through pkexec; root runs this script and apt, no Java.
 #
+# --8<-- [start:commands]
 #   refresh                          apt-get update (polkit: no password for the active local user)
 #   upgrade [--security-only] [PKG…] all upgrades, only those from a security archive, or the given packages
 #   install PKG…                     install packages (marked as installed by the user)
 #   remove PKG…                      remove packages (configuration files stay, nothing is autoremoved)
 #   check                            list the pending upgrades; read-only, needs no root
 #   automatic-security on|off        install security updates automatically (unattended-upgrades) or not
+# --8<-- [end:commands]
 #
 # Output for the caller: apt's progress (APT::Status-Fd: "dlstatus:…", "pmstatus:…", "pmerror:…") and the
 # script's own "@@" lines on standard output; apt's and dpkg's messages on standard error, which is also

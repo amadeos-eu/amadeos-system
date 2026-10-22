@@ -7,6 +7,7 @@ import java.util.Set;
  * Standard Freedesktop.org application categories mapped to amadeOS CDE Front Panel drawers.
  */
 public enum XdgCategory {
+    // --8<-- [start:categories]
     FILE_MANAGER("FileManager", "File Management", "file-manager", Set.of("filemanager", "filetools")),
     TEXT_EDITOR("TextEditor", "Text Editors", "text-editor", Set.of("texteditor", "wordprocessor")),
     OFFICE("Office", "Office", "text-editor", Set.of("office", "spreadsheet", "presentation", "calendar",
@@ -25,6 +26,7 @@ public enum XdgCategory {
     GAMES("Game", "Games", "games", Set.of("game", "actiongame", "adventuregame", "arcadegame", "boardgame", "blocksgame",
             "cardgame", "kidsgame", "logicgame", "roleplaying", "shooter", "sportsgame", "strategygame")),
     OTHER("Other", "Applications", "app-manager", Set.of());
+    // --8<-- [end:categories]
 
     private final String key;
     private final String displayName;

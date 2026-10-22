@@ -30,6 +30,7 @@ public final class XCommands {
     private XCommands() {
     }
 
+    // --8<-- [start:keyboard]
     public static List<Command> keyboard(InputSettings.Keyboard k) {
         List<Command> commands = new ArrayList<>();
         if (k.autoRepeat()) {
@@ -43,6 +44,7 @@ public final class XCommands {
                 : Command.of("xset", "c", Integer.toString(k.clickVolume())));
         return commands;
     }
+    // --8<-- [end:keyboard]
 
     /**
      * @param pointerButtons number of buttons the pointer reports ({@code xmodmap -pp}); at least 3 are assumed

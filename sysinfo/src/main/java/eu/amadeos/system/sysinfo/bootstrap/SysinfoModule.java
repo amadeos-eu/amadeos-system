@@ -4,6 +4,7 @@ import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import eu.amadeos.commons.i18n.Messages;
+import eu.amadeos.commons.process.CommandRunner;
 import eu.amadeos.system.sysinfo.service.LocalSources;
 import eu.amadeos.system.sysinfo.service.SystemProbe;
 
@@ -24,6 +25,6 @@ public final class SysinfoModule extends AbstractModule {
     @Provides
     @Singleton
     SystemProbe probe(Messages msg) {
-        return new SystemProbe(Path.of("/"), new LocalSources(), msg);
+        return new SystemProbe(Path.of("/"), new LocalSources(CommandRunner.system()), msg);
     }
 }

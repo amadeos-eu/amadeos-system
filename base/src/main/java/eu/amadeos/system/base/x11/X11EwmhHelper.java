@@ -293,6 +293,7 @@ public class X11EwmhHelper implements AutoCloseable {
         x11.XFlush(display);
     }
 
+    // --8<-- [start:dock]
     public void setDockProperties(long win, int screenW, int screenH, int dockH) {
         // 1. _NET_WM_WINDOW_TYPE = _NET_WM_WINDOW_TYPE_DOCK
         Memory typeMem = new Memory(NativeLong.SIZE);
@@ -319,6 +320,7 @@ public class X11EwmhHelper implements AutoCloseable {
 
         x11.XFlush(display);
     }
+    // --8<-- [end:dock]
 
     public NativeLong amadeosThemeAtom() {
         return amadeosThemeAtom;

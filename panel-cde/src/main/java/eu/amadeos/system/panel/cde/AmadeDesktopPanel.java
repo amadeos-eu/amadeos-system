@@ -94,6 +94,7 @@ public final class AmadeDesktopPanel extends JFrame {
     /** When the panel last started an application; the window manager's busy flag may lag behind. */
     private long launchedAt;
 
+    // --8<-- [start:main]
     public static void main(String[] args) {
         if (!acquireSingleInstanceLock()) {
             LOGGER.warning("Another instance of AmadeDesktopPanel is already running. Exiting.");
@@ -126,6 +127,7 @@ public final class AmadeDesktopPanel extends JFrame {
             }
         });
     }
+    // --8<-- [end:main]
 
     public AmadeDesktopPanel(X11EwmhHelper helper) {
         super(WINDOW_TITLE);
@@ -456,6 +458,7 @@ public final class AmadeDesktopPanel extends JFrame {
         return createCategoryDrawer(id, title, iconKey, category, fallbackPrimaryAction, defaultTools, true);
     }
 
+    // --8<-- [start:drawer]
     private DrawerDockWidget createCategoryDrawer(
             String id,
             String title,
@@ -494,6 +497,7 @@ public final class AmadeDesktopPanel extends JFrame {
 
         return new DrawerDockWidget(id, title, iconKey, primaryAction, tools, hasDrawer);
     }
+    // --8<-- [end:drawer]
 
     /** The watch over the panel while an application starts, as the window manager shows it elsewhere. */
     private void showBusy(boolean busy) {
