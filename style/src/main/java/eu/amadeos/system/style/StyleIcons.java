@@ -119,6 +119,23 @@ final class StyleIcons {
                 g.draw(bell);
                 g.fillOval(15, 26, 6, 5);
             }
+            case CLIPBOARD -> {
+                // A clipboard with its clip and a sheet of text, a second sheet behind it: the history.
+                g.setColor(t.shadow());
+                g.fillRect(12, 4, 20, 26);
+                g.setColor(enabled ? new Color(0xA0, 0x70, 0x40) : t.shadow());
+                g.fillRect(5, 7, 22, 26);
+                g.setColor(ink);
+                g.drawRect(5, 7, 22, 26);
+                g.setColor(paper);
+                g.fillRect(8, 11, 16, 19);
+                g.setColor(ink);
+                for (int y = 16; y <= 26; y += 5) g.drawLine(11, y, y == 26 ? 17 : 21, y);
+                g.setColor(enabled ? new Color(0xC0, 0xC0, 0xC8) : t.textInactive());
+                g.fillRect(11, 4, 10, 5);
+                g.setColor(ink);
+                g.drawRect(11, 4, 10, 5);
+            }
             case SCREEN -> {
                 monitor(g, t, ink);
                 g.setColor(Color.BLACK);

@@ -1,0 +1,5 @@
+#!/bin/sh
+# amadeOS clipboard history (Front Panel > Tools > Clipboard History): shows the history of the running
+# clipboard manager, or starts the manager if it is not running. --clear empties the history.
+[ $# -eq 0 ] && set -- --show
+exec /usr/libexec/amadeos-session clipboard "$@"

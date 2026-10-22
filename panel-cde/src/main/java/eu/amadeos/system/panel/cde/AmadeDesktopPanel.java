@@ -302,7 +302,7 @@ public final class AmadeDesktopPanel extends JFrame {
         rightSlots.add(printerDrawer.component());
 
         // --8<-- [start:tools]
-        // Slot 10: Tools (with drawer ▲): desktop settings, application catalog, terminals and diagnostics,
+        // Slot 10: Tools (with drawer ▲): desktop settings, application catalog, terminals, clipboard history and diagnostics,
         // like CDE's Tools subpanel; then the other installed Settings and System applications (the
         // installer of the live image, for example), except those the fixed entries already start.
         Supplier<List<DrawerTool>> toolsTools = () -> {
@@ -311,6 +311,7 @@ public final class AmadeDesktopPanel extends JFrame {
                     new DrawerTool(PanelTexts.get("panel.tool.apps"), "app-manager", e -> showApplicationManagerDialog(this)),
                     new DrawerTool(PanelTexts.get("panel.tool.terminal"), "terminal", e -> launchProcess("xterm")),
                     new DrawerTool(PanelTexts.get("panel.tool.root.console"), "terminal", e -> launchProcess("xterm", "-title", "Root Shell", "-e", "sudo", "sh")),
+                    new DrawerTool(PanelTexts.get("panel.tool.clipboard"), "clipboard", e -> launchProcess("amadeos-clipboard")),
                     new DrawerTool(PanelTexts.get("panel.tool.logs"), "diagnostics", e -> launchProcess("amadeos-logviewer")),
                     new DrawerTool(PanelTexts.get("panel.tool.sysinfo"), "diagnostics", e -> launchProcess("amadeos-sysinfo"))
             ));

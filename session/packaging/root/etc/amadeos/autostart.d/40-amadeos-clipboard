@@ -1,0 +1,19 @@
+#!/bin/sh
+# amadeOS clipboard manager: keeps a history of what was copied (in memory only, Ctrl+Alt+V shows it) and
+# keeps a copy on the clipboard after the program that made it has closed (Style Manager > Clipboard).
+# Restarted if it crashes; stops on a clean exit (0), when another clipboard manager of amadeOS runs (3) or
+# when the X display or its XFIXES extension is missing (5).
+set -u
+
+LOG_DIR="${XDG_CACHE_HOME:-${HOME:-/tmp}/.cache}/amadeos/logs"
+mkdir -p "$LOG_DIR" 2>/dev/null || LOG_DIR=/tmp
+LOG_FILE="$LOG_DIR/clipboard.log"
+
+while :; do
+    /usr/libexec/amadeos-session clipboard --daemon >> "$LOG_FILE" 2>&1
+    case "$?" in
+        0|3|5) exit 0 ;;
+        126|127) exit 1 ;;
+        *) echo "[amadeos-clipboard] restarting in 2s" >> "$LOG_FILE"; sleep 2 ;;
+    esac
+done
