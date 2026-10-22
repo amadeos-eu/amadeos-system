@@ -38,6 +38,15 @@ class DetailsPageTest {
     }
 
     @Test
+    void aPackageInstalledByHandHasNoSizes() {
+        PackageInfo local = new PackageInfo("amade-pad", "0.1.0", "all", "editors", "summary", "Text.", 0, 0, "",
+                List.of(), List.of());
+        String html = DetailsPage.build(EN, Item.of(GIMP), Optional.of(local), "Installed.", DetailsPage.NO_SHOT, FONT,
+                Color.BLACK, Color.BLUE);
+        assertFalse(html.contains("Download"), html);
+    }
+
+    @Test
     void anApplicationWithIconScreenshotAndItsOwnDescription() {
         AppData app = new AppData("org.gimp.GIMP", "gimp", "GNU Image <Manipulation>", "Create images",
                 "<p>GIMP is <em>free</em>.</p>", List.of(), Optional.of(Path.of("/icons/gimp.png")), "", List.of());
