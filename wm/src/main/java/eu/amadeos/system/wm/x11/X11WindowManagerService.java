@@ -75,6 +75,11 @@ public final class X11WindowManagerService implements AutoCloseable {
     private final Pointer xorGc;
     private final DecorationTheme theme = new MotifDecorationTheme();
     private final Map<Long, FrameWindow> clientToFrame;
+    /**
+     * Where the frame of a withdrawn (hidden) client was, and where the client was put on the root: if it is
+     * mapped there again, its new frame goes where the old one was.
+     */
+    private final Map<Long, int[]> withdrawnFrames = new HashMap<>();
     private final Map<Long, FrameWindow> frameToClient;
 
     // Wireframe dragging state
@@ -1172,6 +1177,11 @@ public final class X11WindowManagerService implements AutoCloseable {
         int frameH = m.frameHeight(clientH);
         int frameX = Math.max(0, clientX);
         int frameY = Math.max(0, clientY);
+        int[] before = withdrawnFrames.remove(clientWin);
+        if (before != null && before[2] == clientX && before[3] == clientY) {
+            frameX = before[0];
+            frameY = before[1];
+        }
 
         NativeLong frameWin = x11.XCreateSimpleWindow(
                 display,
@@ -1811,7 +1821,7 @@ public final class X11WindowManagerService implements AutoCloseable {
                     // Internal decoration frame or tile window destroyed, ignore
                     return;
                 }
-                cleanupWindow(win);
+                cleanupWindow(win, false);
             }
             case LibX11.UnmapNotify -> {
                 LibX11.XUnmapEvent unmap = new LibX11.XUnmapEvent(event.getPointer());
@@ -1825,7 +1835,9 @@ public final class X11WindowManagerService implements AutoCloseable {
                     // Window minimized or on another workspace, unmap is expected, do not destroy
                     return;
                 }
-                cleanupWindow(win);
+                // The client withdrew its window (e.g. Swing's setVisible(false)): it still exists and may be
+                // mapped again, so it goes back to the root before its frame is destroyed.
+                cleanupWindow(win, true);
             }
             default -> {
                 if (xkbEventBase >= 0 && event.type == xkbEventBase) {
@@ -2343,7 +2355,14 @@ public final class X11WindowManagerService implements AutoCloseable {
         LOGGER.info(() -> "Removed and reflowed desktop icon tiles (remaining: " + iconTiles.size() + ")");
     }
 
-    private void cleanupWindow(long win) {
+    /**
+     * Forgets a client window and destroys its frame.
+     *
+     * @param withdrawn true if the client only unmapped its window: it is reparented to the root first,
+     *                  since destroying the frame would otherwise destroy the client's window with it
+     */
+    private void cleanupWindow(long win, boolean withdrawn) {
+        if (!withdrawn) withdrawnFrames.remove(win);
         boolean isClient = clientToFrame.containsKey(win);
         boolean isDock = dockWindows.contains(win);
         boolean isTileClient = clientToTile.containsKey(win);
@@ -2357,6 +2376,16 @@ public final class X11WindowManagerService implements AutoCloseable {
         FrameWindow frame = clientToFrame.remove(win);
         if (frame != null) {
             frameToClient.remove(frame.frameWindow().longValue());
+            if (withdrawn) {
+                NativeLong client = new NativeLong(win);
+                int x = frame.frameX() + frame.clientX();
+                int y = frame.frameY() + frame.clientY();
+                x11.XReparentWindow(display, client, new NativeLong(rootWindow), x, y);
+                withdrawnFrames.put(win, new int[]{frame.frameX(), frame.frameY(), x, y});
+                x11.XRemoveFromSaveSet(display, client);
+                // ICCCM 4.1.4: a withdrawn window has no WM_STATE (or WithdrawnState).
+                x11.XDeleteProperty(display, client, wmState);
+            }
             x11.XDestroyWindow(display, frame.frameWindow());
         }
         core.unmanage(win);
