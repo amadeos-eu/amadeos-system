@@ -33,12 +33,12 @@ import java.util.function.Consumer;
  * as in CDE's Style Manager. The screen saver daemon picks up the saved settings by itself.
  */
 final class ScreenDialog extends StyleDialog {
-    private static final String RANDOM_LABEL = "Random";
+    private static final String RANDOM_LABEL = StyleTexts.get("screen.random");
 
     private final ScreenSettingsStore store;
-    private final JCheckBox saverOn = new JCheckBox("Screen saver");
+    private final JCheckBox saverOn = new JCheckBox(StyleTexts.get("screen.saver"));
     private final JSpinner saverMinutes = minutes();
-    private final JCheckBox lockOn = new JCheckBox("Screen lock");
+    private final JCheckBox lockOn = new JCheckBox(StyleTexts.get("screen.lock"));
     private final JSpinner lockMinutes = minutes();
     private final DefaultListModel<Object> modules = new DefaultListModel<>();
     private final JList<Object> moduleList = new JList<>(modules);
@@ -69,8 +69,8 @@ final class ScreenDialog extends StyleDialog {
         saverOn.addActionListener(e -> updateEnabled());
         lockOn.addActionListener(e -> updateEnabled());
 
-        JButton test = new JButton("Test");
-        test.setToolTipText("Show the selected screen saver full screen; any key or mouse click ends it");
+        JButton test = new JButton(StyleTexts.get("button.test"));
+        test.setToolTipText(StyleTexts.get("screen.test.tooltip"));
         test.addActionListener(e -> {
             SaverWindow window = new SaverWindow(SaverModules.create(selectedId(), random));
             window.dismissOnInput(() -> {
@@ -79,8 +79,9 @@ final class ScreenDialog extends StyleDialog {
         });
 
         JPanel saverBox = new JPanel(new BorderLayout(10, 6));
-        saverBox.setBorder(BorderFactory.createTitledBorder("Screen Saver"));
-        saverBox.add(row(saverOn, new JLabel("Start after"), saverMinutes, new JLabel("minutes")), BorderLayout.NORTH);
+        saverBox.setBorder(BorderFactory.createTitledBorder(StyleTexts.get("screen.saver.title")));
+        saverBox.add(row(saverOn, new JLabel(StyleTexts.get("screen.saver.after")), saverMinutes,
+                new JLabel(StyleTexts.get("screen.minutes"))), BorderLayout.NORTH);
         JScrollPane list = new JScrollPane(moduleList);
         list.setPreferredSize(new Dimension(160, 150));
         saverBox.add(list, BorderLayout.WEST);
@@ -95,9 +96,10 @@ final class ScreenDialog extends StyleDialog {
         saverBox.add(previewBox, BorderLayout.CENTER);
 
         JPanel lockBox = new JPanel(new GridLayout(0, 1, 0, 4));
-        lockBox.setBorder(BorderFactory.createTitledBorder("Screen Lock"));
-        lockBox.add(row(lockOn, new JLabel("Lock after"), lockMinutes, new JLabel("minutes without input")));
-        JLabel hint = new JLabel("Unlocking needs your login password. Lock at once with the front panel's lock button.");
+        lockBox.setBorder(BorderFactory.createTitledBorder(StyleTexts.get("screen.lock.title")));
+        lockBox.add(row(lockOn, new JLabel(StyleTexts.get("screen.lock.after")), lockMinutes,
+                new JLabel(StyleTexts.get("screen.minutes.idle"))));
+        JLabel hint = new JLabel(StyleTexts.get("screen.hint"));
         hint.setFont(hint.getFont().deriveFont(11f));
         lockBox.add(hint);
 
@@ -162,8 +164,10 @@ final class ScreenDialog extends StyleDialog {
     protected String apply() {
         ScreenSettings settings = settings();
         store.save(settings);
-        String saver = settings.saverEnabled() ? "saver after " + settings.saverMinutes() + " min" : "saver off";
-        String lock = settings.lockEnabled() ? "lock after " + settings.lockMinutes() + " min" : "lock off";
-        return "Screen: " + saver + ", " + lock;
+        String saver = settings.saverEnabled()
+                ? StyleTexts.format("screen.status.saver", settings.saverMinutes()) : StyleTexts.get("screen.status.saver.off");
+        String lock = settings.lockEnabled()
+                ? StyleTexts.format("screen.status.lock", settings.lockMinutes()) : StyleTexts.get("screen.status.lock.off");
+        return StyleTexts.format("screen.status", saver, lock);
     }
 }

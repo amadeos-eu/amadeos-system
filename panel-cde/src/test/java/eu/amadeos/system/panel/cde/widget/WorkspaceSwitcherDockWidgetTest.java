@@ -71,7 +71,7 @@ class WorkspaceSwitcherDockWidgetTest {
         DesktopTheme theme = ThemeManager.currentTheme();
         for (int i = 0; i < 4; i++) {
             assertEquals(theme.workspaceColor(i), widget.workspaceButtons[i].color(), "workspace " + (i + 1));
-            assertEquals(WorkspaceSwitcherDockWidget.WORKSPACE_NAMES[i], widget.workspaceButtons[i].getText());
+            assertEquals(WorkspaceSwitcherDockWidget.workspaceName(i), widget.workspaceButtons[i].getText());
         }
         assertEquals(4, Set.of(widget.workspaceButtons[0].color(), widget.workspaceButtons[1].color(),
                 widget.workspaceButtons[2].color(), widget.workspaceButtons[3].color()).size(),

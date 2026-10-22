@@ -21,6 +21,7 @@ import javax.swing.JPopupMenu;
 import javax.swing.event.PopupMenuEvent;
 import javax.swing.event.PopupMenuListener;
 import eu.amadeos.commons.theme.DesktopTheme;
+import eu.amadeos.system.panel.cde.PanelTexts;
 import eu.amadeos.system.base.theme.IconManager;
 
 /**
@@ -37,7 +38,8 @@ public final class DrawerDockWidget extends AbstractDockWidget {
     final FlatLauncherButton mainBtn;
     private final String iconKey;
     private final String tooltip;
-    private final List<DrawerTool> tools;
+    private List<DrawerTool> tools;
+    private ActionListener primaryAction;
     final JPopupMenu drawerPopup;
     private final boolean hasDrawer;
     private final boolean hasRightDivider;
@@ -62,6 +64,7 @@ public final class DrawerDockWidget extends AbstractDockWidget {
         this.tooltip = tooltip;
         this.iconKey = iconKey;
         this.tools = (tools != null) ? tools : List.of();
+        this.primaryAction = primaryAction;
         this.hasDrawer = hasDrawer;
         this.hasRightDivider = hasRightDivider;
 
@@ -85,19 +88,14 @@ public final class DrawerDockWidget extends AbstractDockWidget {
         tabBtn = new DrawerTabButton();
 
         // 3. Flat application launcher button directly on panel surface
-        mainBtn = new FlatLauncherButton(primaryAction);
+        mainBtn = new FlatLauncherButton(e -> {
+            if (this.primaryAction != null) this.primaryAction.actionPerformed(e);
+        });
 
         // 4. Subpanel tools popup
         drawerPopup = new JPopupMenu();
         drawerPopup.setBorder(new MotifBevelBorder(true, 2));
-        for (DrawerTool tool : this.tools) {
-            JMenuItem item = new JMenuItem(tool.title());
-            if (tool.iconKey() != null) {
-                item.setIcon(IconManager.getIcon(tool.iconKey(), 16));
-            }
-            item.addActionListener(tool.action());
-            drawerPopup.add(item);
-        }
+        fillDrawer();
 
         drawerPopup.addPopupMenuListener(new PopupMenuListener() {
             @Override
@@ -158,6 +156,32 @@ public final class DrawerDockWidget extends AbstractDockWidget {
         updateThemeStyles(currentTheme);
     }
 
+    /**
+     * Replaces the button's action and the drawer's entries, when programs were installed or removed; on the
+     * event dispatch thread. An open drawer closes first.
+     */
+    public void update(ActionListener primaryAction, List<DrawerTool> tools) {
+        this.primaryAction = primaryAction;
+        this.tools = (tools != null) ? tools : List.of();
+        if (drawerPopup.isVisible()) {
+            drawerPopup.setVisible(false);
+        }
+        drawerPopup.removeAll();
+        fillDrawer();
+        updateThemeStyles(currentTheme);
+    }
+
+    private void fillDrawer() {
+        for (DrawerTool tool : tools) {
+            JMenuItem item = new JMenuItem(tool.title());
+            if (tool.iconKey() != null) {
+                item.setIcon(IconManager.getIcon(tool.iconKey(), 16));
+            }
+            item.addActionListener(tool.action());
+            drawerPopup.add(item);
+        }
+    }
+
     public boolean hasDrawer() {
         return hasDrawer;
     }
@@ -195,7 +219,7 @@ public final class DrawerDockWidget extends AbstractDockWidget {
             setMargin(new Insets(0, 0, 0, 0));
             setPreferredSize(new Dimension(CdePanelChrome.SLOT_WIDTH, CdePanelChrome.TAB_HEIGHT));
             if (hasDrawer) {
-                setToolTipText("Open " + tooltip + " Drawer");
+                setToolTipText(PanelTexts.format("panel.drawer.open", tooltip));
             } else {
                 setToolTipText(null);
                 setFocusable(false);

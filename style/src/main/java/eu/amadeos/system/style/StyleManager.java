@@ -1,5 +1,6 @@
 package eu.amadeos.system.style;
 
+import eu.amadeos.commons.i18n.Mnemonics;
 import eu.amadeos.commons.swing.AmadeUI;
 import eu.amadeos.system.input.InputApplier;
 import eu.amadeos.system.input.InputSettingsStore;
@@ -53,7 +54,7 @@ public final class StyleManager extends JFrame {
     }
 
     public StyleManager(ScreenSettingsStore screenSettings, InputSettingsStore inputSettings, InputApplier applier) {
-        super("Style Manager");
+        super(StyleTexts.get("title"));
         this.screenSettings = screenSettings;
         this.input = new InputControls(inputSettings, applier);
         ThemeManager.currentTheme(); // installs the desktop look
@@ -69,7 +70,7 @@ public final class StyleManager extends JFrame {
             button.setFont(button.getFont().deriveFont(11f));
             button.setEnabled(category.available());
             button.setToolTipText(category.available() ? category.description()
-                    : category.description() + " (not available yet)");
+                    : StyleTexts.format("category.unavailable", category.description()));
             button.addActionListener(e -> openControl(category));
             buttons.put(category, button);
             row.add(button);
@@ -94,18 +95,15 @@ public final class StyleManager extends JFrame {
 
     private JMenuBar menuBar() {
         JMenuBar bar = new JMenuBar();
-        JMenu file = new JMenu("File");
-        file.setMnemonic(KeyEvent.VK_F);
-        JMenuItem exit = new JMenuItem("Exit");
+        JMenu file = Mnemonics.apply(new JMenu(), StyleTexts.get("menu.file"));
+        JMenuItem exit = Mnemonics.apply(new JMenuItem(), StyleTexts.get("menu.exit"));
         exit.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Q, InputEvent.CTRL_DOWN_MASK));
         exit.addActionListener(e -> dispose());
         file.add(exit);
-        JMenu help = new JMenu("Help");
-        help.setMnemonic(KeyEvent.VK_H);
-        JMenuItem about = new JMenuItem("About Style Manager");
-        about.addActionListener(e -> JOptionPane.showMessageDialog(this,
-                "Style Manager\nColors, backdrop, keyboard, mouse, bell and screen saver of the amadeOS desktop.",
-                "About Style Manager", JOptionPane.INFORMATION_MESSAGE));
+        JMenu help = Mnemonics.apply(new JMenu(), StyleTexts.get("menu.help"));
+        JMenuItem about = Mnemonics.apply(new JMenuItem(), StyleTexts.get("menu.about"));
+        about.addActionListener(e -> JOptionPane.showMessageDialog(this, StyleTexts.get("about.text"),
+                Mnemonics.strip(StyleTexts.get("menu.about")), JOptionPane.INFORMATION_MESSAGE));
         help.add(about);
         bar.add(file);
         bar.add(help);

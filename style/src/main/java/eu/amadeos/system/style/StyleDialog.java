@@ -17,7 +17,7 @@ abstract class StyleDialog extends JDialog {
     private final Consumer<String> status;
 
     StyleDialog(JFrame owner, StyleCategory category, Consumer<String> status) {
-        super(owner, "Style Manager - " + category.label(), false);
+        super(owner, StyleTexts.format("dialog.title", category.label()), false);
         this.status = status;
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
     }
@@ -29,9 +29,9 @@ abstract class StyleDialog extends JDialog {
         root.setBorder(BorderFactory.createEmptyBorder(12, 14, 10, 14));
         root.add(content, BorderLayout.CENTER);
 
-        JButton ok = new JButton("OK");
-        JButton apply = new JButton("Apply");
-        JButton cancel = new JButton("Cancel");
+        JButton ok = new JButton(StyleTexts.get("button.ok"));
+        JButton apply = new JButton(StyleTexts.get("button.apply"));
+        JButton cancel = new JButton(StyleTexts.get("button.cancel"));
         ok.addActionListener(e -> {
             if (applyChanges()) dispose();
         });
@@ -64,7 +64,7 @@ abstract class StyleDialog extends JDialog {
             if (message != null) status.accept(message);
             return true;
         } catch (RuntimeException e) {
-            status.accept("Could not apply: " + e.getMessage());
+            status.accept(StyleTexts.format("status.error", e.getMessage()));
             return false;
         }
     }

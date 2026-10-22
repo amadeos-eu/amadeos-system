@@ -19,7 +19,7 @@ import java.util.function.Consumer;
  */
 final class KeyboardDialog extends StyleDialog {
     private final InputControls controls;
-    private final JCheckBox autoRepeat = new JCheckBox("Auto Repeat");
+    private final JCheckBox autoRepeat = new JCheckBox(StyleTexts.get("keyboard.repeat"));
     private final LabeledSlider delay;
     private final LabeledSlider rate;
     private final LabeledSlider click;
@@ -30,21 +30,21 @@ final class KeyboardDialog extends StyleDialog {
         InputSettings.Keyboard k = controls.load().keyboard();
         delay = new LabeledSlider(100, 2000, k.repeatDelayMs(), v -> v + " ms");
         rate = new LabeledSlider(1, 100, k.repeatRate(), v -> v + " /s");
-        click = new LabeledSlider(0, 100, k.clickVolume(), v -> v == 0 ? "Off" : v + " %");
+        click = new LabeledSlider(0, 100, k.clickVolume(), v -> v == 0 ? StyleTexts.get("value.off") : v + " %");
         autoRepeat.setSelected(k.autoRepeat());
         autoRepeat.addActionListener(e -> updateEnabled());
 
         JTextField test = new JTextField(24);
-        test.setToolTipText("Hold a key down here after Apply to try the repeat");
-        JButton defaults = new JButton("Defaults");
+        test.setToolTipText(StyleTexts.get("keyboard.test.tooltip"));
+        JButton defaults = new JButton(StyleTexts.get("button.defaults"));
         defaults.addActionListener(e -> show(InputSettings.Keyboard.DEFAULTS));
 
         JPanel form = InputControls.form(
                 "", autoRepeat,
-                "Delay before repeat:", delay,
-                "Repeat rate:", rate,
-                "Click volume:", click,
-                "Test:", test);
+                StyleTexts.get("keyboard.delay"), delay,
+                StyleTexts.get("keyboard.rate"), rate,
+                StyleTexts.get("keyboard.click"), click,
+                StyleTexts.get("keyboard.test"), test);
         form.setBorder(BorderFactory.createEmptyBorder(0, 0, 6, 0));
         JPanel defaultsRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         defaultsRow.add(defaults);
@@ -75,6 +75,6 @@ final class KeyboardDialog extends StyleDialog {
     @Override
     protected String apply() {
         InputSettings.Keyboard k = settings();
-        return controls.saveAndApply(controls.load().withKeyboard(k), XCommands.keyboard(k), "Keyboard");
+        return controls.saveAndApply(controls.load().withKeyboard(k), XCommands.keyboard(k), StyleCategory.KEYBOARD.label());
     }
 }
