@@ -32,6 +32,7 @@ public final class SystemProbe {
     public record Interface(String name, String mac, List<String> addresses, boolean up) {
     }
 
+    // --8<-- [start:sources]
     /** What does not come from files. */
     public interface Sources {
         /** The output of a command, empty if it is not installed or fails. */
@@ -42,6 +43,7 @@ public final class SystemProbe {
         /** The screens, e.g. "1920 × 1080". */
         List<String> screens();
     }
+    // --8<-- [end:sources]
 
     private final Path root;
     private final Sources sources;
@@ -92,6 +94,7 @@ public final class SystemProbe {
         return new Section(msg.get("section.processor"), items);
     }
 
+    // --8<-- [start:memory]
     private Section memory() {
         List<Item> items = new ArrayList<>();
         Map<String, Long> mem = SystemFiles.parseMeminfo(read("proc/meminfo").orElse(""));
@@ -104,6 +107,7 @@ public final class SystemProbe {
                 : msg.get("value.none")));
         return new Section(msg.get("section.memory"), items);
     }
+    // --8<-- [end:memory]
 
     private Section storage() {
         List<Item> items = new ArrayList<>();

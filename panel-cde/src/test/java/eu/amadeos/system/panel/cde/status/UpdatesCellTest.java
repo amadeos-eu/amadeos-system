@@ -42,6 +42,7 @@ class UpdatesCellTest {
         return new UpdatesCell(service, showUpdates, null, EN, (message, warning) -> notified.add(message));
     }
 
+    // --8<-- [start:shown]
     @Test
     void shownOnlyWhileUpdatesAreWaiting() {
         UpdatesCell cell = cell(new FakeService(), null);
@@ -59,6 +60,7 @@ class UpdatesCellTest {
         cell.show(List.of());
         assertEquals(List.of(true, false), relayouts, "the slot lays out again only when the cell appears or goes");
     }
+    // --8<-- [end:shown]
 
     @Test
     void menuListsSecurityUpdatesFirstAndOffersSecurityOnly() {

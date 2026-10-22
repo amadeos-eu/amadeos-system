@@ -45,6 +45,7 @@ public final class ProcessLauncher {
         return process;
     }
 
+    // --8<-- [start:start]
     static Process start(List<String> command, File workingDirectory, Path log) throws IOException {
         Objects.requireNonNull(command);
         if (command.isEmpty()) {
@@ -66,6 +67,7 @@ public final class ProcessLauncher {
         LOGGER.info(() -> "Launching: " + String.join(" ", command));
         return pb.start();
     }
+    // --8<-- [end:start]
 
     /**
      * Starts the first candidate whose executable is installed.

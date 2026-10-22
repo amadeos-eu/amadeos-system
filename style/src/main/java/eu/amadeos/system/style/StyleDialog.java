@@ -22,6 +22,7 @@ abstract class StyleDialog extends JDialog {
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
     }
 
+    // --8<-- [start:layout]
     /** Builds the dialog; call at the end of the subclass constructor. */
     protected final void layoutDialog(JComponent content) {
         JPanel root = new JPanel(new BorderLayout(0, 10));
@@ -55,6 +56,7 @@ abstract class StyleDialog extends JDialog {
         pack();
         setLocationRelativeTo(getOwner());
     }
+    // --8<-- [end:layout]
 
     private boolean applyChanges() {
         try {

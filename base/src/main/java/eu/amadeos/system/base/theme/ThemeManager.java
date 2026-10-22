@@ -71,6 +71,7 @@ public final class ThemeManager {
         LISTENERS.remove(listener);
     }
 
+    // --8<-- [start:apply]
     public static synchronized void applyTheme(String themeId) {
         DesktopTheme theme = REGISTRY.find(themeId).orElse(null);
         if (theme == null) {
@@ -87,6 +88,7 @@ public final class ThemeManager {
         persist(ThemeStore.THEME_FILE, theme.id());
         notifyListeners(theme);
     }
+    // --8<-- [end:apply]
 
     public static synchronized void applyTheme(DesktopTheme theme) {
         registerTheme(theme);
@@ -112,6 +114,7 @@ public final class ThemeManager {
         }
     }
 
+    // --8<-- [start:persist]
     /**
      * Writes the file atomically: applications watch these files and must never read a half-written id.
      */
@@ -135,4 +138,5 @@ public final class ThemeManager {
             LOGGER.warning("Cannot save " + fileName + ": " + e.getMessage());
         }
     }
+    // --8<-- [end:persist]
 }

@@ -34,6 +34,7 @@ public final class SystemFiles {
         return values;
     }
 
+    // --8<-- [start:meminfo]
     /** {@code /proc/meminfo}: the sizes in bytes, by name (MemTotal, MemAvailable, SwapTotal, ...). */
     public static Map<String, Long> parseMeminfo(String text) {
         Map<String, Long> values = new LinkedHashMap<>();
@@ -51,6 +52,7 @@ public final class SystemFiles {
         }
         return values;
     }
+    // --8<-- [end:meminfo]
 
     /** What {@code /proc/cpuinfo} says about the processor. */
     public record Cpu(String model, int threads, int cores, int sockets) {

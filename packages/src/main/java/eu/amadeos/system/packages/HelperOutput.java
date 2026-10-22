@@ -38,6 +38,7 @@ public final class HelperOutput {
     private HelperOutput() {
     }
 
+    // --8<-- [start:parse]
     public static Line parse(String line) {
         if (line.startsWith("@@")) {
             String body = line.substring(2);
@@ -82,6 +83,7 @@ public final class HelperOutput {
         }
         return new Text(line);
     }
+    // --8<-- [end:parse]
 
     private static int percent(String value) {
         try {

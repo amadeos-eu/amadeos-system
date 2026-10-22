@@ -96,6 +96,7 @@ public final class MainWindow extends JFrame {
         setLocationRelativeTo(null);
     }
 
+    // --8<-- [start:load]
     /** Collects the report in the background and shows it. */
     public void load() {
         EdtExecutor.requireEdt();
@@ -112,6 +113,7 @@ public final class MainWindow extends JFrame {
             status.setText(" ");
         }, edt);
     }
+    // --8<-- [end:load]
 
     void show(Report result) {
         report = result;

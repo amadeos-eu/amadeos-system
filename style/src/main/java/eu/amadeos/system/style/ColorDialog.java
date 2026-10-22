@@ -139,6 +139,7 @@ final class ColorDialog extends StyleDialog {
         iconPreview.repaint();
     }
 
+    // --8<-- [start:apply]
     @Override
     protected String apply() {
         StringBuilder message = new StringBuilder();
@@ -160,6 +161,7 @@ final class ColorDialog extends StyleDialog {
         }
         return message.isEmpty() ? "Color unchanged" : message.toString();
     }
+    // --8<-- [end:apply]
 
     private static Icon swatch(DesktopTheme t) {
         return new Icon() {

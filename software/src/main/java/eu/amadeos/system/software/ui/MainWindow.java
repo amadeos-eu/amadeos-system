@@ -354,6 +354,7 @@ public final class MainWindow extends JFrame {
                 msg.get("outcome.installed"));
     }
 
+    // --8<-- [start:install]
     /** Installs a package once the user has agreed to what else it brings (or removes). */
     void install(CatalogEntry entry) {
         background(() -> packages.simulateInstall(List.of(entry.name())), changes -> {
@@ -368,6 +369,7 @@ public final class MainWindow extends JFrame {
                     msg.format("outcome.package-installed", entry.name()));
         }, error -> operation.end(msg.format("error.simulate", message(error))));
     }
+    // --8<-- [end:install]
 
     /** Removes a package once the user has agreed, having seen what else goes with it. */
     void remove(CatalogEntry entry) {
@@ -436,6 +438,7 @@ public final class MainWindow extends JFrame {
                 error -> operation.end(msg.format("error.read", message(error))));
     }
 
+    // --8<-- [start:perform]
     /**
      * Runs one change through the helper: progress and apt's messages in the bar, the outcome in its status
      * line (and in a dialog when it failed), the updates and the catalog read again afterwards.
@@ -458,6 +461,7 @@ public final class MainWindow extends JFrame {
         background(() -> work.apply(listener), result -> finished(result, doneText),
                 error -> finished(new Result(Result.Status.FAILED, message(error), false), doneText));
     }
+    // --8<-- [end:perform]
 
     private void finished(Result result, String doneText) {
         setBusy(false);
@@ -554,6 +558,7 @@ public final class MainWindow extends JFrame {
         return error.getMessage() != null ? error.getMessage() : error.toString();
     }
 
+    // --8<-- [start:background]
     private <T> void background(Callable<T> work, Consumer<T> done, Consumer<Throwable> failed) {
         CompletableFuture.supplyAsync(() -> {
             try {
@@ -569,6 +574,7 @@ public final class MainWindow extends JFrame {
             }
         }, edt);
     }
+    // --8<-- [end:background]
 
     private Action action(String key, KeyStroke accelerator, Runnable run) {
         Mnemonics.Text text = Mnemonics.parse(msg.get(key));

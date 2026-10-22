@@ -118,11 +118,13 @@ public final class UpdatesCell implements StatusCell {
         button.repaint();
     }
 
+    // --8<-- [start:start]
     @Override
     public void start() {
         watch = service.watch(this::readLater);
         reader.scheduleWithFixedDelay(this::readNow, FIRST_READ_SECONDS, POLL_MINUTES * 60, TimeUnit.SECONDS);
     }
+    // --8<-- [end:start]
 
     @Override
     public void stop() {

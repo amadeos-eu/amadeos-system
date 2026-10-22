@@ -96,11 +96,13 @@ public final class AptPackageService implements PackageService {
         this.lists = lists;
     }
 
+    // --8<-- [start:helper]
     static List<String> defaultHelper() {
         String override = System.getenv(HELPER_VARIABLE);
         if (override != null && !override.isBlank()) return List.of(override.strip().split("\\s+"));
         return "root".equals(System.getProperty("user.name")) ? List.of(HELPER) : List.of("pkexec", HELPER);
     }
+    // --8<-- [end:helper]
 
     @Override
     public List<Change> upgrades() throws PackageException {
@@ -332,6 +334,7 @@ public final class AptPackageService implements PackageService {
         return runHelper(args, listener);
     }
 
+    // --8<-- [start:run-helper]
     /**
      * Runs the helper and follows it: status lines become {@link Progress}, apt's messages (its standard error)
      * go to the listener line by line. The listener is called from this thread and a reader thread, one call
@@ -410,6 +413,7 @@ public final class AptPackageService implements PackageService {
             return Result.failed("interrupted");
         }
     }
+    // --8<-- [end:run-helper]
 
     private String read(List<String> command) throws PackageException {
         try {

@@ -5,11 +5,13 @@
 // `packages` is a library too (bundled into the modules that use it), but has a package: amadeos-packages
 // with the root helper and polkit action and no jar.
 
+// --8<-- [start:desktop-modules]
 // The modules of the desktop: they build on base, log through java.util.logging and talk to X11 through
 // JNA, so they run with native access enabled.
 def desktopModules = ['wm', 'panel-cde', 'dm', 'session', 'style', 'logviewer']
 // Libraries: no main class and no program of their own.
 def libraryModules = ['base', 'packages']
+// --8<-- [end:desktop-modules]
 
 subprojects {
     apply plugin: 'java'
@@ -31,7 +33,7 @@ subprojects {
     dependencies {
         // Theme, Motif look, start-up and XDG helpers shared by all amadeOS applications.
         // With ../amade-commons checked out, settings.gradle builds that checkout instead (composite build).
-        implementation 'com.github.datazuul:amade-commons:fac730fed3'
+        implementation 'com.github.datazuul:amade-commons:f9941fb7ff'
         testImplementation platform('org.junit:junit-bom:5.10.2')
         testImplementation 'org.junit.jupiter:junit-jupiter'
         testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
@@ -57,6 +59,7 @@ configure(subprojects.findAll { it.name != 'base' }) {
     ext.debian = [:]
 }
 
+// --8<-- [start:desktop-config]
 configure(subprojects.findAll { it.name in desktopModules }) {
     slf4jBinding = 'org.slf4j:slf4j-jdk14:2.0.17'
 
@@ -78,6 +81,7 @@ configure(subprojects.findAll { it.name in desktopModules }) {
         jvmArgs '--enable-native-access=ALL-UNNAMED'
     }
 }
+// --8<-- [end:desktop-config]
 
 configure(subprojects.findAll { it.name != 'base' }) {
 

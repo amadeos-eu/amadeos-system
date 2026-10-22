@@ -1,5 +1,7 @@
 package eu.amadeos.system.sysinfo.service;
 
+import eu.amadeos.commons.process.CommandRunner;
+import eu.amadeos.commons.process.ProgramMissingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -11,36 +13,39 @@ import java.net.Inet4Address;
 import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
-import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 /** The sources of this computer: commands on the PATH, the JDK's network interfaces and screens. */
 public final class LocalSources implements SystemProbe.Sources {
     private static final Logger LOG = LoggerFactory.getLogger(LocalSources.class);
+    /** {@code lspci} answers in a fraction of a second; a hanging one must not keep the page empty. */
+    static final Duration TIME_LIMIT = Duration.ofSeconds(5);
 
+    private final CommandRunner runner;
+
+    /** @param runner starts the commands; {@link CommandRunner#system()} on a real computer */
+    public LocalSources(CommandRunner runner) {
+        this.runner = runner;
+    }
+
+    // --8<-- [start:run]
     @Override
     public Optional<String> run(List<String> command) {
         try {
-            Process process = new ProcessBuilder(command).redirectError(ProcessBuilder.Redirect.DISCARD).start();
-            byte[] output = process.getInputStream().readAllBytes();
-            if (!process.waitFor(5, TimeUnit.SECONDS)) {
-                process.destroyForcibly();
-                return Optional.empty();
-            }
-            return process.exitValue() == 0 ? Optional.of(new String(output, StandardCharsets.UTF_8)) : Optional.empty();
+            return Optional.of(runner.output(command, TIME_LIMIT));
+        } catch (ProgramMissingException e) {
+            LOG.debug("{} is not installed", e.program());
         } catch (IOException e) {
-            LOG.debug("{} is not available: {}", command.getFirst(), e.getMessage());
-            return Optional.empty();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return Optional.empty();
+            LOG.debug("{} gave no answer: {}", command.getFirst(), e.getMessage());
         }
+        return Optional.empty();
     }
+    // --8<-- [end:run]
 
     @Override
     public List<SystemProbe.Interface> interfaces() {
