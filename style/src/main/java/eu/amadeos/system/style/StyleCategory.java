@@ -1,7 +1,7 @@
 package eu.amadeos.system.style;
 
 /**
- * The controls of the Style Manager, in the order of CDE's dtstyle.
+ * The controls of the Style Manager, in the order of CDE's dtstyle, with amadeOS's Clipboard after Screen.
  */
 public enum StyleCategory {
     COLOR(true),
@@ -11,6 +11,7 @@ public enum StyleCategory {
     MOUSE(true),
     BEEP(true),
     SCREEN(true),
+    CLIPBOARD(true),
     WINDOW(false),
     STARTUP(false);
 

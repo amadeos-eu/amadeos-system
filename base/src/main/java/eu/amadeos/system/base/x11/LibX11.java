@@ -50,6 +50,9 @@ public interface LibX11 extends Library {
     int ConfigureNotify = 22;
     int ConfigureRequest = 23;
     int PropertyNotify = 28;
+    int SelectionClear = 29;
+    int SelectionRequest = 30;
+    int SelectionNotify = 31;
     int ClientMessage = 33;
 
     // Pointer and Button constants
@@ -81,6 +84,7 @@ public interface LibX11 extends Library {
     long XK_Escape = 0xFF1B;
     long XK_l = 0x006C;
     long XK_L = 0x004C;
+    long XK_v = 0x0076;
 
     // Cursor shapes
     int XC_left_ptr = 68;
@@ -453,6 +457,55 @@ public interface LibX11 extends Library {
         }
     }
 
+    /** Another client asks the owner of a selection to convert it into {@code target} on {@code requestor}. */
+    @Structure.FieldOrder({"type", "serial", "send_event", "display", "owner", "requestor", "selection", "target",
+            "property", "time"})
+    class XSelectionRequestEvent extends Structure {
+        public int type;
+        public NativeLong serial;
+        public int send_event;
+        public Pointer display;
+        public NativeLong owner;
+        public NativeLong requestor;
+        public NativeLong selection;
+        public NativeLong target;
+        public NativeLong property;
+        public NativeLong time;
+
+        public XSelectionRequestEvent() {
+            super();
+        }
+
+        public XSelectionRequestEvent(Pointer p) {
+            super(p);
+            read();
+        }
+    }
+
+    /** The answer to a conversion: {@code property} holds the data, or is None when the owner refused. */
+    @Structure.FieldOrder({"type", "serial", "send_event", "display", "requestor", "selection", "target", "property",
+            "time"})
+    class XSelectionEvent extends Structure {
+        public int type;
+        public NativeLong serial;
+        public int send_event;
+        public Pointer display;
+        public NativeLong requestor;
+        public NativeLong selection;
+        public NativeLong target;
+        public NativeLong property;
+        public NativeLong time;
+
+        public XSelectionEvent() {
+            super();
+        }
+
+        public XSelectionEvent(Pointer p) {
+            super(p);
+            read();
+        }
+    }
+
     @Structure.FieldOrder({"type", "pad"})
     class XEvent extends Structure {
         public int type;
@@ -728,6 +781,16 @@ public interface LibX11 extends Library {
     int XSetSelectionOwner(Pointer display, NativeLong selection, NativeLong owner, NativeLong time);
 
     NativeLong XGetSelectionOwner(Pointer display, NativeLong selection);
+
+    int XConvertSelection(Pointer display, NativeLong selection, NativeLong target, NativeLong property,
+                          NativeLong requestor, NativeLong time);
+
+    /** The name of an atom; free the result with {@link #XFree}. */
+    Pointer XGetAtomName(Pointer display, NativeLong atom);
+
+    int XQueryPointer(Pointer display, NativeLong window, NativeLongByReference root_return,
+                      NativeLongByReference child_return, IntByReference root_x_return, IntByReference root_y_return,
+                      IntByReference win_x_return, IntByReference win_y_return, IntByReference mask_return);
 
     int XLookupString(Pointer key_event, byte[] buffer_return, int bytes_buffer,
                       com.sun.jna.ptr.NativeLongByReference keysym_return, Pointer status_in_out);

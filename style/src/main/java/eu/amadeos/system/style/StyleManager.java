@@ -2,6 +2,7 @@ package eu.amadeos.system.style;
 
 import eu.amadeos.commons.i18n.Mnemonics;
 import eu.amadeos.commons.swing.AmadeUI;
+import eu.amadeos.system.clipboard.ClipboardSettingsStore;
 import eu.amadeos.system.input.InputApplier;
 import eu.amadeos.system.input.InputSettingsStore;
 import eu.amadeos.system.screen.ScreenSettingsStore;
@@ -32,7 +33,7 @@ import java.util.Map;
 
 /**
  * The Style Manager, amadeOS's dtstyle: a small window with one button per control (Color, Font,
- * Backdrop, Keyboard, Mouse, Beep, Screen, Window, Startup). Each button opens the dialog of that
+ * Backdrop, Keyboard, Mouse, Beep, Screen, Clipboard, Window, Startup). Each button opens the dialog of that
  * control; controls amadeOS does not offer yet are shown disabled.
  */
 public final class StyleManager extends JFrame {
@@ -40,6 +41,7 @@ public final class StyleManager extends JFrame {
     private final Map<StyleCategory, AbstractButton> buttons = new EnumMap<>(StyleCategory.class);
     private final JLabel status = new JLabel(" ");
     private final ScreenSettingsStore screenSettings;
+    private final ClipboardSettingsStore clipboardSettings;
     private final InputControls input;
 
     public static void main(String[] args) {
@@ -48,14 +50,17 @@ public final class StyleManager extends JFrame {
 
     /** Opens a Style Manager window for the current user; call on the EDT. */
     public static StyleManager open() {
-        StyleManager manager = new StyleManager(ScreenSettingsStore.user(), InputSettingsStore.user(), new InputApplier());
+        StyleManager manager = new StyleManager(ScreenSettingsStore.user(), ClipboardSettingsStore.user(),
+                InputSettingsStore.user(), new InputApplier());
         manager.setVisible(true);
         return manager;
     }
 
-    public StyleManager(ScreenSettingsStore screenSettings, InputSettingsStore inputSettings, InputApplier applier) {
+    public StyleManager(ScreenSettingsStore screenSettings, ClipboardSettingsStore clipboardSettings,
+                        InputSettingsStore inputSettings, InputApplier applier) {
         super(StyleTexts.get("title"));
         this.screenSettings = screenSettings;
+        this.clipboardSettings = clipboardSettings;
         this.input = new InputControls(inputSettings, applier);
         ThemeManager.currentTheme(); // installs the desktop look
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
@@ -124,6 +129,7 @@ public final class StyleManager extends JFrame {
             case MOUSE -> new MouseDialog(this, this::setStatus, input);
             case BEEP -> new BeepDialog(this, this::setStatus, input);
             case SCREEN -> new ScreenDialog(this, this::setStatus, screenSettings);
+            case CLIPBOARD -> new ClipboardDialog(this, this::setStatus, clipboardSettings);
             default -> null;
         };
         if (dialog == null) return;

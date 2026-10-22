@@ -72,6 +72,7 @@ public final class IconManager {
         map.put("logout", List.of("system-log-out", "gnome-logout", "application-exit"));
         map.put("reboot", List.of("system-reboot", "view-refresh", "reload"));
         map.put("trash", List.of("user-trash", "trashcan_empty", "user-trash-empty", "user-trash-full", "trash-empty", "trash"));
+        map.put("clipboard", List.of("edit-paste", "gtk-paste", "stock_paste", "clipboard"));
         map.put("diagnostics", List.of("utilities-system-monitor", "preferences-system", "system-help", "dialog-information", "diagnostics"));
         map.put("window", List.of("window-new", "applications-other", "preferences-desktop", "preferences-desktop-theme"));
         FREEDESKTOP_NAMES = Collections.unmodifiableMap(map);
@@ -697,6 +698,23 @@ public final class IconManager {
                 // White ? on middle book
                 g.setColor(Color.WHITE);
                 g.drawString("?", 10, 15);
+            }
+            case "clipboard", "paste" -> {
+                // Brown clipboard with a sheet of paper and its metal clip
+                g.setColor(new Color(0xA0, 0x70, 0x40));
+                g.fillRect(5, 4, 14, 18);
+                g.setColor(new Color(0x40, 0x28, 0x10));
+                g.drawRect(5, 4, 14, 18);
+                g.setColor(Color.WHITE);
+                g.fillRect(7, 7, 10, 13);
+                g.setColor(new Color(0x60, 0x60, 0x60));
+                g.drawLine(9, 11, 15, 11);
+                g.drawLine(9, 14, 15, 14);
+                g.drawLine(9, 17, 13, 17);
+                g.setColor(new Color(0xC0, 0xC0, 0xC8));
+                g.fillRect(9, 2, 6, 4);
+                g.setColor(new Color(0x30, 0x30, 0x30));
+                g.drawRect(9, 2, 6, 4);
             }
             case "diagnostics", "tools" -> {
                 // Red toolbox

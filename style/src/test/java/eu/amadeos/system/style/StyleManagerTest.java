@@ -1,5 +1,7 @@
 package eu.amadeos.system.style;
 
+import eu.amadeos.system.clipboard.ClipboardSettings;
+import eu.amadeos.system.clipboard.ClipboardSettingsStore;
 import eu.amadeos.system.input.InputApplier;
 import eu.amadeos.system.input.InputSettings;
 import eu.amadeos.system.input.InputSettingsStore;
@@ -53,7 +55,7 @@ class StyleManagerTest {
     void showsAllCdeControlsAndEnablesTheImplementedOnes() throws Exception {
         assumeFalse(GraphicsEnvironment.isHeadless());
         SwingUtilities.invokeAndWait(() -> {
-            StyleManager manager = new StyleManager(new ScreenSettingsStore(dir.resolve("screen.conf")), new InputSettingsStore(dir.resolve("input.conf")), new RecordingApplier());
+            StyleManager manager = new StyleManager(new ScreenSettingsStore(dir.resolve("screen.conf")), new ClipboardSettingsStore(dir.resolve("clipboard.conf")), new InputSettingsStore(dir.resolve("input.conf")), new RecordingApplier());
             try {
                 for (StyleCategory category : StyleCategory.values()) {
                     assertEquals(category.available(), manager.button(category).isEnabled(), category.name());
@@ -85,10 +87,41 @@ class StyleManagerTest {
     }
 
     @Test
+    void clipboardDialogSavesTheSettingsAndClearsTheHistory() throws Exception {
+        assumeFalse(GraphicsEnvironment.isHeadless());
+        ClipboardSettingsStore store = new ClipboardSettingsStore(dir.resolve("clipboard.conf"));
+        AtomicReference<String> status = new AtomicReference<>();
+        List<String> cleared = new ArrayList<>();
+        SwingUtilities.invokeAndWait(() -> {
+            ClipboardDialog dialog = new ClipboardDialog(null, status::set, store, () -> cleared.add("clear"));
+            try {
+                assertEquals("Clipboard: history of 30 entries, copies kept after closing", dialog.apply());
+                assertEquals(ClipboardSettings.DEFAULTS, store.load());
+                findButton(dialog, "Clear History").doClick();
+                assertEquals(List.of("clear"), cleared);
+                assertEquals("Clipboard history cleared", status.get());
+            } finally {
+                dialog.dispose();
+            }
+        });
+    }
+
+    private static javax.swing.AbstractButton findButton(java.awt.Container root, String text) {
+        for (java.awt.Component c : root.getComponents()) {
+            if (c instanceof javax.swing.AbstractButton b && text.equals(b.getText())) return b;
+            if (c instanceof java.awt.Container child) {
+                javax.swing.AbstractButton found = findButton(child, text);
+                if (found != null) return found;
+            }
+        }
+        return null;
+    }
+
+    @Test
     void openingAControlTwiceReusesTheDialog() throws Exception {
         assumeFalse(GraphicsEnvironment.isHeadless());
         SwingUtilities.invokeAndWait(() -> {
-            StyleManager manager = new StyleManager(new ScreenSettingsStore(dir.resolve("screen.conf")), new InputSettingsStore(dir.resolve("input.conf")), new RecordingApplier());
+            StyleManager manager = new StyleManager(new ScreenSettingsStore(dir.resolve("screen.conf")), new ClipboardSettingsStore(dir.resolve("clipboard.conf")), new InputSettingsStore(dir.resolve("input.conf")), new RecordingApplier());
             try {
                 manager.openControl(StyleCategory.SCREEN);
                 manager.openControl(StyleCategory.SCREEN);
