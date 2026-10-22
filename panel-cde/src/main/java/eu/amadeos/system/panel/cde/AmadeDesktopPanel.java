@@ -293,6 +293,7 @@ public final class AmadeDesktopPanel extends JFrame {
         widgets.add(printerDrawer);
         rightSlots.add(printerDrawer.component());
 
+        // --8<-- [start:tools]
         // Slot 10: Tools (with drawer ▲): desktop settings, application catalog, terminals and diagnostics,
         // like CDE's Tools subpanel; then the other installed Settings and System applications (the
         // installer of the live image, for example), except those the fixed entries already start.
@@ -314,6 +315,7 @@ public final class AmadeDesktopPanel extends JFrame {
         );
         widgets.add(toolsDrawer);
         rightSlots.add(toolsDrawer.component());
+        // --8<-- [end:tools]
 
         // Slot 11: Help (with drawer ▲): the User's Handbook in the web browser, then the Documentation
         // entries (other handbooks such as the Game Developer's Handbook bring their own)
@@ -339,6 +341,7 @@ public final class AmadeDesktopPanel extends JFrame {
         widgets.add(trashWidget);
         rightSlots.add(trashWidget.component());
 
+        // --8<-- [start:status]
         // Slot 13: Status (network and software updates now; sound, battery and Bluetooth to follow),
         // outermost on the right. The updates cell shows only while updates are waiting.
         StatusDockWidget statusWidget = new StatusDockWidget(List.of(
@@ -347,6 +350,7 @@ public final class AmadeDesktopPanel extends JFrame {
                 new UpdatesCell(new AptPackageService(), updateWindow("--updates"), updateWindow("--settings"))));
         widgets.add(statusWidget);
         rightSlots.add(statusWidget.component());
+        // --8<-- [end:status]
 
         rootPanel.add(rightSlots, BorderLayout.EAST);
 
@@ -385,6 +389,7 @@ public final class AmadeDesktopPanel extends JFrame {
                 JComponent.WHEN_IN_FOCUSED_WINDOW
         );
 
+        // --8<-- [start:poll]
         // Check for theme and workspace updates on root window
         pollTimer = new Timer(500, e -> {
             String remoteThemeId = helper.getDesktopTheme();
@@ -399,6 +404,7 @@ public final class AmadeDesktopPanel extends JFrame {
             showBusy(helper.isLaunchBusy() || System.currentTimeMillis() - launchedAt < 1000);
         });
         pollTimer.start();
+        // --8<-- [end:poll]
     }
 
     public void applyTheme(DesktopTheme theme) {

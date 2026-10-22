@@ -57,6 +57,7 @@ class AptPackageServiceTest {
         assertTrue(fake.toFile().setExecutable(true));
     }
 
+    // --8<-- [start:service]
     private AptPackageService service(String fail) {
         Map<String, String> env = new java.util.HashMap<>(Map.of(
                 "AMADEOS_PACKAGES_APT_GET", dir.resolve("apt-get").toString(),
@@ -67,6 +68,7 @@ class AptPackageServiceTest {
             throw new AssertionError("no read expected: " + command);
         });
     }
+    // --8<-- [end:service]
 
     private List<String> aptCalls() throws IOException {
         return Files.exists(aptArgs) ? Files.readAllLines(aptArgs, StandardCharsets.UTF_8) : List.of();
@@ -88,6 +90,7 @@ class AptPackageServiceTest {
         }
     }
 
+    // --8<-- [start:install]
     @Test
     void installReportsProgressAndMessages() throws IOException {
         Recorder recorder = new Recorder();
@@ -102,6 +105,7 @@ class AptPackageServiceTest {
         assertTrue(call.endsWith("-y install distro-info-data"), call);
         assertTrue(Files.readString(log).contains("Setting up distro-info-data"), "messages are logged");
     }
+    // --8<-- [end:install]
 
     @Test
     void upgradeAllAndRebootRequired() throws IOException {
@@ -236,6 +240,7 @@ class AptPackageServiceTest {
                 commands.getFirst());
     }
 
+    // --8<-- [start:dismissed]
     @Test
     void notAuthorizedWhenPkexecIsDismissed() {
         // pkexec exits with 126 when the user closes the password dialog.
@@ -243,6 +248,7 @@ class AptPackageServiceTest {
                 .refresh(ProgressListener.NONE);
         assertEquals(Result.Status.NOT_AUTHORIZED, result.status());
     }
+    // --8<-- [end:dismissed]
 
     @Test
     void theCatalogMergesTheIndexTheInstalledPackagesAndTheHints() throws Exception {
