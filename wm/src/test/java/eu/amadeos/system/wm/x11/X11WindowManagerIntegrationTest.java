@@ -397,6 +397,61 @@ class X11WindowManagerIntegrationTest {
     }
 
     /**
+     * A client that hides its window (unmaps it, as Swing's setVisible(false) does) and shows it again later
+     * keeps its window: the frame goes, the client goes back to the root and gets a new frame when mapped.
+     */
+    @Test
+    void aHiddenWindowCanBeShownAgain() throws Exception {
+        try (X11WindowManagerService wm = X11WindowManagerService.open(display)) {
+            LibX11 x11 = LibX11.INSTANCE;
+            com.sun.jna.Pointer client = x11.XOpenDisplay(display);
+            assertNotNull(client);
+            try {
+                com.sun.jna.NativeLong root = new com.sun.jna.NativeLong(wm.rootWindow());
+                com.sun.jna.NativeLong win = x11.XCreateSimpleWindow(client, root, 100, 100, 200, 120, 0,
+                        new com.sun.jna.NativeLong(0), new com.sun.jna.NativeLong(0xffffff));
+                x11.XMapWindow(client, win);
+                x11.XSync(client, 0);
+                Thread.sleep(200);
+                wm.processPendingEvents();
+                FrameWindow first = wm.getFrameForClient(win.longValue());
+                assertNotNull(first, "managed with a frame");
+                int x = first.frameX();
+                int y = first.frameY();
+
+                x11.XUnmapWindow(client, win);
+                x11.XSync(client, 0);
+                Thread.sleep(200);
+                wm.processPendingEvents();
+                assertNull(wm.getFrameForClient(win.longValue()), "the frame is gone");
+                assertEquals(wm.rootWindow(), parentOf(x11, client, win), "the window is back on the root");
+
+                x11.XMapWindow(client, win);
+                x11.XSync(client, 0);
+                Thread.sleep(200);
+                wm.processPendingEvents();
+                FrameWindow second = wm.getFrameForClient(win.longValue());
+                assertNotNull(second, "managed again with a new frame");
+                assertEquals(second.frameWindow().longValue(), parentOf(x11, client, win));
+                assertEquals(x, second.frameX(), "in the same place");
+                assertEquals(y, second.frameY(), "in the same place");
+            } finally {
+                x11.XCloseDisplay(client);
+            }
+        }
+    }
+
+    private static long parentOf(LibX11 x11, com.sun.jna.Pointer display, com.sun.jna.NativeLong window) {
+        com.sun.jna.ptr.PointerByReference root = new com.sun.jna.ptr.PointerByReference();
+        com.sun.jna.ptr.PointerByReference parent = new com.sun.jna.ptr.PointerByReference();
+        com.sun.jna.ptr.PointerByReference children = new com.sun.jna.ptr.PointerByReference();
+        com.sun.jna.ptr.IntByReference count = new com.sun.jna.ptr.IntByReference();
+        assertTrue(x11.XQueryTree(display, window, root, parent, children, count) != 0, "the window exists");
+        if (children.getValue() != null) x11.XFree(children.getValue());
+        return com.sun.jna.Pointer.nativeValue(parent.getValue());
+    }
+
+    /**
      * AWT's XToolkit replaces a Swing panel's _NET_WM_WINDOW_TYPE_DOCK with _NET_WM_WINDOW_TYPE_NORMAL while
      * it maps the window under a window manager; the strut stays. A window with a strut is a dock.
      */
