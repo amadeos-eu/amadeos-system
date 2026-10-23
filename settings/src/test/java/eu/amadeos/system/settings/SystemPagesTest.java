@@ -101,9 +101,10 @@ class SystemPagesTest {
             assertEquals(PanelSettings.DEFAULTS, page.selected());
             findButton(page, "Digital: time and date in figures").doClick();
             findButton(page, "Network").doClick();
+            findButton(page, "Show disk and network activity").doClick();
             assertEquals("Front Panel applied", page.apply());
         });
-        assertEquals(new PanelSettings(PanelSettings.Clock.DIGITAL, false, true), store.load());
+        assertEquals(new PanelSettings(PanelSettings.Clock.DIGITAL, false, true, false), store.load());
     }
 
     @Test

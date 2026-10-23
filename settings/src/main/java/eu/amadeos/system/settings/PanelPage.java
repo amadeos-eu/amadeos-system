@@ -9,7 +9,8 @@ import javax.swing.JRadioButton;
 import java.util.function.Consumer;
 
 /**
- * Front Panel: the clock as a dial or in digits, and which cells the status slot shows. Writes
+ * Front Panel: the clock as a dial or in digits, which cells the status slot shows, and whether the busy light
+ * above Exit shows disk and network activity. Writes
  * {@code panel.conf}, which the panel follows at once.
  */
 final class PanelPage extends SettingsPage {
@@ -18,6 +19,7 @@ final class PanelPage extends SettingsPage {
     private final JRadioButton digital = new JRadioButton(SettingsTexts.get("panel.clock.digital"));
     private final JCheckBox network = new JCheckBox(SettingsTexts.get("panel.cell.network"));
     private final JCheckBox updates = new JCheckBox(SettingsTexts.get("panel.cell.updates"));
+    private final JCheckBox activity = new JCheckBox(SettingsTexts.get("panel.activity.meter"));
 
     PanelPage(Consumer<String> status, PanelSettingsStore store) {
         super(SettingsCategory.PANEL, status);
@@ -29,17 +31,20 @@ final class PanelPage extends SettingsPage {
         (settings.clock() == PanelSettings.Clock.DIGITAL ? digital : analog).setSelected(true);
         network.setSelected(settings.networkCell());
         updates.setSelected(settings.updatesCell());
+        activity.setSelected(settings.activityMeter());
 
         layoutSections(
                 section(SettingsTexts.get("panel.clock.title"), analog, digital),
                 section(SettingsTexts.get("panel.cells.title"), network, updates,
                         note(SettingsTexts.get("panel.cells.hint"))),
+                section(SettingsTexts.get("panel.activity.title"), activity,
+                        note(SettingsTexts.get("panel.activity.hint"))),
                 note(SettingsTexts.get("panel.hint")));
     }
 
     PanelSettings selected() {
         return new PanelSettings(digital.isSelected() ? PanelSettings.Clock.DIGITAL : PanelSettings.Clock.ANALOG,
-                network.isSelected(), updates.isSelected());
+                network.isSelected(), updates.isSelected(), activity.isSelected());
     }
 
     @Override

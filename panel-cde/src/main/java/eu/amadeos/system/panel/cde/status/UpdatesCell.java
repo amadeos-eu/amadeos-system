@@ -147,6 +147,11 @@ public final class UpdatesCell implements StatusCell {
         return busy;
     }
 
+    /** Whether the cell is installing updates just now, for the busy light. */
+    public boolean installing() {
+        return busy == Busy.INSTALLING;
+    }
+
     /** Shows the pending updates; called on the event dispatch thread. */
     void show(List<Change> pending) {
         boolean wasAvailable = available();

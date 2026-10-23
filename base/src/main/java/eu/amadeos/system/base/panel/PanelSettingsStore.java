@@ -45,7 +45,8 @@ public final class PanelSettingsStore {
         if (clock == null) clock = legacyClock();
         return new PanelSettings(clock(clock, d.clock()),
                 bool(p, "cell.network", d.networkCell()),
-                bool(p, "cell.updates", d.updatesCell()));
+                bool(p, "cell.updates", d.updatesCell()),
+                bool(p, "activity.meter", d.activityMeter()));
     }
 
     public void save(PanelSettings s) {
@@ -53,6 +54,7 @@ public final class PanelSettingsStore {
         p.setProperty("clock", s.clock().name().toLowerCase(Locale.ROOT));
         p.setProperty("cell.network", Boolean.toString(s.networkCell()));
         p.setProperty("cell.updates", Boolean.toString(s.updatesCell()));
+        p.setProperty("activity.meter", Boolean.toString(s.activityMeter()));
         PropertiesFile.store(file, p, "amadeOS Front Panel (Settings > Front Panel)");
     }
 
