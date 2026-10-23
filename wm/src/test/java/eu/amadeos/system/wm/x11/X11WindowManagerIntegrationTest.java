@@ -441,6 +441,61 @@ class X11WindowManagerIntegrationTest {
         }
     }
 
+    /**
+     * Ralf's date picker in the contact editor: main window, another window, the editor (a dialog of the main
+     * window) and the picker (a dialog of the editor). When the picker closes, the editor must stay in front.
+     */
+    @Test
+    void closingADialogActivatesItsOwnerAndKeepsItInFront() throws Exception {
+        try (X11WindowManagerService wm = X11WindowManagerService.open(display)) {
+            LibX11 x11 = LibX11.INSTANCE;
+            com.sun.jna.Pointer client = x11.XOpenDisplay(display);
+            assertNotNull(client);
+            try {
+                com.sun.jna.NativeLong main = mapWindow(wm, x11, client, 0);
+                com.sun.jna.NativeLong other = mapWindow(wm, x11, client, 0);
+                com.sun.jna.NativeLong editor = mapWindow(wm, x11, client, main.longValue());
+                com.sun.jna.NativeLong picker = mapWindow(wm, x11, client, editor.longValue());
+                assertTrue(wm.getFrameForClient(picker.longValue()).isActive());
+
+                x11.XUnmapWindow(client, picker);
+                x11.XSync(client, 0);
+                Thread.sleep(200);
+                wm.processPendingEvents();
+                assertTrue(wm.getFrameForClient(editor.longValue()).isActive(), "the editor is active again");
+                assertEquals(editor.longValue(), topmost(wm), "and in front");
+
+                x11.XDestroyWindow(client, editor);
+                x11.XSync(client, 0);
+                Thread.sleep(200);
+                wm.processPendingEvents();
+                assertTrue(wm.getFrameForClient(main.longValue()).isActive(), "closing the editor activates its owner");
+                assertEquals(main.longValue(), topmost(wm));
+                assertNotNull(wm.getFrameForClient(other.longValue()));
+            } finally {
+                x11.XCloseDisplay(client);
+            }
+        }
+    }
+
+    private static com.sun.jna.NativeLong mapWindow(X11WindowManagerService wm, LibX11 x11, com.sun.jna.Pointer client,
+                                                    long owner) throws InterruptedException {
+        com.sun.jna.NativeLong win = x11.XCreateSimpleWindow(client, new com.sun.jna.NativeLong(wm.rootWindow()),
+                100, 100, 200, 120, 0, new com.sun.jna.NativeLong(0), new com.sun.jna.NativeLong(0xffffff));
+        if (owner != 0) x11.XSetTransientForHint(client, win, new com.sun.jna.NativeLong(owner));
+        x11.XMapWindow(client, win);
+        x11.XSync(client, 0);
+        Thread.sleep(200);
+        wm.processPendingEvents();
+        assertNotNull(wm.getFrameForClient(win.longValue()), "managed");
+        return win;
+    }
+
+    private static long topmost(X11WindowManagerService wm) {
+        var stack = new java.util.ArrayList<>(wm.core().registry().snapshot());
+        return stack.get(stack.size() - 1).id();
+    }
+
     private static long parentOf(LibX11 x11, com.sun.jna.Pointer display, com.sun.jna.NativeLong window) {
         com.sun.jna.ptr.PointerByReference root = new com.sun.jna.ptr.PointerByReference();
         com.sun.jna.ptr.PointerByReference parent = new com.sun.jna.ptr.PointerByReference();

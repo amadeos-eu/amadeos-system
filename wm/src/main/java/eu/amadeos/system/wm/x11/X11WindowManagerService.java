@@ -11,6 +11,7 @@ import com.sun.jna.ptr.PointerByReference;
 import java.awt.Rectangle;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -19,6 +20,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.SwingUtilities;
 import eu.amadeos.system.wm.FloatingLayoutPolicy;
+import eu.amadeos.system.wm.FocusSuccessor;
 import eu.amadeos.system.wm.WindowGeometry;
 import eu.amadeos.system.wm.WindowManagerCore;
 import eu.amadeos.system.wm.WindowRecord;
@@ -88,6 +90,8 @@ public final class X11WindowManagerService implements AutoCloseable {
      * mapped there again, its new frame goes where the old one was.
      */
     private final Map<Long, int[]> withdrawnFrames = new HashMap<>();
+    /** The window each managed dialog belongs to (WM_TRANSIENT_FOR), read when it was mapped. */
+    private final Map<Long, Long> transientOwners = new HashMap<>();
     private final Map<Long, FrameWindow> frameToClient;
 
     /** Focus, raising and moving as chosen in Settings &gt; Window; read anew whenever window.conf changes. */
@@ -1167,6 +1171,19 @@ public final class X11WindowManagerService implements AutoCloseable {
         );
     }
 
+    /**
+     * The window that becomes active when {@code gone} is closed, withdrawn or minimized: its owner, else the
+     * topmost visible window on this workspace; 0 if there is none.
+     */
+    private long successor(long owner, long gone) {
+        List<Long> stack = core.registry().snapshot().stream().map(WindowRecord::id).toList();
+        return FocusSuccessor.choose(stack, owner, id -> {
+            if (id == gone) return false;
+            FrameWindow frame = clientToFrame.get(id);
+            return frame != null && !frame.isMinimized() && getClientDesktop(id) == currentDesktop;
+        });
+    }
+
     /** The window {@code win} is a dialog of (WM_TRANSIENT_FOR), or 0. */
     private long transientOwner(long win) {
         Memory parentMem = new Memory(NativeLong.SIZE);
@@ -1721,6 +1738,7 @@ public final class X11WindowManagerService implements AutoCloseable {
 
                 core.manage(win, managedGeom);
                 core.adapter().configureWindow(win, managedGeom);
+                if (transientFor != 0) transientOwners.put(win, transientFor);
 
                 grabWindowButtons(win);
                 focusClient(win);
@@ -2458,16 +2476,8 @@ public final class X11WindowManagerService implements AutoCloseable {
 
         if (activeWindow == clientWin) {
             activeWindow = 0;
-            var remaining = core.registry().snapshot();
-            for (var rec : remaining) {
-                if (rec.id() != clientWin) {
-                    FrameWindow other = clientToFrame.get(rec.id());
-                    if (other != null && !other.isMinimized()) {
-                        focusClient(rec.id());
-                        break;
-                    }
-                }
-            }
+            long next = successor(transientOwners.getOrDefault(clientWin, 0L), clientWin);
+            if (next != 0) focusClient(next);
             if (activeWindow == 0) {
                 setActiveWindow(0);
             }
@@ -2575,12 +2585,11 @@ public final class X11WindowManagerService implements AutoCloseable {
             x11.XDestroyWindow(display, frame.frameWindow());
         }
         core.unmanage(win);
+        Long owner = transientOwners.remove(win);
         if (activeWindow == win) {
             activeWindow = 0;
-            var remaining = core.registry().snapshot();
-            if (!remaining.isEmpty()) {
-                focusClient(remaining.iterator().next().id());
-            }
+            long next = successor(owner == null ? 0 : owner, win);
+            if (next != 0) focusClient(next);
         }
         updateClientList();
         LOGGER.info(() -> "Cleaned up window: " + win);
