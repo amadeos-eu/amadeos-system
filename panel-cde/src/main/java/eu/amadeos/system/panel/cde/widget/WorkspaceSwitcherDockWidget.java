@@ -246,6 +246,23 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
         return list;
     }
 
+    /**
+     * Reads the names again after another program (Settings > Workspaces) changed {@code workspaces.conf}, and
+     * publishes them; on the event dispatch thread. A button being renamed keeps its field.
+     */
+    public void reloadNames() {
+        for (int i = 0; i < workspaceButtons.length; i++) {
+            if (renaming[i]) continue;
+            String name = names.name(i, workspaceName(i));
+            WorkspaceButton button = workspaceButtons[i];
+            if (name.equals(button.getText())) continue;
+            button.setText(name);
+            button.setToolTipText(PanelTexts.format("workspace.tooltip", name));
+            button.repaint();
+        }
+        publishNames();
+    }
+
     private void publishNames() {
         if (namesListener != null) {
             namesListener.accept(workspaceNames());

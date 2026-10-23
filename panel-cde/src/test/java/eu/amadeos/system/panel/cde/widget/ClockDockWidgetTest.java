@@ -1,11 +1,10 @@
 package eu.amadeos.system.panel.cde.widget;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import eu.amadeos.commons.theme.DesktopTheme;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import eu.amadeos.system.base.panel.PanelSettingsStore;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -13,26 +12,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ClockDockWidgetTest {
 
-    private void cleanConfig() {
-        try {
-            Path conf = Path.of(System.getProperty("user.home", "/tmp"), ".config", "amadeos", "clock.conf");
-            Files.deleteIfExists(conf);
-        } catch (Exception ignored) {}
-    }
+    @TempDir
+    Path home;
 
-    @BeforeEach
-    void setUp() {
-        cleanConfig();
-    }
-
-    @AfterEach
-    void tearDown() {
-        cleanConfig();
+    // Settings of its own, so the test neither sees nor changes the clock style of the user running it.
+    private ClockDockWidget widget() {
+        return new ClockDockWidget(null, new PanelSettingsStore(home.resolve("panel.conf")));
     }
 
     @Test
     void testClockStyleDefaultAndSwitching() {
-        ClockDockWidget widget = new ClockDockWidget();
+        ClockDockWidget widget = widget();
 
         assertNotNull(widget.component());
         assertEquals(CdePanelChrome.FIRST_SLOT_WIDTH, widget.component().getPreferredSize().width);
@@ -60,7 +50,7 @@ class ClockDockWidgetTest {
 
     @Test
     void testRenderAnalogAndDigital() throws Exception {
-        ClockDockWidget widget = new ClockDockWidget();
+        ClockDockWidget widget = widget();
         widget.component().setSize(CdePanelChrome.SLOT_WIDTH, CdePanelChrome.SLOT_HEIGHT);
 
         // 1. Render Analog

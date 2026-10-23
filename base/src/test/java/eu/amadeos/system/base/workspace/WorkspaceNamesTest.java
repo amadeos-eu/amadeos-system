@@ -26,7 +26,7 @@ class WorkspaceNamesTest {
         WorkspaceNames names = new WorkspaceNames(config);
         assertEquals(Optional.of("Mail"), names.rename(1, "  Mail "));
         assertEquals("Mail", new WorkspaceNames(config).name(1, "Two"));
-        assertTrue(Files.readString(config.resolve(WorkspaceNames.FILE)).contains("workspace.2.name=Mail"));
+        assertTrue(Files.readString(config.resolve(WorkspaceNames.FILE_NAME)).contains("workspace.2.name=Mail"));
 
         assertEquals(Optional.empty(), names.rename(1, "   "));
         assertEquals("Two", names.name(1, "Two"));

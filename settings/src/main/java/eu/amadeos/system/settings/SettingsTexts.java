@@ -36,6 +36,11 @@ final class SettingsTexts {
         texts = Messages.load(SettingsTexts.class, BUNDLE, locale);
     }
 
+    /** The language the Settings speak, e.g. for dates. */
+    static Locale locale() {
+        return texts().locale();
+    }
+
     static String get(String key) {
         return texts().get(key);
     }

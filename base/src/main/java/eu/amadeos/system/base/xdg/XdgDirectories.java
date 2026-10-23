@@ -16,6 +16,11 @@ public final class XdgDirectories {
         return configHome(System.getenv(), System.getProperty("user.home", "/tmp")).resolve("amadeos");
     }
 
+    /** {@code $XDG_CONFIG_HOME/autostart}, by default {@code ~/.config/autostart}: the user's programs started at login. */
+    public static Path autostartDir() {
+        return configHome(System.getenv(), System.getProperty("user.home", "/tmp")).resolve("autostart");
+    }
+
     /**
      * {@code $XDG_CACHE_HOME/amadeos/logs}, by default {@code ~/.cache/amadeos/logs}: the session and
      * window manager logs written by {@code amadeos-session}, and one log per application started from

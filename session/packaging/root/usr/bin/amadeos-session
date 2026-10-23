@@ -142,17 +142,34 @@ if [ "$WM_ENABLED" = "true" ]; then
     fi
 fi
 
-# Run drop-in autostart scripts
+# Run drop-in autostart scripts, except the ones switched off in Settings > Startup
+# (~/.config/amadeos/startup.conf: disabled=40-amadeos-clipboard,...)
+STARTUP_CONF="${XDG_CONFIG_HOME:-$HOME/.config}/amadeos/startup.conf"
+DISABLED_SCRIPTS=""
+if [ -r "$STARTUP_CONF" ]; then
+    DISABLED_SCRIPTS=",$(grep -m1 '^disabled=' "$STARTUP_CONF" | cut -d= -f2- | tr -d ' \r'),"
+fi
 for autostart_dir in "/etc/amadeos/autostart.d" "${XDG_CONFIG_HOME:-$HOME/.config}/amadeos/autostart.d"; do
     if [ -d "$autostart_dir" ]; then
         for script in "$autostart_dir"/*; do
             if [ -x "$script" ] && [ ! -d "$script" ]; then
+                case "$DISABLED_SCRIPTS" in
+                    *",$(basename "$script"),"*)
+                        echo "[amadeos-session] Autostart script switched off in Settings: $script"
+                        continue ;;
+                esac
                 echo "[amadeos-session] Executing autostart script: $script"
                 "$script" &
             fi
         done
     fi
 done
+
+# The user's programs of ~/.config/autostart (Settings > Startup), once
+if ls "${XDG_CONFIG_HOME:-$HOME/.config}"/autostart/*.desktop >/dev/null 2>&1; then
+    echo "[amadeos-session] Starting the programs of ~/.config/autostart"
+    /usr/libexec/amadeos-session autostart &
+fi
 
 # Launch primary application
 echo "[amadeos-session] Starting primary application: $AUTOSTART_APP"
