@@ -727,6 +727,7 @@ public interface LibX11 extends Library {
     int XKillClient(Pointer display, NativeLong resource);
 
     int XGetTransientForHint(Pointer display, NativeLong window, Pointer prop_window_return);
+    int XSetTransientForHint(Pointer display, NativeLong window, NativeLong prop_window);
     int XGetWMProtocols(Pointer display, NativeLong window, PointerByReference protocols_return, IntByReference count_return);
 
     int XReparentWindow(Pointer display, NativeLong window, NativeLong parent, int x, int y);
