@@ -599,21 +599,40 @@ public final class AmadeDesktopPanel extends JFrame {
     }
 
     /**
-     * The installed applications of the categories, each once, without those whose program (the first
-     * word of Exec, without its directory) is one of {@code programs}: the drawer has fixed entries for them.
+     * The installed applications of the categories, each once, without those that only start one of
+     * {@code programs}: the drawer has fixed entries for them. An entry that runs such a program with
+     * arguments of its own ({@code xterm -e backup.sh}) is a program of its own and stays.
      */
     private List<DrawerTool> xdgTools(List<XdgCategory> categories, Set<String> programs) {
         List<DrawerTool> tools = new ArrayList<>();
         Set<String> seen = new HashSet<>();
         for (XdgCategory category : categories) {
             for (XdgDesktopEntry app : XdgApplicationManager.getInstance().getApplicationsByCategory(category)) {
-                if (programs.contains(programOf(app)) || !seen.add(app.id())) {
+                if (startsOnly(app, programs) || !seen.add(app.id())) {
                     continue;
                 }
                 tools.add(xdgTool(app));
             }
         }
         return tools;
+    }
+
+    /**
+     * Whether the desktop entry starts one of the programs and nothing more: its Exec is the program, with or
+     * without its directory and the field codes such as {@code %F}, and it does not run in a terminal.
+     */
+    static boolean startsOnly(XdgDesktopEntry app, Set<String> programs) {
+        if (app.terminal() || !programs.contains(programOf(app))) {
+            return false;
+        }
+        String exec = app.exec() == null ? "" : app.exec().strip();
+        String[] words = exec.split("\\s+");
+        for (int i = 1; i < words.length; i++) {
+            if (!words[i].matches("%[a-zA-Z]")) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** The program of a desktop entry: {@code /usr/bin/amadeos-sysinfo %F} gives {@code amadeos-sysinfo}. */
