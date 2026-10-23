@@ -48,6 +48,7 @@ public final class Xrandr {
         return outputs;
     }
 
+    // --8<-- [start:command]
     /**
      * The arguments of one xrandr call that sets every monitor of the layout at once. Outputs that are not in
      * the layout stay as they are.
@@ -75,6 +76,7 @@ public final class Xrandr {
         }
         return args;
     }
+    // --8<-- [end:command]
 
     /** The layout moved so that the monitors that are on start at 0,0, as X wants it. */
     public static List<OutputSetting> normalized(List<OutputSetting> layout) {

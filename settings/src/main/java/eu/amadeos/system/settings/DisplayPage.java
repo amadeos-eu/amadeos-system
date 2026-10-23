@@ -394,6 +394,7 @@ final class DisplayPage extends SettingsPage {
 
     // ------------------------------------------------------------------------------------------ apply
 
+    // --8<-- [start:apply]
     @Override
     protected String apply() {
         List<OutputSetting> wanted = Xrandr.normalized(settings());
@@ -420,6 +421,7 @@ final class DisplayPage extends SettingsPage {
         });
         return null;
     }
+    // --8<-- [end:apply]
 
     @Override
     protected void cancelled() {
