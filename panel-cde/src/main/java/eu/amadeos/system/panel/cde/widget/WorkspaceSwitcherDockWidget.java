@@ -40,6 +40,7 @@ import eu.amadeos.commons.i18n.LocaleResolution;
 import eu.amadeos.commons.i18n.LocaleStore;
 import eu.amadeos.commons.i18n.Messages;
 import eu.amadeos.system.panel.cde.PanelTexts;
+import eu.amadeos.system.panel.cde.activity.ActivityLight;
 import eu.amadeos.commons.theme.DesktopTheme;
 import eu.amadeos.system.base.theme.backdrop.MotifColors;
 import eu.amadeos.system.base.workspace.WorkspaceNames;
@@ -89,7 +90,7 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
     final LanguageButton languageBtn;
     private final LocaleStore locales;
     final FlatExitButton exitBtn;
-    final StatusIndicator statusIndicator;
+    final ActivityLight activityLight;
     private int activeWorkspace = 1;
     private final Consumer<Integer> workspaceListener;
     private final Runnable powerAction;
@@ -216,13 +217,13 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
         }
         pad.add(grid, BorderLayout.CENTER);
 
-        // 4. Right Pillar: Status/Mail Indicator Slit + Flat EXIT Button
+        // 4. Right Pillar: the busy light (system activity) + Flat EXIT Button
         rightPillar = new JPanel(new GridLayout(2, 1, 0, 0));
         rightPillar.setOpaque(false);
         rightPillar.setPreferredSize(new Dimension(COLUMN_WIDTH, CdePanelChrome.SLOT_HEIGHT));
 
-        statusIndicator = new StatusIndicator();
-        rightPillar.add(statusIndicator);
+        activityLight = new ActivityLight();
+        rightPillar.add(activityLight);
 
         exitBtn = new FlatExitButton(e -> {
             if (this.powerAction != null) {
@@ -371,6 +372,21 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
         }
     }
 
+    /** The busy light above Exit, which the panel tells about starting applications and installs. */
+    public ActivityLight activityLight() {
+        return activityLight;
+    }
+
+    @Override
+    public void start() {
+        activityLight.start();
+    }
+
+    @Override
+    public void stop() {
+        activityLight.stop();
+    }
+
     @Override
     public JComponent component() {
         return pad;
@@ -384,7 +400,7 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
 
         lockBtn.repaint();
         languageBtn.repaint();
-        statusIndicator.repaint();
+        activityLight.setTheme(theme);
         exitBtn.repaint();
 
         updateAllButtonAppearances();
@@ -780,49 +796,6 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
             tx = ex + 18;
             g2.drawLine(tx - 1, ty, tx + 3, ty);
             for (int y = ty; y <= ty + 9; y++) g2.drawLine(tx + 1, y, tx + 1, y);
-
-            g2.dispose();
-        }
-    }
-
-    /**
-     * Authentic CDE Status & Activity Indicator Slit with yellow LED dashes.
-     */
-    final class StatusIndicator extends JComponent {
-        StatusIndicator() {
-            setOpaque(false);
-            setToolTipText(PanelTexts.get("activity.tooltip"));
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g.create();
-            int w = getWidth();
-            int h = getHeight();
-            DesktopTheme t = currentTheme;
-
-            int sx = (w - 24) / 2;
-            int sy = (h - 7) / 2;
-
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
-
-            // Sunken slit border
-            g2.setColor(t.darkShadow());
-            g2.drawLine(sx, sy, sx + 23, sy);
-            g2.drawLine(sx, sy, sx, sy + 6);
-            g2.setColor(Color.WHITE);
-            g2.drawLine(sx + 1, sy + 7, sx + 24, sy + 7);
-            g2.drawLine(sx + 24, sy + 1, sx + 24, sy + 7);
-
-            // Dark interior
-            g2.setColor(new Color(0x1E, 0x24, 0x2B));
-            g2.fillRect(sx + 1, sy + 1, 23, 6);
-
-            // Yellow LED dashes
-            g2.setColor(new Color(0xFA, 0xCC, 0x15));
-            for (int dx = sx + 2; dx <= sx + 21; dx += 2) {
-                g2.drawLine(dx, sy + 3, dx, sy + 4);
-            }
 
             g2.dispose();
         }

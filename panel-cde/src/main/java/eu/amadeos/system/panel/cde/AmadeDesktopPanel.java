@@ -287,6 +287,7 @@ public final class AmadeDesktopPanel extends JFrame {
         if (initialDesktop >= 0 && initialDesktop < 4) {
             switcher.setActiveWorkspace(initialDesktop + 1);
         }
+        switcher.activityLight().setOnClick(() -> launchProcess("amadeos-sysinfo"));
         widgets.add(switcher);
         rootPanel.add(switcher.component(), BorderLayout.CENTER);
 
@@ -430,7 +431,10 @@ public final class AmadeDesktopPanel extends JFrame {
             if (remoteDesktop >= 0 && remoteDesktop < 4) {
                 switcher.setActiveWorkspace(remoteDesktop + 1);
             }
-            showBusy(helper.isLaunchBusy() || System.currentTimeMillis() - launchedAt < 1000);
+            boolean launching = helper.isLaunchBusy() || System.currentTimeMillis() - launchedAt < 1000;
+            showBusy(launching);
+            switcher.activityLight().setLaunching(launching);
+            switcher.activityLight().setInstalling(updatesCell.installing());
             // A new resolution (Settings > Display): back to the bottom centre of the new screen.
             if (screenSize != null && !screenSize.equals(new Dimension(helper.screenWidth(), helper.screenHeight()))) {
                 placeDock();
@@ -590,6 +594,7 @@ public final class AmadeDesktopPanel extends JFrame {
         clockWidget.showClockStyle(settings.clock());
         statusWidget.setShown(networkCell, settings.networkCell());
         statusWidget.setShown(updatesCell, settings.updatesCell());
+        switcher.activityLight().setMeterShown(settings.activityMeter());
     }
 
     /** The watch over the panel while an application starts, as the window manager shows it elsewhere. */
