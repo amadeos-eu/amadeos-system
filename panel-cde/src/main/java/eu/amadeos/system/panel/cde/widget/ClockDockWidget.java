@@ -60,13 +60,20 @@ public final class ClockDockWidget extends AbstractDockWidget {
     final JPopupMenu contextMenu;
     final JRadioButtonMenuItem analogItem;
     final JRadioButtonMenuItem digitalItem;
+    private final PanelSettingsStore store;
 
     public ClockDockWidget() {
         this(null);
     }
 
     public ClockDockWidget(ClockStyle initialStyle) {
+        this(initialStyle, PanelSettingsStore.user());
+    }
+
+    /** With the panel settings in {@code store}, where the style chosen in the context menu is kept. */
+    ClockDockWidget(ClockStyle initialStyle, PanelSettingsStore store) {
         super("clock");
+        this.store = store;
         if (initialStyle != null) {
             this.style = initialStyle;
         } else {
@@ -321,12 +328,11 @@ public final class ClockDockWidget extends AbstractDockWidget {
     }
 
     private void loadPersistedStyle() {
-        style = ClockStyle.valueOf(PanelSettingsStore.user().load().clock().name());
+        style = ClockStyle.valueOf(store.load().clock().name());
     }
 
     private void persistStyle(ClockStyle newStyle) {
         try {
-            PanelSettingsStore store = PanelSettingsStore.user();
             store.save(store.load().withClock(PanelSettings.Clock.valueOf(newStyle.name())));
         } catch (RuntimeException e) {
             // The clock keeps the style until the next login.
