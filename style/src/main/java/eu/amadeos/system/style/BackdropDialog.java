@@ -3,8 +3,11 @@ package eu.amadeos.system.style;
 import eu.amadeos.commons.swing.AmadeUI;
 import eu.amadeos.commons.theme.DesktopTheme;
 import eu.amadeos.system.base.theme.WallpaperManager;
+import eu.amadeos.system.base.theme.WallpaperManager.Backdrop;
 import eu.amadeos.system.base.theme.WallpaperManager.ScaleMode;
 import eu.amadeos.system.base.theme.WallpaperManager.WallpaperItem;
+import eu.amadeos.system.base.workspace.WorkspaceNames;
+import eu.amadeos.system.base.x11.X11EwmhHelper;
 
 import javax.swing.BorderFactory;
 import javax.swing.DefaultListCellRenderer;
@@ -24,18 +27,23 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.image.BufferedImage;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
 
 /**
  * Backdrop: the original CDE pattern backdrops or a picture, scaling and the backdrop colour, with a
- * miniature preview of the desktop. Patterns take their shades from the colour, as in dtstyle.
+ * miniature preview of the desktop. Patterns take their shades from the colour, as in dtstyle. As in CDE,
+ * each workspace can have its own backdrop: the dialog opens on the current workspace, and "All workspaces"
+ * gives every workspace the same one.
  */
 final class BackdropDialog extends StyleDialog {
     private final DefaultListModel<WallpaperItem> model = new DefaultListModel<>();
@@ -44,6 +52,7 @@ final class BackdropDialog extends StyleDialog {
     private final JComboBox<ScaleMode> scale = new JComboBox<>(ScaleMode.values());
     private final JPanel colorChip = new JPanel();
     private final JPanel preview;
+    private final JComboBox<WorkspaceChoice> workspace = new JComboBox<>();
     private Color color = WallpaperManager.currentBgColor();
     private String cachedKey;
     private BufferedImage cachedImage;
@@ -61,19 +70,13 @@ final class BackdropDialog extends StyleDialog {
         });
         for (WallpaperItem item : WallpaperManager.availableWallpapers()) model.addElement(item);
         wallpapers.setVisibleRowCount(8);
-        String current = WallpaperManager.currentWallpaperPath();
-        path.setText(current != null ? current : "");
-        // Preselect the current backdrop before the listener exists: it would reset the scaling.
-        for (int i = 0; i < model.size(); i++) {
-            if (model.get(i).path().equals(current)) {
-                wallpapers.setSelectedIndex(i);
-                wallpapers.ensureIndexIsVisible(i);
-                break;
-            }
-        }
+        int currentWorkspace = fillWorkspaces();
+        Backdrop backdrop = WallpaperManager.backdropOf(currentWorkspace);
+        // Show the current backdrop before the listener exists: it would reset the scaling.
+        loadBackdrop(backdrop);
         wallpapers.addListSelectionListener(e -> {
             WallpaperItem item = wallpapers.getSelectedValue();
-            if (!e.getValueIsAdjusting() && item != null) {
+            if (!e.getValueIsAdjusting() && item != null && !loading) {
                 path.setText(item.path());
                 // CDE tiles its patterns; pictures keep the chosen scaling.
                 if (item.isPattern()) scale.setSelectedItem(ScaleMode.TILE);
@@ -81,8 +84,14 @@ final class BackdropDialog extends StyleDialog {
             }
         });
         path.addActionListener(e -> refresh());
-        scale.setSelectedItem(WallpaperManager.currentScaleMode());
         scale.addActionListener(e -> refresh());
+        workspace.addActionListener(e -> {
+            WorkspaceChoice choice = (WorkspaceChoice) workspace.getSelectedItem();
+            if (choice != null) {
+                loadBackdrop(WallpaperManager.backdropOf(choice.index()));
+                refresh();
+            }
+        });
 
         JButton browse = new JButton(StyleTexts.get("backdrop.browse"));
         browse.addActionListener(e -> {
@@ -156,10 +165,76 @@ final class BackdropDialog extends StyleDialog {
         preview.setPreferredSize(new Dimension(260, 180));
         preview.setBorder(BorderFactory.createTitledBorder(StyleTexts.get("backdrop.preview")));
 
+        JPanel workspaceRow = new JPanel(new FlowLayout(FlowLayout.LEADING, 6, 0));
+        workspaceRow.setBorder(BorderFactory.createEmptyBorder(0, 0, 8, 0));
+        JLabel workspaceLabel = new JLabel(StyleTexts.get("backdrop.workspace"));
+        workspaceLabel.setLabelFor(workspace);
+        workspaceRow.add(workspaceLabel);
+        workspaceRow.add(workspace);
+
         JPanel content = new JPanel(new BorderLayout(12, 0));
+        content.add(workspaceRow, BorderLayout.NORTH);
         content.add(controls, BorderLayout.CENTER);
         content.add(preview, BorderLayout.EAST);
         layoutDialog(content);
+    }
+
+    /** An entry of the workspace list: a workspace (0 to 3) under its name, or -1 for all of them. */
+    record WorkspaceChoice(int index, String name) {
+        @Override
+        public String toString() {
+            return name;
+        }
+    }
+
+    private boolean loading;
+
+    /**
+     * Lists "All workspaces" and the four workspaces under the names the Front Panel published, and selects
+     * the current one, as CDE's Style Manager changes the backdrop of the workspace you are in.
+     *
+     * @return the selected workspace, -1 without a desktop to ask
+     */
+    private int fillWorkspaces() {
+        List<String> published = new ArrayList<>();
+        int current = -1;
+        try (X11EwmhHelper helper = X11EwmhHelper.open(null)) {
+            published = helper.getDesktopNames();
+            current = helper.getCurrentDesktop();
+        } catch (RuntimeException | LinkageError e) {
+            // No X display (tests, a terminal): offer all workspaces under their stored names.
+        }
+        workspace.addItem(new WorkspaceChoice(-1, StyleTexts.get("backdrop.workspace.all")));
+        WorkspaceNames stored = WorkspaceNames.user();
+        for (int i = 0; i < WorkspaceNames.COUNT; i++) {
+            String name = i < published.size() && !published.get(i).isBlank() ? published.get(i)
+                    : stored.name(i, StyleTexts.format("backdrop.workspace.number", i + 1));
+            workspace.addItem(new WorkspaceChoice(i, name));
+        }
+        if (current < 0 || current >= WorkspaceNames.COUNT) current = -1;
+        workspace.setSelectedIndex(current + 1);
+        return current;
+    }
+
+    /** Fills the list, the image field, the scaling and the colour from {@code backdrop}. */
+    private void loadBackdrop(Backdrop backdrop) {
+        loading = true;
+        try {
+            wallpapers.clearSelection();
+            for (int i = 0; i < model.size(); i++) {
+                if (model.get(i).path().equals(backdrop.path())) {
+                    wallpapers.setSelectedIndex(i);
+                    wallpapers.ensureIndexIsVisible(i);
+                    break;
+                }
+            }
+            path.setText(backdrop.path());
+            scale.setSelectedItem(backdrop.mode());
+            color = backdrop.color();
+            colorChip.setBackground(color);
+        } finally {
+            loading = false;
+        }
     }
 
     private void refresh() {
@@ -200,8 +275,12 @@ final class BackdropDialog extends StyleDialog {
     @Override
     protected String apply() {
         String image = path.getText().strip();
-        WallpaperManager.applyWallpaper(image, (ScaleMode) scale.getSelectedItem(), color);
+        WorkspaceChoice choice = (WorkspaceChoice) workspace.getSelectedItem();
+        int index = choice != null ? choice.index() : -1;
+        WallpaperManager.applyWallpaper(index, image, (ScaleMode) scale.getSelectedItem(), color);
         boolean plain = image.isEmpty() || WallpaperManager.NO_BACKDROP.equalsIgnoreCase(image);
-        return StyleTexts.format("backdrop.status", plain ? StyleTexts.get("backdrop.solid") : image);
+        String shown = plain ? StyleTexts.get("backdrop.solid") : image;
+        return index < 0 ? StyleTexts.format("backdrop.status", shown)
+                : StyleTexts.format("backdrop.status.workspace", shown, choice.name());
     }
 }

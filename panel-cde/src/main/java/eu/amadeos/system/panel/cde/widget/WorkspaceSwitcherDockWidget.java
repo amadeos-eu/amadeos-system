@@ -1,6 +1,7 @@
 package eu.amadeos.system.panel.cde.widget;
 
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
@@ -9,7 +10,14 @@ import java.awt.Graphics2D;
 import java.awt.GridLayout;
 import java.awt.RenderingHints;
 import java.awt.event.ActionListener;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
+import java.awt.event.KeyEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.logging.Level;
@@ -25,6 +33,8 @@ import javax.swing.ButtonModel;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
+import javax.swing.JTextField;
+import javax.swing.KeyStroke;
 import eu.amadeos.commons.i18n.Language;
 import eu.amadeos.commons.i18n.LocaleResolution;
 import eu.amadeos.commons.i18n.LocaleStore;
@@ -32,6 +42,7 @@ import eu.amadeos.commons.i18n.Messages;
 import eu.amadeos.system.panel.cde.PanelTexts;
 import eu.amadeos.commons.theme.DesktopTheme;
 import eu.amadeos.system.base.theme.backdrop.MotifColors;
+import eu.amadeos.system.base.workspace.WorkspaceNames;
 
 /**
  * The CDE workspace switch, the raised box in the middle of the Front Panel:
@@ -42,7 +53,10 @@ import eu.amadeos.system.base.theme.backdrop.MotifColors;
  *     gaps between them, as in CDE. Each button is a Motif push button filled with its workspace's colour
  *     from the theme ({@link DesktopTheme#workspaceColor(int)}: blue-grey, dialog colour, teal and rose in
  *     the default palette), with its label in the Motif foreground of that colour; the current workspace
- *     is the one pressed in.</li>
+ *     is the one pressed in. A click on the current workspace's button turns it into a text field for a
+ *     new name, as in CDE (so a double-click on any button switches and renames); so does Rename in the
+ *     button's menu. The names are kept in {@link WorkspaceNames} and published in {@code _NET_DESKTOP_NAMES}
+ *     for the window manager and the Style Manager.</li>
  * <li>Right column: the busy light (a sunken slit with yellow dashes) at the top, "EXIT" in an etched box
  *     at the bottom.</li>
  * </ul>
@@ -56,7 +70,7 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
     static final int PAD_WIDTH = 2 * COLUMN_WIDTH + 212;
     /** Thickness of a workspace button's Motif bevel. */
     private static final int BEVEL = 2;
-    /** The names of the four workspaces on their buttons, as in CDE: One to Four in the panel's language. */
+    /** The default names of the four workspaces, as in CDE: One to Four in the panel's language. */
     static String workspaceName(int index) {
         return PanelTexts.get("workspace." + (index + 1));
     }
@@ -65,6 +79,12 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
     private final JPanel rightPillar;
     private final JPanel grid;
     final WorkspaceButton[] workspaceButtons = new WorkspaceButton[4];
+    /** The text field that takes a button's place while its workspace is renamed. */
+    final JTextField[] nameFields = new JTextField[4];
+    private final boolean[] renaming = new boolean[4];
+    private final JPanel[] cells = new JPanel[4];
+    private final WorkspaceNames names;
+    private final Consumer<List<String>> namesListener;
     final FlatLockButton lockBtn;
     final LanguageButton languageBtn;
     private final LocaleStore locales;
@@ -75,7 +95,13 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
     private final Runnable powerAction;
 
     public WorkspaceSwitcherDockWidget(Consumer<Integer> workspaceListener, Runnable powerAction) {
-        this(workspaceListener, powerAction, systemLocales());
+        this(workspaceListener, powerAction, names -> { });
+    }
+
+    /** @param namesListener gets the four names at start and after every rename, to publish them */
+    public WorkspaceSwitcherDockWidget(Consumer<Integer> workspaceListener, Runnable powerAction,
+                                       Consumer<List<String>> namesListener) {
+        this(workspaceListener, powerAction, systemLocales(), WorkspaceNames.user(), namesListener);
     }
 
     private static LocaleStore systemLocales() {
@@ -86,8 +112,20 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
 
     /** @param locales the desktop language, shown and switched by the button under the lock */
     public WorkspaceSwitcherDockWidget(Consumer<Integer> workspaceListener, Runnable powerAction, LocaleStore locales) {
+        this(workspaceListener, powerAction, locales, WorkspaceNames.user(), names -> { });
+    }
+
+    /**
+     * @param locales the desktop language, shown and switched by the button under the lock
+     * @param names where the workspace names are kept
+     * @param namesListener gets the four names at start and after every rename, to publish them
+     */
+    public WorkspaceSwitcherDockWidget(Consumer<Integer> workspaceListener, Runnable powerAction, LocaleStore locales,
+                                       WorkspaceNames names, Consumer<List<String>> namesListener) {
         super("workspace-switcher");
         this.locales = locales;
+        this.names = names;
+        this.namesListener = namesListener;
         this.workspaceListener = workspaceListener;
         this.powerAction = powerAction;
 
@@ -133,17 +171,48 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
         grid.setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 6));
 
         for (int i = 0; i < 4; i++) {
+            int index = i;
             int wsNum = i + 1;
-            WorkspaceButton btn = new WorkspaceButton(i, workspaceName(i));
+            WorkspaceButton btn = new WorkspaceButton(i, names.name(i, workspaceName(i)));
+            // --8<-- [start:rename]
             btn.addActionListener(e -> {
+                // CDE: a click on the current workspace's button starts renaming it.
+                if (activeWorkspace == wsNum) {
+                    startRename(index);
+                    return;
+                }
                 activeWorkspace = wsNum;
                 if (this.workspaceListener != null) {
                     this.workspaceListener.accept(wsNum);
                 }
                 updateAllButtonAppearances();
             });
+            // --8<-- [end:rename]
+            btn.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mousePressed(MouseEvent e) {
+                    maybeShowMenu(e);
+                }
+
+                @Override
+                public void mouseReleased(MouseEvent e) {
+                    maybeShowMenu(e);
+                }
+
+                private void maybeShowMenu(MouseEvent e) {
+                    if (e.isPopupTrigger()) {
+                        JPopupMenu menu = workspaceMenu(index);
+                        menu.show(btn, e.getX(), e.getY() - menu.getPreferredSize().height);
+                    }
+                }
+            });
             workspaceButtons[i] = btn;
-            grid.add(btn);
+            nameFields[i] = nameField(index);
+            cells[i] = new JPanel(new CardLayout());
+            cells[i].setOpaque(false);
+            cells[i].add(btn, "button");
+            cells[i].add(nameFields[i], "field");
+            grid.add(cells[i]);
         }
         pad.add(grid, BorderLayout.CENTER);
 
@@ -165,6 +234,101 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
         pad.add(rightPillar, BorderLayout.EAST);
 
         updateThemeStyles(currentTheme);
+        publishNames();
+    }
+
+    /** The current names of the four workspaces, as the buttons show them. */
+    public List<String> workspaceNames() {
+        List<String> list = new ArrayList<>();
+        for (WorkspaceButton button : workspaceButtons) {
+            list.add(button.getText());
+        }
+        return list;
+    }
+
+    private void publishNames() {
+        if (namesListener != null) {
+            namesListener.accept(workspaceNames());
+        }
+    }
+
+    /** The button's menu: Rename, as in CDE's workspace button menu. */
+    JPopupMenu workspaceMenu(int index) {
+        JPopupMenu menu = new JPopupMenu();
+        JMenuItem rename = new JMenuItem(PanelTexts.get("workspace.rename"));
+        rename.addActionListener(e -> startRename(index));
+        menu.add(rename);
+        return menu;
+    }
+
+    /** The text field for a new name, in the button's colours, with the old name selected. */
+    private JTextField nameField(int index) {
+        JTextField field = new JTextField();
+        field.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 11));
+        field.setHorizontalAlignment(JTextField.CENTER);
+        field.setToolTipText(PanelTexts.get("workspace.rename.tooltip"));
+        field.addActionListener(e -> finishRename(index, true));
+        field.registerKeyboardAction(e -> finishRename(index, false),
+                KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), JComponent.WHEN_FOCUSED);
+        field.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusLost(FocusEvent e) {
+                finishRename(index, true);
+            }
+        });
+        return field;
+    }
+
+    /** Turns workspace {@code index}'s button into a text field holding its name. */
+    void startRename(int index) {
+        JTextField field = nameFields[index];
+        MotifColors colors = MotifColors.of(currentTheme.workspaceColor(index));
+        field.setBackground(colors.background());
+        field.setForeground(colors.foreground());
+        field.setCaretColor(colors.foreground());
+        field.setText(workspaceButtons[index].getText());
+        field.selectAll();
+        renaming[index] = true;
+        ((CardLayout) cells[index].getLayout()).show(cells[index], "field");
+        // The panel is a dock the window manager does not focus; ask for the keyboard ourselves.
+        java.awt.Window window = SwingUtilities.getWindowAncestor(field);
+        if (window != null) {
+            window.toFront();
+        }
+        field.requestFocus();
+    }
+
+    /** Whether workspace {@code index} is being renamed. */
+    boolean isRenaming(int index) {
+        return renaming[index];
+    }
+
+    /**
+     * Ends renaming: Return or leaving the field keeps the new name (an empty one gives back the default
+     * name), Escape keeps the old one.
+     */
+    void finishRename(int index, boolean keep) {
+        if (!isRenaming(index)) {
+            return;
+        }
+        renaming[index] = false;
+        ((CardLayout) cells[index].getLayout()).show(cells[index], "button");
+        if (!keep) {
+            return;
+        }
+        String name;
+        try {
+            name = names.rename(index, nameFields[index].getText()).orElse(workspaceName(index));
+        } catch (IOException e) {
+            LOGGER.log(Level.WARNING, "Cannot store the name of workspace " + (index + 1), e);
+            name = WorkspaceNames.clean(nameFields[index].getText());
+            if (name.isEmpty()) name = workspaceName(index);
+        }
+        WorkspaceButton button = workspaceButtons[index];
+        button.setText(name);
+        button.setToolTipText(PanelTexts.format("workspace.tooltip", name));
+        button.repaint();
+        publishNames();
     }
 
     private void updateAllButtonAppearances() {
@@ -260,12 +424,25 @@ public final class WorkspaceSwitcherDockWidget extends AbstractDockWidget {
             g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_GASP);
             g2.setFont(getFont());
             java.awt.FontMetrics fm = g2.getFontMetrics();
-            int tx = (w - fm.stringWidth(getText())) / 2 + (sunken ? 1 : 0);
+            String text = fitted(getText(), fm, w - 2 * BEVEL - 6);
+            int tx = (w - fm.stringWidth(text)) / 2 + (sunken ? 1 : 0);
             int ty = (h - fm.getHeight()) / 2 + fm.getAscent() + (sunken ? 1 : 0);
             g2.setColor(colors.foreground());
-            g2.drawString(getText(), tx, ty);
+            g2.drawString(text, tx, ty);
             g2.dispose();
         }
+    }
+
+    /** {@code text}, cut with an ellipsis where it is wider than {@code width}; the tooltip has it whole. */
+    static String fitted(String text, java.awt.FontMetrics fm, int width) {
+        if (fm.stringWidth(text) <= width) {
+            return text;
+        }
+        String cut = text;
+        while (!cut.isEmpty() && fm.stringWidth(cut + "…") > width) {
+            cut = cut.substring(0, cut.length() - 1);
+        }
+        return cut.strip() + "…";
     }
 
     /**

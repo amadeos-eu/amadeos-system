@@ -199,7 +199,12 @@ class StyleManagerTest {
             BackdropDialog dialog = new BackdropDialog(null, s -> { });
             try {
                 javax.swing.JList<?> list = find(dialog.getContentPane(), javax.swing.JList.class);
-                javax.swing.JComboBox<?> scale = find(dialog.getContentPane(), javax.swing.JComboBox.class);
+                javax.swing.JComboBox<?> scale = find(dialog.getContentPane(), javax.swing.JComboBox.class,
+                        c -> c.getItemAt(0) instanceof eu.amadeos.system.base.theme.WallpaperManager.ScaleMode);
+                javax.swing.JComboBox<?> workspace = find(dialog.getContentPane(), javax.swing.JComboBox.class,
+                        c -> c != scale);
+                assertEquals(5, workspace.getItemCount(), "All workspaces, then the four");
+                assertEquals(StyleTexts.get("backdrop.workspace.all"), workspace.getItemAt(0).toString());
                 scale.setSelectedItem(eu.amadeos.system.base.theme.WallpaperManager.ScaleMode.FILL);
                 for (int i = 0; i < list.getModel().getSize(); i++) {
                     if (list.getModel().getElementAt(i).toString().equals("Pebbles")) list.setSelectedIndex(i);
@@ -209,6 +214,18 @@ class StyleManagerTest {
                 dialog.dispose();
             }
         });
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> T find(java.awt.Container root, Class<T> type, java.util.function.Predicate<T> test) {
+        for (java.awt.Component c : root.getComponents()) {
+            if (type.isInstance(c) && test.test((T) c)) return (T) c;
+            if (c instanceof java.awt.Container inner) {
+                T found = find(inner, type, test);
+                if (found != null) return found;
+            }
+        }
+        return null;
     }
 
     @SuppressWarnings("unchecked")
