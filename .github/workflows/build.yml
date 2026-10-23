@@ -28,7 +28,7 @@ jobs:
         run: xvfb-run --auto-servernum ./gradlew test --no-daemon
       - name: Check that the tests ran
         run: |
-          for module in base wm panel-cde dm session style logviewer print sysinfo packages software; do
+          for module in base wm panel-cde dm session settings logviewer print sysinfo packages software; do
             count=$(grep -ho 'tests="[0-9]*"' $module/build/test-results/test/*.xml | grep -o '[0-9]*' | paste -sd+ | bc)
             skipped=$(grep -ho 'skipped="[0-9]*"' $module/build/test-results/test/*.xml | grep -o '[0-9]*' | paste -sd+ | bc)
             echo "$module: tests run: $count, skipped: $skipped"
@@ -40,7 +40,7 @@ jobs:
         run: ./gradlew deb --no-daemon
       - name: Check the packages
         run: |
-          for module in wm panel-cde dm session style logviewer print sysinfo software; do
+          for module in wm panel-cde dm session settings logviewer print sysinfo software; do
             name=amadeos-$module
             jar=$(ls $module/build/libs/$name-*.jar)
             unzip -p "$jar" META-INF/MANIFEST.MF | grep -q "Main-Class: eu.amadeos.system."
@@ -63,7 +63,7 @@ jobs:
                 grep -q " ${f}\$" contents.txt || { echo "missing in $name: $f"; exit 1; }
                 case "$f" in ./etc/*) grep -qx "${f#.}" control-$name/conffiles || { echo "not a conffile in $name: $f"; exit 1; } ;; esac
               done
-              # Not every package has maintainer scripts (amadeos-style has none).
+              # Not every package has maintainer scripts (amadeos-settings has none).
               for script in $module/packaging/debian/*; do
                 [ -f "$script" ] || continue
                 test -x control-$name/$(basename $script) || { echo "missing in $name: $(basename $script)"; exit 1; }

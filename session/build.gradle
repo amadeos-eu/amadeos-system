@@ -16,7 +16,7 @@ debian = [
     depends    : ['amadeos-wm', 'amadeos-panel', 'x11-utils', 'libxss1', 'libpam-runtime', 'polkitd', 'libxfixes3'],
     // xterm: the fallback of a failed session; xinit: startx without the display manager (amadeos-session
     // is registered as x-session-manager).
-    recommends : ['xterm', 'xinit', 'amadeos-style'],
+    recommends : ['xterm', 'xinit', 'amadeos-settings'],
     conflicts  : ['amade-desktop', 'amade-session'],
     replaces   : ['amade-desktop', 'amade-session'],
     summary    : 'Desktop session, screen lock, screen saver, polkit agent and clipboard manager of amadeOS',

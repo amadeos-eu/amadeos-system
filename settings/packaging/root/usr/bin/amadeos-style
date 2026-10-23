@@ -1,0 +1,4 @@
+#!/bin/sh
+# The Settings were called Style Manager (package amadeos-style) until 2026-10; old menus, scripts and
+# autostart entries keep working.
+exec /usr/bin/amadeos-settings "$@"

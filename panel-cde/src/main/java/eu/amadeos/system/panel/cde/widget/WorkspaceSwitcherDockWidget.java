@@ -56,7 +56,7 @@ import eu.amadeos.system.base.workspace.WorkspaceNames;
  *     is the one pressed in. A click on the current workspace's button turns it into a text field for a
  *     new name, as in CDE (so a double-click on any button switches and renames); so does Rename in the
  *     button's menu. The names are kept in {@link WorkspaceNames} and published in {@code _NET_DESKTOP_NAMES}
- *     for the window manager and the Style Manager.</li>
+ *     for the window manager and the Settings.</li>
  * <li>Right column: the busy light (a sunken slit with yellow dashes) at the top, "EXIT" in an etched box
  *     at the bottom.</li>
  * </ul>

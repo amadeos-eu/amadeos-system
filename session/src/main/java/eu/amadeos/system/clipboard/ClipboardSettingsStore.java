@@ -10,7 +10,7 @@ import java.nio.file.attribute.FileTime;
 import java.util.Properties;
 
 /**
- * Reads and writes {@code ~/.config/amadeos/clipboard.conf}. The Style Manager writes, the clipboard manager
+ * Reads and writes {@code ~/.config/amadeos/clipboard.conf}. The Settings write, the clipboard manager
  * notices changes through {@link #changedSince(FileTime)} without a restart. Only the settings live there:
  * the history itself is never written to disk.
  */
@@ -48,7 +48,7 @@ public final class ClipboardSettingsStore {
         p.setProperty("history.size", Integer.toString(s.size()));
         p.setProperty("keep.enabled", Boolean.toString(s.keep()));
         p.setProperty("primary.enabled", Boolean.toString(s.primary()));
-        PropertiesFile.store(file, p, "amadeOS clipboard manager (Style Manager > Clipboard)");
+        PropertiesFile.store(file, p, "amadeOS clipboard manager (Settings > Clipboard)");
     }
 
     /** Modification time of the file, or null if it does not exist. */

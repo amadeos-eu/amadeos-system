@@ -42,6 +42,10 @@ import eu.amadeos.system.base.theme.ThemeManager;
 import eu.amadeos.system.base.theme.WallpaperManager;
 import eu.amadeos.system.base.theme.WallpaperManager.Backdrop;
 import eu.amadeos.system.base.workspace.WorkspaceNames;
+import eu.amadeos.system.base.window.WindowSettings;
+import eu.amadeos.system.base.window.WindowSettingsStore;
+import eu.amadeos.commons.config.ConfigWatcher;
+import java.util.Set;
 import eu.amadeos.system.base.x11.X11EwmhHelper;
 import eu.amadeos.system.base.ui.SessionDialogHelper;
 
@@ -84,6 +88,17 @@ public final class X11WindowManagerService implements AutoCloseable {
      */
     private final Map<Long, int[]> withdrawnFrames = new HashMap<>();
     private final Map<Long, FrameWindow> frameToClient;
+
+    /** Focus, raising and moving as chosen in Settings &gt; Window; read anew whenever window.conf changes. */
+    private final WindowSettingsStore windowSettingsStore = WindowSettingsStore.user();
+    private volatile WindowSettings windowSettings = windowSettingsStore.load();
+    private final ConfigWatcher windowSettingsWatcher = new ConfigWatcher(
+            windowSettingsStore.file().getParent(), Set.of(WindowSettingsStore.FILE_NAME), "amadeos-wm-window-settings",
+            () -> {
+                WindowSettings loaded = windowSettingsStore.load();
+                LOGGER.info(() -> "Window settings changed: " + loaded);
+                windowSettings = loaded;
+            });
 
     // Wireframe dragging state
     private boolean wireframeActive = false;
@@ -390,11 +405,11 @@ public final class X11WindowManagerService implements AutoCloseable {
 
             @Override
             public void openSettings() {
-                // The Style Manager is its own program (package amadeos-style).
+                // The Settings are their own program (package amadeos-settings).
                 try {
-                    eu.amadeos.system.base.process.ProcessLauncher.start(java.util.List.of("amadeos-style"));
+                    eu.amadeos.system.base.process.ProcessLauncher.start(java.util.List.of("amadeos-settings"));
                 } catch (java.io.IOException e) {
-                    LOGGER.warning(() -> "Could not start the Style Manager (amadeos-style): " + e.getMessage());
+                    LOGGER.warning(() -> "Could not start the Settings (amadeos-settings): " + e.getMessage());
                 }
             }
 
@@ -445,6 +460,7 @@ public final class X11WindowManagerService implements AutoCloseable {
         initEwmh();
 
         ThemeManager.addListener(newTheme -> runOnEventThread(() -> applyThemeGlobally(newTheme)));
+        windowSettingsWatcher.start();
 
         try {
             showWorkspaceBackdrop();
@@ -456,7 +472,7 @@ public final class X11WindowManagerService implements AutoCloseable {
     // --8<-- [start:backdrop]
     /**
      * Shows the current workspace's backdrop on the root window, as CDE gives every workspace its own. The
-     * Style Manager stores the backdrops; they are read anew on every switch and rendered once per backdrop.
+     * Settings store the backdrops; they are read anew on every switch and rendered once per backdrop.
      */
     void showWorkspaceBackdrop() {
         Backdrop backdrop = WallpaperManager.backdropOf(currentDesktop);
@@ -1028,6 +1044,11 @@ public final class X11WindowManagerService implements AutoCloseable {
     }
 
     public void focusClient(long win) {
+        focusClient(win, true);
+    }
+
+    /** Makes a window active; {@code raise} brings it to the front as well. */
+    private void focusClient(long win, boolean raise) {
         if (win == 0 || core.registry().find(win).isEmpty()) {
             return;
         }
@@ -1055,7 +1076,7 @@ public final class X11WindowManagerService implements AutoCloseable {
         activeWindow = win;
         ungrabWindowButtons(win);
         core.focus(win);
-        core.raise(win);
+        if (raise) core.raise(win);
         setActiveWindow(win);
 
         // Update active highlight across all decoration frames
@@ -1703,8 +1724,9 @@ public final class X11WindowManagerService implements AutoCloseable {
                 }
 
                 if (core.registry().find(eventWin).isPresent()) {
-                    focusClient(eventWin);
-                    LOGGER.fine(() -> "ButtonPress: focused and raised client window " + eventWin);
+                    boolean raise = windowSettings.raiseWhenActive();
+                    focusClient(eventWin, raise);
+                    LOGGER.fine(() -> "ButtonPress: focused client window " + eventWin + (raise ? " and raised it" : ""));
                 }
                 x11.XAllowEvents(display, LibX11.ReplayPointer, btnEvent.time != null ? btnEvent.time : new NativeLong(LibX11.CurrentTime));
                 x11.XFlush(display);
@@ -1733,6 +1755,10 @@ public final class X11WindowManagerService implements AutoCloseable {
                         x11.XFlush(display);
                     }
                 }
+            }
+            case LibX11.EnterNotify -> {
+                LibX11.XCrossingEvent crossing = new LibX11.XCrossingEvent(event.getPointer());
+                handleEnter(crossing);
             }
             case LibX11.LeaveNotify -> {
                 LibX11.XAnyEvent any = new LibX11.XAnyEvent(event.getPointer());
@@ -2005,13 +2031,13 @@ public final class X11WindowManagerService implements AutoCloseable {
             dragStartFrameW = frame.frameWidth();
             dragStartFrameH = frame.frameHeight();
 
-            // Draw initial wireframe outline
+            // Draw initial wireframe outline, unless the window itself moves (Settings > Window)
             wireframeX = dragStartFrameX;
             wireframeY = dragStartFrameY;
             wireframeW = dragStartFrameW;
             wireframeH = dragStartFrameH;
-            toggleWireframe(wireframeX, wireframeY, wireframeW, wireframeH);
-            wireframeActive = true;
+            wireframeActive = !windowSettings.showContentsDuringMove();
+            if (wireframeActive) toggleWireframe(wireframeX, wireframeY, wireframeW, wireframeH);
 
             long grabMask = LibX11.ButtonReleaseMask | LibX11.PointerMotionMask | LibX11.Button1MotionMask;
             x11.XGrabPointer(display, frame.frameWindow(), 0, new NativeLong(grabMask),
@@ -2046,6 +2072,23 @@ public final class X11WindowManagerService implements AutoCloseable {
             x11.XGrabPointer(display, frame.frameWindow(), 0, new NativeLong(grabMask),
                     LibX11.GrabModeAsync, LibX11.GrabModeAsync, new NativeLong(0), dirCursor, new NativeLong(LibX11.CurrentTime));
             x11.XFlush(display);
+        }
+    }
+
+    /**
+     * Point in window to make active (Settings &gt; Window): the pointer entering a window from outside makes it
+     * active. Moves between a frame and its client, and the crossings a grab causes, change nothing.
+     */
+    private void handleEnter(LibX11.XCrossingEvent crossing) {
+        if (windowSettings.focus() != WindowSettings.Focus.POINTER || interactionType != InteractionType.NONE
+                || crossing.mode != LibX11.NotifyNormal || crossing.detail == LibX11.NotifyInferior) {
+            return;
+        }
+        FrameWindow frame = frameToClient.get(crossing.window.longValue());
+        if (frame == null || frame.isMinimized()) return;
+        long clientWin = frame.clientWindow().longValue();
+        if (clientWin != activeWindow) {
+            focusClient(clientWin, windowSettings.raiseWhenActive());
         }
     }
 
@@ -2120,6 +2163,13 @@ public final class X11WindowManagerService implements AutoCloseable {
                 wireframeY = newY;
                 // Draw new wireframe
                 toggleWireframe(wireframeX, wireframeY, wireframeW, wireframeH);
+                x11.XFlush(display);
+            } else if (!wireframeActive && (newX != wireframeX || newY != wireframeY)) {
+                // Show contents during move: the frame itself follows the pointer
+                wireframeX = newX;
+                wireframeY = newY;
+                interactionFrame.setBounds(wireframeX, wireframeY, wireframeW, wireframeH);
+                x11.XMoveWindow(display, interactionFrame.frameWindow(), wireframeX, wireframeY);
                 x11.XFlush(display);
             }
             return;
@@ -2489,6 +2539,7 @@ public final class X11WindowManagerService implements AutoCloseable {
                 wakeDisplay = null;
             }
         }
+        windowSettingsWatcher.close();
         desktopMenu.dispose();
         windowMenu.dispose();
         if (bellPlayer != null) {

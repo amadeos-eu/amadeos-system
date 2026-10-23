@@ -15,6 +15,23 @@ class ThemeManagerTest {
     @AfterEach
     void tearDown() {
         ThemeManager.applyTheme("warm-motif");
+        ThemeManager.applyFontSize(DesktopTheme.DEFAULT_FONT_SIZE);
+    }
+
+    @Test
+    void fontSizeIsKeptWhenThePaletteChanges() {
+        AtomicReference<DesktopTheme> received = new AtomicReference<>();
+        ThemeManager.ThemeChangeListener listener = received::set;
+        ThemeManager.addListener(listener);
+        try {
+            ThemeManager.applyFontSize(6);
+            assertEquals(6, received.get().fontSize());
+            ThemeManager.applyTheme("cde-desert");
+            assertEquals(6, ThemeManager.currentTheme().fontSize());
+            assertEquals(6, eu.amadeos.commons.swing.AmadeUI.theme().fontSize());
+        } finally {
+            ThemeManager.removeListener(listener);
+        }
     }
 
     @Test

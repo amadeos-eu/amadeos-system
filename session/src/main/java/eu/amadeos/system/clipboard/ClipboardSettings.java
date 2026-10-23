@@ -1,7 +1,7 @@
 package eu.amadeos.system.clipboard;
 
 /**
- * The "Clipboard" settings of the Style Manager.
+ * The "Clipboard" settings of the Settings.
  *
  * @param history  keep a history of what was copied (in memory only)
  * @param size     how many entries the history keeps

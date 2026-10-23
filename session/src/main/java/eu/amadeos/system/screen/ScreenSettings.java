@@ -1,7 +1,7 @@
 package eu.amadeos.system.screen;
 
 /**
- * The "Screen" settings of the Style Manager, as in CDE: a screen saver that starts after some minutes
+ * The "Screen" settings of the Settings, as in CDE: a screen saver that starts after some minutes
  * without input and a screen lock that starts after some (usually more) minutes.
  *
  * @param saverEnabled     start the screen saver when the desktop is idle

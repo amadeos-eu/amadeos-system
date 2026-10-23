@@ -8,8 +8,8 @@ a desktop root menu and the EWMH/ICCCM hints that panels and toolkits rely on (`
 
 The window manager knows no panel by name: a window of type `_NET_WM_WINDOW_TYPE_DOCK` is the panel,
 kept above the others, outside the frames, with its strut taken from the usable screen. Super+L and the
-root menu start the screen lock through `/usr/bin/amadeos-lock` and the Style Manager through
-`/usr/bin/amadeos-style`; the session dialogs (logout, power) are in the module `base`, shared with the
+root menu start the screen lock through `/usr/bin/amadeos-lock` and the Settings through
+`/usr/bin/amadeos-settings`; the session dialogs (logout, power) are in the module `base`, shared with the
 panel.
 
 ## Developing

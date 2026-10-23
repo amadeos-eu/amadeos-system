@@ -10,7 +10,7 @@ import java.nio.file.attribute.FileTime;
 import java.util.Properties;
 
 /**
- * Reads and writes {@code ~/.config/amadeos/screen.conf}. The Style Manager writes, the screen saver
+ * Reads and writes {@code ~/.config/amadeos/screen.conf}. The Settings write, the screen saver
  * daemon notices changes through {@link #changedSince(FileTime)} without a restart.
  */
 public final class ScreenSettingsStore {
@@ -49,7 +49,7 @@ public final class ScreenSettingsStore {
         p.setProperty("saver.module", s.module());
         p.setProperty("lock.enabled", Boolean.toString(s.lockEnabled()));
         p.setProperty("lock.minutes", Integer.toString(s.lockMinutes()));
-        PropertiesFile.store(file, p, "amadeOS screen saver and screen lock (Style Manager > Screen)");
+        PropertiesFile.store(file, p, "amadeOS screen saver and screen lock (Settings > Screen)");
     }
 
     /** Modification time of the file, or null if it does not exist. */

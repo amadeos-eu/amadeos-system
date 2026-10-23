@@ -14,7 +14,7 @@ import java.util.Properties;
  * as {@code workspace.1.name=Mail} and so on. A workspace without a name of its own is called One to Four in
  * the desktop language, as in CDE; the caller supplies that default. The Front Panel renames workspaces and
  * publishes the names in the root window's {@code _NET_DESKTOP_NAMES}, where the window manager's root menu
- * and the Style Manager read them.
+ * and the Settings read them.
  */
 public final class WorkspaceNames {
     /** The number of workspaces, as in CDE's default. */

@@ -1,0 +1,4 @@
+#!/bin/sh
+# Applies the keyboard, mouse and bell settings of the Settings (~/.config/amadeos/input.conf)
+# at login with xset, xmodmap and xrdb.
+exec /usr/bin/amadeos-settings input >> "${HOME:-/tmp}/.amadeos-input.log" 2>&1
