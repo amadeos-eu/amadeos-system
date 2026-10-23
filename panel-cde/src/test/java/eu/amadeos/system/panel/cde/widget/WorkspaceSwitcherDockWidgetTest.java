@@ -10,12 +10,14 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
 import javax.swing.JRadioButtonMenuItem;
 import eu.amadeos.system.base.theme.ThemeManager;
 import eu.amadeos.system.base.theme.backdrop.MotifColors;
 import eu.amadeos.commons.i18n.LocaleStore;
+import eu.amadeos.system.base.workspace.WorkspaceNames;
 import eu.amadeos.commons.theme.DesktopTheme;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -124,5 +126,67 @@ class WorkspaceSwitcherDockWidgetTest {
         assertEquals("fr_FR.UTF-8", Files.readString(config.resolve(LocaleStore.LOCALE_FILE)).strip());
         assertEquals("FR", widget.languageBtn.code());
         assertEquals("Langue : Français", widget.languageBtn.getToolTipText());
+    }
+
+    @Test
+    void aClickOnTheCurrentWorkspaceRenamesItAsInCde() {
+        AtomicReference<List<String>> published = new AtomicReference<>();
+        AtomicInteger switched = new AtomicInteger(-1);
+        WorkspaceNames names = new WorkspaceNames(config);
+        WorkspaceSwitcherDockWidget widget = new WorkspaceSwitcherDockWidget(switched::set, () -> { },
+                new LocaleStore(config), names, published::set);
+        assertEquals(widget.workspaceNames(), published.get(), "the names are published at start");
+
+        // A click on another workspace switches to it; a second click (a double-click) renames it.
+        widget.workspaceButtons[2].doClick();
+        assertEquals(3, switched.get());
+        assertFalse(widget.isRenaming(2));
+        widget.workspaceButtons[2].doClick();
+        assertTrue(widget.isRenaming(2));
+        assertEquals(widget.workspaceButtons[2].getText(), widget.nameFields[2].getText());
+
+        widget.nameFields[2].setText("Mail");
+        widget.nameFields[2].postActionEvent(); // Return
+        assertFalse(widget.isRenaming(2));
+        assertEquals("Mail", widget.workspaceButtons[2].getText());
+        assertEquals("Mail", names.name(2, "?"), "the name is stored");
+        assertEquals("Mail", published.get().get(2), "and published");
+
+        // Escape keeps the old name
+        widget.startRename(2);
+        widget.nameFields[2].setText("Web");
+        widget.finishRename(2, false);
+        assertEquals("Mail", widget.workspaceButtons[2].getText());
+
+        // An empty name gives back the default
+        widget.startRename(2);
+        widget.nameFields[2].setText(" ");
+        widget.finishRename(2, true);
+        assertEquals(WorkspaceSwitcherDockWidget.workspaceName(2), widget.workspaceButtons[2].getText());
+        assertEquals(java.util.Optional.empty(), names.custom(2));
+    }
+
+    @Test
+    void storedNamesAreShownAndTheMenuOffersRename() throws Exception {
+        WorkspaceNames names = new WorkspaceNames(config);
+        names.rename(0, "Office");
+        WorkspaceSwitcherDockWidget widget = new WorkspaceSwitcherDockWidget(ws -> { }, () -> { },
+                new LocaleStore(config), names, list -> { });
+        assertEquals("Office", widget.workspaceButtons[0].getText());
+        assertEquals(WorkspaceSwitcherDockWidget.workspaceName(1), widget.workspaceButtons[1].getText());
+
+        JPopupMenu menu = widget.workspaceMenu(1);
+        ((JMenuItem) menu.getComponent(0)).doClick();
+        assertTrue(widget.isRenaming(1));
+    }
+
+    @Test
+    void aLongNameIsCutWithAnEllipsis() {
+        java.awt.FontMetrics fm = new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB).createGraphics()
+                .getFontMetrics(new java.awt.Font(java.awt.Font.SANS_SERIF, java.awt.Font.PLAIN, 11));
+        assertEquals("Mail", WorkspaceSwitcherDockWidget.fitted("Mail", fm, 80));
+        String cut = WorkspaceSwitcherDockWidget.fitted("Correspondence and Accounting", fm, 80);
+        assertTrue(cut.endsWith("…"));
+        assertTrue(fm.stringWidth(cut) <= 80);
     }
 }

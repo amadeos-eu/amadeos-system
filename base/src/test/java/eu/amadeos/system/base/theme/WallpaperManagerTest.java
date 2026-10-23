@@ -2,6 +2,7 @@ package eu.amadeos.system.base.theme;
 
 import java.awt.Color;
 import java.awt.image.BufferedImage;
+import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 
@@ -52,5 +53,35 @@ class WallpaperManagerTest {
             WallpaperManager.removeListener(listener);
         }
     }
-}
 
+    @Test
+    void aWorkspaceWithoutABackdropOfItsOwnShowsTheCommonOne() {
+        Properties props = new Properties();
+        props.setProperty("wallpaper", "/usr/share/backgrounds/amadeos/wallpaper.png");
+        props.setProperty("mode", "FIT");
+        props.setProperty("color", "#102030");
+        props.setProperty("workspace.3.wallpaper", "/usr/share/backdrops/Concave.pm");
+        props.setProperty("workspace.3.mode", "TILE");
+
+        WallpaperManager.Backdrop common = WallpaperManager.backdropOf(props, 0);
+        assertEquals("/usr/share/backgrounds/amadeos/wallpaper.png", common.path());
+        assertEquals(WallpaperManager.ScaleMode.FIT, common.mode());
+        assertEquals(new Color(0x10, 0x20, 0x30), common.color());
+        assertFalse(WallpaperManager.hasOwnBackdrop(props, 0));
+
+        WallpaperManager.Backdrop third = WallpaperManager.backdropOf(props, 2);
+        assertTrue(WallpaperManager.hasOwnBackdrop(props, 2));
+        assertEquals("/usr/share/backdrops/Concave.pm", third.path());
+        assertEquals(WallpaperManager.ScaleMode.TILE, third.mode());
+        assertEquals(common.color(), third.color(), "a workspace without a colour of its own takes the common one");
+        assertEquals(common, WallpaperManager.backdropOf(props, -1), "-1 is all workspaces");
+    }
+
+    @Test
+    void anEmptyBackdropIsTheColourOnly() {
+        WallpaperManager.Backdrop backdrop = new WallpaperManager.Backdrop("", null, null);
+        assertEquals(WallpaperManager.NO_BACKDROP, backdrop.path());
+        assertEquals(WallpaperManager.ScaleMode.FILL, backdrop.mode());
+        assertNotNull(backdrop.color());
+    }
+}

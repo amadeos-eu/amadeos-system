@@ -139,12 +139,11 @@ public final class DesktopRootMenu {
         // 4. Workspaces Submenu
         JMenu workspacesMenu = createStyledMenu("Workspaces", theme);
         int currentWs = actions.currentWorkspace();
-        String[] wsNames = {"One", "Two", "Three", "Four"};
         for (int i = 0; i < 4; i++) {
             final int wsIndex = i;
             boolean isActive = (currentWs == i);
             String prefix = isActive ? "✔ " : "   ";
-            JMenuItem wsItem = createStyledMenuItem(prefix + "Workspace " + (i + 1) + ": " + wsNames[i], "workspace", e -> actions.switchWorkspace(wsIndex), theme);
+            JMenuItem wsItem = createStyledMenuItem(prefix + "Workspace " + (i + 1) + ": " + actions.workspaceName(i), "workspace", e -> actions.switchWorkspace(wsIndex), theme);
             if (isActive) {
                 wsItem.setFont(wsItem.getFont().deriveFont(Font.BOLD));
             }

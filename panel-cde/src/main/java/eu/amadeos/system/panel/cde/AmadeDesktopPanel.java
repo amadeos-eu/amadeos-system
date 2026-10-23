@@ -267,7 +267,8 @@ public final class AmadeDesktopPanel extends JFrame {
         // 2. CENTER: Iconic CDE 4-way Workspace Switcher Pad
         this.switcher = new WorkspaceSwitcherDockWidget(
                 wsNum -> helper.setCurrentDesktop(wsNum - 1),
-                () -> eu.amadeos.system.base.ui.SessionDialogHelper.showSessionPowerDialog(this)
+                () -> eu.amadeos.system.base.ui.SessionDialogHelper.showSessionPowerDialog(this),
+                helper::setDesktopNames
         );
         int initialDesktop = helper.getCurrentDesktop();
         if (initialDesktop >= 0 && initialDesktop < 4) {

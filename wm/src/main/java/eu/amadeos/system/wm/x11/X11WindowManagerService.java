@@ -40,6 +40,9 @@ import eu.amadeos.system.base.x11.LaunchFeedback;
 import eu.amadeos.commons.theme.DesktopTheme;
 import eu.amadeos.system.base.theme.ThemeManager;
 import eu.amadeos.system.base.theme.WallpaperManager;
+import eu.amadeos.system.base.theme.WallpaperManager.Backdrop;
+import eu.amadeos.system.base.workspace.WorkspaceNames;
+import eu.amadeos.system.base.x11.X11EwmhHelper;
 import eu.amadeos.system.base.ui.SessionDialogHelper;
 
 public final class X11WindowManagerService implements AutoCloseable {
@@ -148,6 +151,8 @@ public final class X11WindowManagerService implements AutoCloseable {
     private static final long MENU_DOUBLE_CLICK_MS = 400;
 
     private final java.util.Set<Long> dockWindows = new java.util.HashSet<>();
+    /** The rendered backdrops of the workspaces, so a switch only swaps the root window's pixmap. */
+    private final Map<Backdrop, NativeLong> backdropPixmaps = new HashMap<>();
     private int dockMarginBottom = 0;
 
     // CDE Desktop Minimized Icon Tiles (top-left, vertically stacked with 0px spacing)
@@ -354,6 +359,11 @@ public final class X11WindowManagerService implements AutoCloseable {
             }
 
             @Override
+            public String workspaceName(int workspaceIndex) {
+                return X11WindowManagerService.this.workspaceName(workspaceIndex);
+            }
+
+            @Override
             public void shuffleUp() {
                 runOnEventThread(X11WindowManagerService.this::shuffleUp);
             }
@@ -437,13 +447,66 @@ public final class X11WindowManagerService implements AutoCloseable {
         ThemeManager.addListener(newTheme -> runOnEventThread(() -> applyThemeGlobally(newTheme)));
 
         try {
-            int depth = x11.XDefaultDepth(display, screen);
-            Pointer visual = x11.XDefaultVisual(display, screen);
-            WallpaperManager.applyToRootWindow(x11, display, rootWindow, screenWidth, screenHeight, depth, visual);
+            showWorkspaceBackdrop();
         } catch (Exception e) {
             LOGGER.fine("Wallpaper init deferred: " + e.getMessage());
         }
     }
+
+    // --8<-- [start:backdrop]
+    /**
+     * Shows the current workspace's backdrop on the root window, as CDE gives every workspace its own. The
+     * Style Manager stores the backdrops; they are read anew on every switch and rendered once per backdrop.
+     */
+    void showWorkspaceBackdrop() {
+        Backdrop backdrop = WallpaperManager.backdropOf(currentDesktop);
+        NativeLong pixmap = backdropPixmaps.get(backdrop);
+        if (pixmap == null) {
+            int depth = x11.XDefaultDepth(display, screen);
+            Pointer visual = x11.XDefaultVisual(display, screen);
+            pixmap = WallpaperManager.renderPixmap(x11, display, rootWindow, screenWidth, screenHeight, depth, visual, backdrop);
+            if (pixmap == null) return;
+            backdropPixmaps.put(backdrop, pixmap);
+        }
+        WallpaperManager.showPixmap(x11, display, rootWindow, pixmap);
+        // Keep only the pixmaps of backdrops a workspace still has.
+        java.util.Set<Backdrop> inUse = new java.util.HashSet<>();
+        for (int i = 0; i < NUMBER_OF_DESKTOPS; i++) {
+            inUse.add(WallpaperManager.backdropOf(i));
+        }
+        inUse.add(backdrop);
+        backdropPixmaps.entrySet().removeIf(entry -> {
+            if (inUse.contains(entry.getKey())) return false;
+            x11.XFreePixmap(display, entry.getValue());
+            return true;
+        });
+    }
+    // --8<-- [end:backdrop]
+
+    private void forgetBackdropPixmaps() {
+        for (NativeLong pixmap : backdropPixmaps.values()) {
+            x11.XFreePixmap(display, pixmap);
+        }
+        backdropPixmaps.clear();
+    }
+
+    /** The names of the workspaces as the Front Panel published them, else One to Four. */
+    String workspaceName(int index) {
+        java.util.List<String> names = desktopNames;
+        if (index < names.size() && !names.get(index).isBlank()) {
+            return names.get(index);
+        }
+        return DEFAULT_WORKSPACE_NAMES[index];
+    }
+
+    /** {@code _NET_DESKTOP_NAMES} as last read on the event thread; the root menu reads it on the EDT. */
+    private volatile java.util.List<String> desktopNames = java.util.List.of();
+
+    private void readDesktopNames() {
+        desktopNames = java.util.List.copyOf(X11EwmhHelper.readDesktopNames(x11, display, rootWindow, netDesktopNames));
+    }
+
+    private static final String[] DEFAULT_WORKSPACE_NAMES = {"One", "Two", "Three", "Four"};
 
     public Pointer display() {
         return display;
@@ -531,6 +594,12 @@ public final class X11WindowManagerService implements AutoCloseable {
         Memory curMem = new Memory(NativeLong.SIZE);
         curMem.setNativeLong(0, new NativeLong(currentDesktop));
         x11.XChangeProperty(display, new NativeLong(rootWindow), netCurrentDesktop, xaCardinalAtom, 32, LibX11.PropModeReplace, curMem, 1);
+
+        try {
+            showWorkspaceBackdrop();
+        } catch (Exception e) {
+            LOGGER.warning(() -> "Cannot show the backdrop of workspace " + (currentDesktop + 1) + ": " + e.getMessage());
+        }
 
         // Map/Unmap client windows based on active desktop
         for (Map.Entry<Long, FrameWindow> entry : clientToFrame.entrySet()) {
@@ -685,9 +754,9 @@ public final class X11WindowManagerService implements AutoCloseable {
     public void refreshDesktop() {
         x11.XClearWindow(display, new NativeLong(rootWindow));
         try {
-            int depth = x11.XDefaultDepth(display, screen);
-            Pointer visual = x11.XDefaultVisual(display, screen);
-            WallpaperManager.applyToRootWindow(x11, display, rootWindow, screenWidth, screenHeight, depth, visual);
+            // Pictures may have changed on disk: render them anew.
+            forgetBackdropPixmaps();
+            showWorkspaceBackdrop();
         } catch (Exception e) {
             LOGGER.warning(() -> "Error refreshing desktop wallpaper: " + e.getMessage());
         }
@@ -889,11 +958,18 @@ public final class X11WindowManagerService implements AutoCloseable {
         curMem.setNativeLong(0, new NativeLong(currentDesktop));
         x11.XChangeProperty(display, new NativeLong(rootWindow), netCurrentDesktop, xaCardinalAtom, 32, LibX11.PropModeReplace, curMem, 1);
 
-        // _NET_DESKTOP_NAMES on root: "One\0Two\0Three\0Four\0"
-        byte[] namesBytes = "One\0Two\0Three\0Four\0".getBytes(StandardCharsets.UTF_8);
+        // _NET_DESKTOP_NAMES on root: the user's names, else "One\0Two\0Three\0Four\0"; the Front Panel
+        // publishes them again in the desktop language and whenever a workspace is renamed.
+        WorkspaceNames userNames = WorkspaceNames.user();
+        StringBuilder names = new StringBuilder();
+        for (int i = 0; i < NUMBER_OF_DESKTOPS; i++) {
+            names.append(userNames.name(i, DEFAULT_WORKSPACE_NAMES[i])).append('\0');
+        }
+        byte[] namesBytes = names.toString().getBytes(StandardCharsets.UTF_8);
         Memory namesMem = new Memory(namesBytes.length);
         namesMem.write(0, namesBytes, 0, namesBytes.length);
         x11.XChangeProperty(display, new NativeLong(rootWindow), netDesktopNames, utf8String, 8, LibX11.PropModeReplace, namesMem, namesBytes.length);
+        readDesktopNames();
 
         // _NET_SUPPORTED on root
         NativeLong[] supportedAtoms = new NativeLong[]{
@@ -1671,6 +1747,10 @@ public final class X11WindowManagerService implements AutoCloseable {
             case LibX11.PropertyNotify -> {
                 LibX11.XPropertyEvent prop = new LibX11.XPropertyEvent(event.getPointer());
                 long win = prop.window != null ? prop.window.longValue() : 0L;
+                if (win == rootWindow && prop.atom != null && prop.atom.equals(netDesktopNames)) {
+                    readDesktopNames();
+                    break;
+                }
                 if (win == rootWindow && prop.atom != null && prop.atom.equals(amadeosThemeAtom)) {
                     String themeId = fetchRootPropertyString(amadeosThemeAtom);
                     if (themeId != null && !themeId.isEmpty()) {

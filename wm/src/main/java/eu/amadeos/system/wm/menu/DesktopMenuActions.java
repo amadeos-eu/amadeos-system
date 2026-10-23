@@ -8,6 +8,11 @@ public interface DesktopMenuActions {
 
     int currentWorkspace();
 
+    /** The name of workspace {@code workspaceIndex} (0 to 3), as the user named it in the Front Panel. */
+    default String workspaceName(int workspaceIndex) {
+        return new String[]{"One", "Two", "Three", "Four"}[workspaceIndex];
+    }
+
     void shuffleUp();
 
     void shuffleDown();

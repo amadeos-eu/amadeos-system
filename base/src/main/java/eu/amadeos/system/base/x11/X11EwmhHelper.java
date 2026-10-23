@@ -362,6 +362,54 @@ public class X11EwmhHelper implements AutoCloseable {
         return null;
     }
 
+    /** Publishes the workspace names in the root window's {@code _NET_DESKTOP_NAMES}, each ended by a NUL. */
+    public void setDesktopNames(List<String> names) {
+        StringBuilder joined = new StringBuilder();
+        for (String name : names) {
+            joined.append(name).append('\0');
+        }
+        byte[] bytes = joined.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        Memory mem = new Memory(Math.max(1, bytes.length));
+        mem.write(0, bytes, 0, bytes.length);
+        x11.XChangeProperty(display, new NativeLong(rootWindow), netDesktopNames, utf8String, 8,
+                LibX11.PropModeReplace, mem, bytes.length);
+        x11.XFlush(display);
+    }
+
+    /** The workspace names from {@code _NET_DESKTOP_NAMES}; empty if no one has published them. */
+    public List<String> getDesktopNames() {
+        return readDesktopNames(x11, display, rootWindow, netDesktopNames);
+    }
+
+    /** Reads {@code _NET_DESKTOP_NAMES} of {@code root}: NUL-separated UTF-8 names. */
+    public static List<String> readDesktopNames(LibX11 x11, Pointer display, long root, NativeLong netDesktopNames) {
+        PointerByReference actualTypeRet = new PointerByReference();
+        IntByReference actualFormatRet = new IntByReference();
+        NativeLongByReference nitemsRet = new NativeLongByReference();
+        NativeLongByReference bytesAfterRet = new NativeLongByReference();
+        PointerByReference propRet = new PointerByReference();
+
+        int status = x11.XGetWindowProperty(
+                display, new NativeLong(root), netDesktopNames,
+                new NativeLong(0), new NativeLong(1024), 0,
+                new NativeLong(0) /* AnyPropertyType */,
+                actualTypeRet, actualFormatRet, nitemsRet, bytesAfterRet, propRet);
+
+        List<String> names = new ArrayList<>();
+        if (status == 0 && propRet.getValue() != null && nitemsRet.getValue() != null && nitemsRet.getValue().longValue() > 0) {
+            Pointer ptr = propRet.getValue();
+            try {
+                byte[] bytes = ptr.getByteArray(0, (int) nitemsRet.getValue().longValue());
+                for (String name : new String(bytes, java.nio.charset.StandardCharsets.UTF_8).split("\0")) {
+                    names.add(name);
+                }
+            } finally {
+                x11.XFree(ptr);
+            }
+        }
+        return names;
+    }
+
     public NativeLong netCurrentDesktop() {
         return netCurrentDesktop;
     }
