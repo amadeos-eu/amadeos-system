@@ -161,6 +161,16 @@ final class SettingsIcons {
                 g.setColor(ink);
                 g.drawRect(11, 4, 10, 5);
             }
+            case DISPLAY -> {
+                // A monitor whose picture has arrows to its corners: the resolution.
+                monitor(g, t, ink);
+                g.setColor(enabled ? new Color(0x4A, 0x69, 0x84) : t.shadow());
+                g.fillRect(6, 6, 24, 16);
+                g.setColor(enabled ? Color.WHITE : t.textInactive());
+                g.drawLine(10, 9, 26, 19);
+                g.fillPolygon(new int[]{8, 14, 11}, new int[]{8, 9, 13}, 3);
+                g.fillPolygon(new int[]{28, 22, 25}, new int[]{20, 19, 15}, 3);
+            }
             case SCREEN -> {
                 monitor(g, t, ink);
                 g.setColor(Color.BLACK);

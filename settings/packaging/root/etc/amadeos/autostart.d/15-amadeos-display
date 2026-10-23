@@ -1,0 +1,4 @@
+#!/bin/sh
+# Sets the monitor layout kept in Settings > Display (~/.config/amadeos/display.conf) for the monitors that
+# are connected, with xrandr. Nothing happens when no layout was kept for them.
+exec /usr/bin/amadeos-settings display-apply >> "${HOME:-/tmp}/.amadeos-display.log" 2>&1

@@ -56,8 +56,9 @@ public final class X11WindowManagerService implements AutoCloseable {
     private final Pointer display;
     private final int screen;
     private final long rootWindow;
-    private final int screenWidth;
-    private final int screenHeight;
+    // The size of the root window; follows the Settings' Display page and other xrandr changes.
+    private int screenWidth;
+    private int screenHeight;
     private final WindowManagerCore core;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
@@ -498,6 +499,55 @@ public final class X11WindowManagerService implements AutoCloseable {
         });
     }
     // --8<-- [end:backdrop]
+
+    // --8<-- [start:resize]
+    /**
+     * The screen got a new size, e.g. from the Display page of the Settings (xrandr): the backdrop is drawn
+     * anew, maximized and full screen windows fill the new screen, and other windows are moved back onto it.
+     * The front panel places itself.
+     */
+    void screenResized(int width, int height) {
+        if (width <= 0 || height <= 0 || (width == screenWidth && height == screenHeight)) {
+            return;
+        }
+        LOGGER.info("Screen resized from " + screenWidth + "x" + screenHeight + " to " + width + "x" + height);
+        screenWidth = width;
+        screenHeight = height;
+        forgetBackdropPixmaps();
+        try {
+            showWorkspaceBackdrop();
+        } catch (RuntimeException e) {
+            LOGGER.fine("Backdrop not redrawn: " + e.getMessage());
+        }
+        int maxH = Math.max(100, screenHeight - dockMarginBottom);
+        for (FrameWindow frame : java.util.List.copyOf(clientToFrame.values())) {
+            FrameMetrics m = frame.metrics();
+            if (frame.isFullScreen()) {
+                frame.setBounds(-m.clientOffsetX(), -m.clientOffsetY(), m.frameWidth(screenWidth), m.frameHeight(screenHeight));
+            } else if (frame.isMaximized()) {
+                frame.setBounds(0, 0, screenWidth, maxH);
+            } else {
+                int w = Math.min(frame.frameWidth(), screenWidth);
+                int h = Math.min(frame.frameHeight(), maxH);
+                int x = Math.max(0, Math.min(frame.frameX(), screenWidth - w));
+                int y = Math.max(0, Math.min(frame.frameY(), maxH - h));
+                if (x == frame.frameX() && y == frame.frameY() && w == frame.frameWidth() && h == frame.frameHeight()) {
+                    continue;
+                }
+                frame.setBounds(x, y, w, h);
+            }
+            x11.XMoveResizeWindow(display, frame.frameWindow(), frame.frameX(), frame.frameY(), frame.frameWidth(), frame.frameHeight());
+            x11.XMoveResizeWindow(display, frame.clientWindow(),
+                    frame.clientX(), frame.clientY(), frame.clientWidth(), frame.clientHeight());
+            frame.render();
+            frame.blit(display, gc, screen);
+            sendSyntheticConfigureNotify(frame);
+            core.registry().updateGeometry(frame.clientWindow().longValue(),
+                    new WindowGeometry(frame.frameX(), frame.frameY(), frame.frameWidth(), frame.frameHeight()));
+        }
+        x11.XFlush(display);
+    }
+    // --8<-- [end:resize]
 
     private void forgetBackdropPixmaps() {
         for (NativeLong pixmap : backdropPixmaps.values()) {
@@ -1857,6 +1907,12 @@ public final class X11WindowManagerService implements AutoCloseable {
                     long targetDesktop = (cmsg.data != null && cmsg.data.length > 0 && cmsg.data[0] != null) ? cmsg.data[0].longValue() : 0L;
                     setClientDesktop(win, (int) targetDesktop);
                     LOGGER.info(() -> "ClientMessage _NET_WM_DESKTOP handled: win=" + win + " desktop=" + targetDesktop);
+                }
+            }
+            case LibX11.ConfigureNotify -> {
+                LibX11.XConfigureEvent cfg = new LibX11.XConfigureEvent(event.getPointer());
+                if (cfg.window.longValue() == rootWindow) {
+                    screenResized(cfg.width, cfg.height);
                 }
             }
             case LibX11.ConfigureRequest -> {

@@ -764,6 +764,29 @@ class X11WindowManagerIntegrationTest {
         }
     }
 
+    @Test
+    void screenResizeKeepsWindowsOnTheScreen() throws Exception {
+        assumeTrue(new File("/usr/bin/xrandr").exists(), "xrandr is required to change the screen size");
+        try (X11WindowManagerService wm = X11WindowManagerService.open(display)) {
+            Process client = new ProcessBuilder("xmessage", "-display", display, "-buttons", "OK:0", "Resize").start();
+            try {
+                assertTrue(waitFor(wm, () -> !wm.core().registry().snapshot().isEmpty()));
+                long windowId = wm.core().registry().snapshot().iterator().next().id();
+                FrameWindow frame = wm.getFrameForClient(windowId);
+                assertNotNull(frame);
+
+                // Xvfb cannot grow its screen, but xrandr can make it smaller (the CRTC error is expected).
+                new ProcessBuilder("xrandr", "-display", display, "--fb", "320x240").start().waitFor(5, TimeUnit.SECONDS);
+                assertTrue(waitFor(wm, () -> wm.screenWidth() == 320), "The window manager must follow the new size");
+                assertEquals(240, wm.screenHeight());
+                assertTrue(frame.frameX() + frame.frameWidth() <= 320, "The window must stay on the screen");
+                assertTrue(frame.frameY() + frame.frameHeight() <= 240, "The window must stay on the screen");
+            } finally {
+                client.destroyForcibly();
+            }
+        }
+    }
+
     /** Lets the window manager handle its events until the condition holds; slow CI machines need more than a fixed pause. */
     private static boolean waitFor(X11WindowManagerService wm, java.util.function.BooleanSupplier condition)
             throws InterruptedException {

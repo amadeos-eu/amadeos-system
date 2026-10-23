@@ -241,6 +241,7 @@ public final class SettingsWindow extends JFrame {
             case KEYBOARD -> new KeyboardPage(this::setStatus, input);
             case MOUSE -> new MousePage(this::setStatus, input);
             case BEEP -> new BeepPage(this::setStatus, input);
+            case DISPLAY -> new DisplayPage(this::setStatus, system.displays(), stores.display());
             case SCREEN -> new ScreenPage(this::setStatus, stores.screen());
             case WINDOW -> new WindowPage(this::setStatus, stores.window());
             case CLIPBOARD -> new ClipboardPage(this::setStatus, stores.clipboard());

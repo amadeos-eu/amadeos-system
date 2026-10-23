@@ -6,8 +6,8 @@ import java.util.Locale;
 
 /**
  * The controls of the Settings: CDE's dtstyle controls in their order, grouped for the sidebar, with amadeOS's
- * own controls added: Workspaces and Front Panel after Backdrop, Clipboard after Window, and the System group
- * (Passwords, Updates, Language) at the end.
+ * own controls added: Workspaces and Front Panel after Backdrop, Display before Screen, Clipboard after Window,
+ * and the System group (Passwords, Updates, Language) at the end.
  */
 public enum SettingsCategory {
     COLOR(Group.APPEARANCE, true),
@@ -18,6 +18,7 @@ public enum SettingsCategory {
     KEYBOARD(Group.INPUT, true),
     MOUSE(Group.INPUT, true),
     BEEP(Group.INPUT, true),
+    DISPLAY(Group.DESKTOP, true),
     SCREEN(Group.DESKTOP, true),
     WINDOW(Group.DESKTOP, true),
     CLIPBOARD(Group.DESKTOP, true),

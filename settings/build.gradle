@@ -1,5 +1,5 @@
 // The Settings (formerly CDE's Style Manager, dtstyle) and the input settings tool. `amadeos-settings`,
-// `amadeos-settings input`; `amadeos-style` still starts them.
+// `amadeos-settings input`, `amadeos-settings display-apply`; `amadeos-style` still starts them.
 application {
     mainClass = 'eu.amadeos.system.settings.SettingsLauncher'
 }
@@ -15,8 +15,8 @@ dependencies {
 debian = [
     section    : 'x11',
     javaOptions: '--enable-native-access=ALL-UNNAMED',
-    // xset, xmodmap, xrdb and xsetroot apply the keyboard, mouse, bell and backdrop settings; the package
-    // helper changes the automatic security updates.
+    // xset, xmodmap, xrdb and xsetroot apply the keyboard, mouse, bell and backdrop settings, xrandr the
+    // monitors; the package helper changes the automatic security updates.
     depends    : ['x11-xserver-utils', 'amadeos-packages'],
     // The package was amadeos-style while the program was called Style Manager.
     provides   : ['amadeos-style'],
@@ -25,7 +25,8 @@ debian = [
     summary    : 'Settings and input settings tool of amadeOS',
     description: '''The Settings of the amadeOS desktop, formerly CDE's Style Manager (dtstyle): Color
 (palette and icon theme), Font (size), Backdrop, Workspaces (names), Front Panel
-(clock, status cells), Keyboard, Mouse, Beep, Screen, Window (focus, raising,
+(clock, status cells), Keyboard, Mouse, Beep, Display (resolution, refresh
+rate, rotation and arrangement of the monitors), Screen, Window (focus, raising,
 moving), Clipboard, Startup (programs and services at login), Passwords (the
 login keyring), Updates (automatic security updates) and Language (desktop
 language, time zone), in a window with a sidebar and a search, or as CDE's
@@ -33,5 +34,6 @@ compact controls. Writes ~/.config/amadeos/theme.conf and font.conf, which the
 window manager, the panel and every amade application follow, window.conf for
 the window manager and panel.conf for the Front Panel. amadeos-settings input
 applies the keyboard, mouse and bell settings at login
-(/etc/amadeos/autostart.d/10-amadeos-input).'''
+(/etc/amadeos/autostart.d/10-amadeos-input), amadeos-settings display-apply
+the kept monitor layout (/etc/amadeos/autostart.d/15-amadeos-display).'''
 ]
