@@ -99,6 +99,8 @@ public final class AmadeDesktopPanel extends JFrame {
     private final JPanel rightSlots;
     private final WorkspaceSwitcherDockWidget switcher;
     private final Timer pollTimer;
+    /** The screen size the dock was placed for. */
+    private Dimension screenSize;
     /** When the panel last started an application; the window manager's busy flag may lag behind. */
     private long launchedAt;
     /** Fill the drawers again from the desktop entries, one per drawer. */
@@ -407,25 +409,7 @@ public final class AmadeDesktopPanel extends JFrame {
         // Listen for internal ThemeManager changes
         ThemeManager.addListener(this::applyTheme);
 
-        // Position dock centered at bottom (or custom position for testing)
-        int screenW = helper.screenWidth();
-        int screenH = helper.screenHeight();
-        // Width follows the slots: adding or removing a widget resizes the dock
-        int dockWidth = Math.min(rootPanel.getPreferredSize().width, screenW);
-        int dockX = Math.max(0, (screenW - dockWidth) / 2);
-        int dockY = screenH - DOCK_HEIGHT;
-
-        if (Boolean.getBoolean("amadeos.dock.center")) {
-            dockY = Math.max(0, (screenH - DOCK_HEIGHT) / 2);
-        } else {
-            String customY = System.getProperty("amadeos.dock.y");
-            if (customY != null) {
-                try {
-                    dockY = Integer.parseInt(customY);
-                } catch (Exception ignored) {}
-            }
-        }
-        setBounds(dockX, dockY, dockWidth, DOCK_HEIGHT);
+        placeDock();
 
         // Press Escape to exit standalone panel
         rootPanel.registerKeyboardAction(
@@ -447,10 +431,44 @@ public final class AmadeDesktopPanel extends JFrame {
                 switcher.setActiveWorkspace(remoteDesktop + 1);
             }
             showBusy(helper.isLaunchBusy() || System.currentTimeMillis() - launchedAt < 1000);
+            // A new resolution (Settings > Display): back to the bottom centre of the new screen.
+            if (screenSize != null && !screenSize.equals(new Dimension(helper.screenWidth(), helper.screenHeight()))) {
+                placeDock();
+                registerAsDock();
+            }
         });
         pollTimer.start();
         // --8<-- [end:poll]
     }
+
+
+    // --8<-- [start:place]
+    /**
+     * Puts the dock centered at the bottom of the screen (or where the test properties say). Called at start and
+     * whenever the screen size changes, e.g. after a new resolution in Settings &gt; Display.
+     */
+    private void placeDock() {
+        int screenW = helper.screenWidth();
+        int screenH = helper.screenHeight();
+        // Width follows the slots: adding or removing a widget resizes the dock
+        int dockWidth = Math.min(rootPanel.getPreferredSize().width, screenW);
+        int dockX = Math.max(0, (screenW - dockWidth) / 2);
+        int dockY = screenH - DOCK_HEIGHT;
+
+        if (Boolean.getBoolean("amadeos.dock.center")) {
+            dockY = Math.max(0, (screenH - DOCK_HEIGHT) / 2);
+        } else {
+            String customY = System.getProperty("amadeos.dock.y");
+            if (customY != null) {
+                try {
+                    dockY = Integer.parseInt(customY);
+                } catch (Exception ignored) {}
+            }
+        }
+        setBounds(dockX, dockY, dockWidth, DOCK_HEIGHT);
+        screenSize = new Dimension(screenW, screenH);
+    }
+    // --8<-- [end:place]
 
     public void applyTheme(DesktopTheme theme) {
         setBackground(theme.base());

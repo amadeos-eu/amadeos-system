@@ -91,12 +91,25 @@ public class X11EwmhHelper implements AutoCloseable {
         return rootWindow;
     }
 
+    /**
+     * The width of the root window as the server has it now. Xlib's DisplayWidth keeps the size the connection
+     * was opened with, so it would miss a change made with xrandr (Settings &gt; Display).
+     */
     public int screenWidth() {
-        return x11.XDisplayWidth(display, screen);
+        LibX11.XWindowAttributes root = rootAttributes();
+        return root != null ? root.width : x11.XDisplayWidth(display, screen);
     }
 
+    /** The height of the root window as the server has it now; see {@link #screenWidth()}. */
     public int screenHeight() {
-        return x11.XDisplayHeight(display, screen);
+        LibX11.XWindowAttributes root = rootAttributes();
+        return root != null ? root.height : x11.XDisplayHeight(display, screen);
+    }
+
+    private LibX11.XWindowAttributes rootAttributes() {
+        LibX11.XWindowAttributes attrs = new LibX11.XWindowAttributes();
+        if (x11.XGetWindowAttributes(display, new NativeLong(rootWindow), attrs) == 0) return null;
+        return attrs.width > 0 && attrs.height > 0 ? attrs : null;
     }
 
     public void selectRootPropertyEvents() {

@@ -23,7 +23,7 @@ jobs:
           cache-provider: basic
       # The X11 integration tests of the window manager start their own Xvfb and use xmessage as a test client.
       - name: Install X11 test tools
-        run: sudo apt-get update -q && sudo apt-get install -y -q x11-utils xvfb
+        run: sudo apt-get update -q && sudo apt-get install -y -q x11-utils x11-xserver-utils xvfb
       - name: Test
         run: xvfb-run --auto-servernum ./gradlew test --no-daemon
       - name: Check that the tests ran

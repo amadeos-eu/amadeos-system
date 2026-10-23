@@ -50,7 +50,7 @@ class SystemPagesTest {
     /** A system without a keyring, with an apt that has nothing to offer, and a time zone that only remembers. */
     static SystemAccess fakeSystem() {
         return new SystemAccess(new FakeKeyring(), packages(new ArrayList<>(), List.of()), new FakeTimeZones(),
-                command -> { }, List::of);
+                command -> { }, List::of, new FakeDisplays());
     }
 
     /** An apt whose automatic security updates are off and which records the calls that change them. */
