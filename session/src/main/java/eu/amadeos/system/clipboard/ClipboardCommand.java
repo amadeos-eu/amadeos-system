@@ -8,7 +8,7 @@ import java.util.Optional;
 
 /**
  * The commands other programs send to the running clipboard manager: the Front Panel's Clipboard entry
- * ({@code amadeos-clipboard}) shows the history, the Style Manager clears it. They travel as an X client
+ * ({@code amadeos-clipboard}) shows the history, the Settings clear it. They travel as an X client
  * message to the owner of {@code _AMADEOS_CLIPBOARD}.
  */
 public enum ClipboardCommand {

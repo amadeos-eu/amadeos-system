@@ -188,7 +188,7 @@ public final class ClipboardManager {
         return settings;
     }
 
-    /** New settings from the Style Manager; turning the history off forgets it. */
+    /** New settings from the Settings; turning the history off forgets it. */
     public void apply(ClipboardSettings settings) {
         this.settings = settings;
         history.setLimit(settings.size());

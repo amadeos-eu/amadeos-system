@@ -60,7 +60,7 @@ class ScreenSaverDaemonTest {
         assertEquals(1, locks.get());
         assertFalse(daemon.saverVisible());
 
-        // The Style Manager switches the lock off; the daemon reads the new file without a restart.
+        // The Settings switch the lock off; the daemon reads the new file without a restart.
         monitor.idle = 10;
         daemon.poll();
         store.save(new ScreenSettings(true, 1, false, 2, "blank"));

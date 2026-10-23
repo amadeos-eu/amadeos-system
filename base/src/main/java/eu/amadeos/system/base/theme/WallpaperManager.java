@@ -278,7 +278,7 @@ public final class WallpaperManager {
 
     /**
      * The backdrop of workspace {@code workspace} (0 to 3) as stored now, read from the file each time: the
-     * Style Manager is a program of its own, and the window manager must see what it stored.
+     * Settings are a program of their own, and the window manager must see what it stored.
      */
     public static Backdrop backdropOf(int workspace) {
         return backdropOf(readConfig(), workspace);

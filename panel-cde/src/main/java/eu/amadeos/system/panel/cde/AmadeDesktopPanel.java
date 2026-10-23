@@ -308,7 +308,7 @@ public final class AmadeDesktopPanel extends JFrame {
         // installer of the live image, for example), except those the fixed entries already start.
         Supplier<List<DrawerTool>> toolsTools = () -> {
             List<DrawerTool> tools = new ArrayList<>(List.of(
-                    new DrawerTool(PanelTexts.get("panel.tool.style"), "style", e -> launchProcess("amadeos-style")),
+                    new DrawerTool(PanelTexts.get("panel.tool.style"), "style", e -> launchProcess("amadeos-settings")),
                     new DrawerTool(PanelTexts.get("panel.tool.apps"), "app-manager", e -> showApplicationManagerDialog(this)),
                     new DrawerTool(PanelTexts.get("panel.tool.terminal"), "terminal", e -> launchProcess("xterm")),
                     new DrawerTool(PanelTexts.get("panel.tool.root.console"), "terminal", e -> launchProcess("xterm", "-title", "Root Shell", "-e", "sudo", "sh")),
@@ -317,7 +317,7 @@ public final class AmadeDesktopPanel extends JFrame {
                     new DrawerTool(PanelTexts.get("panel.tool.sysinfo"), "diagnostics", e -> launchProcess("amadeos-sysinfo"))
             ));
             tools.addAll(xdgTools(List.of(XdgCategory.SETTINGS, XdgCategory.MONITOR),
-                    Set.of("amadeos-style", "amadeos-logviewer", "amadeos-sysinfo", "xterm")));
+                    Set.of("amadeos-settings", "amadeos-style", "amadeos-logviewer", "amadeos-sysinfo", "xterm")));
             return tools;
         };
         DrawerDockWidget toolsDrawer = fixedDrawer(

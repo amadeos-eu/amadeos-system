@@ -13,7 +13,7 @@ public interface SaverModule {
     /** Stable id stored in {@code screen.conf}. */
     String id();
 
-    /** Name shown in the Style Manager. */
+    /** Name shown in the Settings. */
     String name();
 
     void reset(int width, int height, Random random);

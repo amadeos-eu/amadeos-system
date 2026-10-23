@@ -13,7 +13,7 @@ import java.util.Random;
 
 /**
  * Runs a {@link SaverModule} at about 30 frames per second. Used full screen by the daemon and as the
- * small preview in the Style Manager.
+ * small preview in the Settings.
  *
  * <p>On very large areas (several monitors, 4K) modules that allow it ({@link SaverModule#halfSize()}) are
  * drawn at half the size into an image in video memory and scaled up in one step: a quarter of the pixels

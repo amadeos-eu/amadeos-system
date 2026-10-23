@@ -12,7 +12,7 @@ import java.util.logging.Logger;
 
 /**
  * The clipboard manager's X thread. It owns {@code _AMADEOS_CLIPBOARD} (one manager per session; the Front
- * Panel and the Style Manager send their commands to its owner) and, if no other clipboard manager is
+ * Panel and the Settings send their commands to its owner) and, if no other clipboard manager is
  * running, {@code CLIPBOARD_MANAGER}, through which programs ask for their copy to be saved before they
  * close. It hears from XFixes whenever {@code CLIPBOARD} or {@code PRIMARY} changes hands and grabs
  * Ctrl+Alt+V on the root window for the history.

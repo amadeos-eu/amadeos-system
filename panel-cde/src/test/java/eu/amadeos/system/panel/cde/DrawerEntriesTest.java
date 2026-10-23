@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DrawerEntriesTest {
 
-    private static final Set<String> FIXED = Set.of("amadeos-style", "amadeos-sysinfo", "xterm");
+    private static final Set<String> FIXED = Set.of("amadeos-settings", "amadeos-style", "amadeos-sysinfo", "xterm");
 
     private static XdgDesktopEntry entry(String exec, boolean terminal) {
         return new XdgDesktopEntry("test.desktop", "Test", "", "", "window", exec, terminal,
@@ -26,7 +26,7 @@ class DrawerEntriesTest {
     @Test
     void anEntryThatOnlyStartsAFixedProgramIsLeftOut() {
         assertTrue(AmadeDesktopPanel.startsOnly(entry("xterm", false), FIXED));
-        assertTrue(AmadeDesktopPanel.startsOnly(entry("/usr/bin/amadeos-style %U", false), FIXED));
+        assertTrue(AmadeDesktopPanel.startsOnly(entry("/usr/bin/amadeos-settings %U", false), FIXED));
     }
 
     @Test

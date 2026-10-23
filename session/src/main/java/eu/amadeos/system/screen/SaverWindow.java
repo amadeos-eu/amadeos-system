@@ -16,7 +16,7 @@ import java.awt.image.BufferedImage;
 
 /**
  * An undecorated window above everything, covering all monitors, with an invisible pointer. The daemon
- * notices input through the X server's idle counter; the Style Manager's "Test" ends the preview on the
+ * notices input through the X server's idle counter; the Settings' "Test" ends the preview on the
  * first key or mouse event through {@link #dismissOnInput(Runnable)}.
  */
 public final class SaverWindow extends JWindow {

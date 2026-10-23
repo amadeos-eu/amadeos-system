@@ -33,7 +33,7 @@ import javax.swing.ImageIcon;
  *
  * The default icon theme is NsCDE ({@link DesktopTheme#DEFAULT_ICON_THEME}, package
  * {@code nscde-icon-theme}); other packs (Adwaita, Papirus, Tango, ...) installed in the standard XDG/system
- * directories and amadeOS theme folders can be chosen in the Style Manager. Names no theme provides fall
+ * directories and amadeOS theme folders can be chosen in the Settings. Names no theme provides fall
  * back to {@code /usr/share/pixmaps} and finally to icons drawn in Java2D, so the desktop stays usable
  * without any icon package.
  */

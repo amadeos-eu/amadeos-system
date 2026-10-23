@@ -17,7 +17,7 @@ debian = [
     depends    : ['network-manager', 'polkitd'],
     // The window manager, the programs of the Tools drawer and the Printers slot, and the helper through
     // which the updates cell installs (without it the cell still shows the pending updates).
-    recommends : ['amadeos-wm', 'amadeos-logviewer', 'amadeos-sysinfo', 'amadeos-print', 'amadeos-style',
+    recommends : ['amadeos-wm', 'amadeos-logviewer', 'amadeos-sysinfo', 'amadeos-print', 'amadeos-settings',
                   'amadeos-packages'],
     provides   : ['amadeos-panel'],
     conflicts  : ['amade-desktop', 'amade-panel-cde'],

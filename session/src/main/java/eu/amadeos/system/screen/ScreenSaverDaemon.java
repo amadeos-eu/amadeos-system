@@ -14,7 +14,7 @@ import java.util.logging.Logger;
 /**
  * The screen saver of the session ({@code amadeos.jar screen}), the counterpart of CDE's dtscreen
  * started by dtsession. Polls the idle time of the X server, shows the saver and starts the screen lock
- * according to the Style Manager's "Screen" settings, which it re-reads when they change.
+ * according to the Settings' "Screen" settings, which it re-reads when they change.
  *
  * <p>Exit codes: 0 on request, 5 if there is no X display or no MIT-SCREEN-SAVER extension (the session
  * script then stops restarting it).

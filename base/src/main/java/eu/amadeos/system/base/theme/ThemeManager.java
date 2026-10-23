@@ -17,8 +17,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.Logger;
 
 /**
- * The desktop's side of theming: selects the theme, stores it in {@code ~/.config/amadeos/theme.conf}
- * and {@code icon_theme.conf} and notifies the desktop processes (window manager, front panel, settings),
+ * The desktop's side of theming: selects the theme, stores it in {@code ~/.config/amadeos/theme.conf},
+ * {@code icon_theme.conf} and {@code font.conf} and notifies the desktop processes (window manager, front panel, settings),
  * which also exchange it through the X11 root window property {@value #X11_THEME_ATOM}.
  *
  * <p>The themes themselves, their discovery and the Motif look come from amade-commons
@@ -73,14 +73,15 @@ public final class ThemeManager {
 
     // --8<-- [start:apply]
     public static synchronized void applyTheme(String themeId) {
-        DesktopTheme theme = REGISTRY.find(themeId).orElse(null);
-        if (theme == null) {
+        DesktopTheme found = REGISTRY.find(themeId).orElse(null);
+        if (found == null) {
             LOGGER.warning("Theme '" + themeId + "' not found, keeping current: " + currentTheme.id());
             return;
         }
-        if (currentTheme.id().equals(theme.id())) {
+        if (currentTheme.id().equals(found.id())) {
             return;
         }
+        DesktopTheme theme = found.withFontSize(currentTheme.fontSize());
         currentTheme = theme;
         AmadeUI.install(theme);
         IconManager.clearCache();
@@ -102,6 +103,17 @@ public final class ThemeManager {
         persist(ThemeStore.ICON_THEME_FILE, iconThemeId);
         LOGGER.info(() -> "Applied icon theme: " + iconThemeId);
         notifyListeners(currentTheme);
+    }
+
+    /** Sets the font size (1 to 7, CDE's font groups) of the desktop and every application. */
+    public static synchronized void applyFontSize(int fontSize) {
+        DesktopTheme theme = currentTheme.withFontSize(fontSize);
+        if (theme.fontSize() == currentTheme.fontSize()) return;
+        currentTheme = theme;
+        AmadeUI.install(theme);
+        persist(ThemeStore.FONT_FILE, Integer.toString(theme.fontSize()));
+        LOGGER.info(() -> "Applied font size: " + theme.fontSize());
+        notifyListeners(theme);
     }
 
     private static void notifyListeners(DesktopTheme theme) {

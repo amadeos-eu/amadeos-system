@@ -1,0 +1,30 @@
+// The Settings (formerly CDE's Style Manager, dtstyle) and the input settings tool. `amadeos-settings`,
+// `amadeos-settings input`; `amadeos-style` still starts them.
+application {
+    mainClass = 'eu.amadeos.system.settings.SettingsLauncher'
+}
+
+dependencies {
+    // The Screen controls preview the saver modules and write the settings the screen saver reads.
+    implementation project(':session')
+}
+
+debian = [
+    section    : 'x11',
+    javaOptions: '--enable-native-access=ALL-UNNAMED',
+    // xset, xmodmap, xrdb and xsetroot apply the keyboard, mouse, bell and backdrop settings.
+    depends    : ['x11-xserver-utils'],
+    // The package was amadeos-style while the program was called Style Manager.
+    provides   : ['amadeos-style'],
+    conflicts  : ['amade-desktop', 'amade-style', 'amadeos-style'],
+    replaces   : ['amade-desktop', 'amade-style', 'amadeos-style'],
+    summary    : 'Settings and input settings tool of amadeOS',
+    description: '''The Settings of the amadeOS desktop, formerly CDE's Style Manager (dtstyle): Color
+(palette and icon theme), Font (size), Backdrop, Keyboard, Mouse, Beep, Screen,
+Window (focus, raising, moving) and Clipboard, in a window with a sidebar and a
+search, or as CDE's compact row of controls. Writes ~/.config/amadeos/theme.conf
+and font.conf, which the window manager, the panel and every amade application
+follow, and window.conf for the window manager. amadeos-settings input applies
+the keyboard, mouse and bell settings at login
+(/etc/amadeos/autostart.d/10-amadeos-input).'''
+]

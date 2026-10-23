@@ -71,7 +71,7 @@ class DrawerDockWidgetTest {
 
     @Test
     void testFlatNotchTabWithoutDrawer() {
-        DrawerDockWidget widget = new DrawerDockWidget("style", "Style Manager", "style", e -> {}, List.of(), false);
+        DrawerDockWidget widget = new DrawerDockWidget("style", "Settings", "style", e -> {}, List.of(), false);
 
         assertFalse(widget.hasDrawer(), "Widget should not have a drawer");
         assertFalse(widget.tabBtn.isFocusable(), "Tab button should not be focusable");

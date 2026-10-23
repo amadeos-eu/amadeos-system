@@ -38,6 +38,10 @@ public interface LibX11 extends Library {
     int MotionNotify = 6;
     int EnterNotify = 7;
     int LeaveNotify = 8;
+    /** XCrossingEvent.mode: an ordinary pointer move, not a grab or ungrab. */
+    int NotifyNormal = 0;
+    /** XCrossingEvent.detail: the pointer moved between a window and one of its children. */
+    int NotifyInferior = 2;
     int FocusIn = 9;
     int FocusOut = 10;
     int Expose = 12;
@@ -386,6 +390,38 @@ public interface LibX11 extends Library {
         }
 
         public XMotionEvent(Pointer p) {
+            super(p);
+            read();
+        }
+    }
+
+    @Structure.FieldOrder({
+        "type", "serial", "send_event", "display", "window",
+        "root", "subwindow", "time", "x", "y", "x_root", "y_root",
+        "mode", "detail", "same_screen", "focus", "state"
+    })
+    class XCrossingEvent extends Structure {
+        public int type;
+        public NativeLong serial;
+        public int send_event;
+        public Pointer display;
+        public NativeLong window;
+        public NativeLong root;
+        public NativeLong subwindow;
+        public NativeLong time;
+        public int x, y;
+        public int x_root, y_root;
+        public int mode;
+        public int detail;
+        public int same_screen;
+        public int focus;
+        public int state;
+
+        public XCrossingEvent() {
+            super();
+        }
+
+        public XCrossingEvent(Pointer p) {
             super(p);
             read();
         }
