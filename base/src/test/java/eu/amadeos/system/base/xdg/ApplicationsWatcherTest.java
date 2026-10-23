@@ -34,4 +34,22 @@ class ApplicationsWatcherTest {
             assertNotNull(calls.poll(10, TimeUnit.SECONDS));
         }
     }
+
+    @Test
+    void aDirectoryCreatedLaterIsWatchedToo() throws Exception {
+        // A new user has no ~/.local/share/applications yet; mkdir -p makes it, then a desktop entry goes in
+        Path applications = dir.resolve("home/.local/share/applications");
+        Files.createDirectory(dir.resolve("home"));
+        LinkedBlockingQueue<Boolean> calls = new LinkedBlockingQueue<>();
+        try (AutoCloseable watch = ApplicationsWatcher.start(List.of(applications), 300, () -> calls.add(true))) {
+            // Something else in the home folder is no change of the entries
+            Files.writeString(dir.resolve("home/notes.txt"), "x");
+            assertNull(calls.poll(1, TimeUnit.SECONDS));
+
+            Files.createDirectories(applications);
+            assertNotNull(calls.poll(10, TimeUnit.SECONDS));
+            Files.writeString(applications.resolve("backup.desktop"), "[Desktop Entry]\n");
+            assertNotNull(calls.poll(10, TimeUnit.SECONDS));
+        }
+    }
 }
