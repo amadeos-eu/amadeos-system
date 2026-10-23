@@ -54,10 +54,15 @@ import eu.amadeos.system.packages.AptPackageService;
 import eu.amadeos.commons.theme.DesktopTheme;
 import eu.amadeos.system.base.theme.IconManager;
 import eu.amadeos.system.base.theme.ThemeManager;
+import eu.amadeos.commons.config.ConfigWatcher;
+import eu.amadeos.system.base.panel.PanelSettings;
+import eu.amadeos.system.base.panel.PanelSettingsStore;
+import eu.amadeos.system.base.workspace.WorkspaceNames;
 import eu.amadeos.system.base.xdg.ApplicationsWatcher;
 import eu.amadeos.system.base.xdg.XdgApplicationManager;
 import eu.amadeos.system.base.xdg.XdgCategory;
 import eu.amadeos.system.base.xdg.XdgDesktopEntry;
+import eu.amadeos.system.base.xdg.XdgDirectories;
 
 public final class AmadeDesktopPanel extends JFrame {
     private static final Logger LOGGER = Logger.getLogger(AmadeDesktopPanel.class.getName());
@@ -99,6 +104,12 @@ public final class AmadeDesktopPanel extends JFrame {
     /** Fill the drawers again from the desktop entries, one per drawer. */
     private final List<Runnable> refills = new ArrayList<>();
     private AutoCloseable applicationsWatch;
+    private final ClockDockWidget clockWidget;
+    private final StatusDockWidget statusWidget;
+    private final NetworkCell networkCell;
+    private final UpdatesCell updatesCell;
+    private final PanelSettingsStore panelSettings = PanelSettingsStore.user();
+    private ConfigWatcher settingsWatch;
 
     // --8<-- [start:main]
     public static void main(String[] args) {
@@ -180,7 +191,7 @@ public final class AmadeDesktopPanel extends JFrame {
         leftSlots.setBackground(initialTheme.base());
 
         // Slot 1: Analog/Digital Clock (flat tab, no drawer)
-        ClockDockWidget clockWidget = new ClockDockWidget();
+        clockWidget = new ClockDockWidget();
         widgets.add(clockWidget);
         leftSlots.add(clockWidget.component());
 
@@ -358,10 +369,10 @@ public final class AmadeDesktopPanel extends JFrame {
         // --8<-- [start:status]
         // Slot 13: Status (network and software updates now; sound, battery and Bluetooth to follow),
         // outermost on the right. The updates cell shows only while updates are waiting.
-        StatusDockWidget statusWidget = new StatusDockWidget(List.of(
-                new NetworkCell(new NmcliNetworkService(),
-                        () -> launchProcess("xterm", "-title", "Network Settings", "-e", "nmtui")),
-                new UpdatesCell(new AptPackageService(), updateWindow("--updates"), updateWindow("--settings"))));
+        networkCell = new NetworkCell(new NmcliNetworkService(),
+                () -> launchProcess("xterm", "-title", "Network Settings", "-e", "nmtui"));
+        updatesCell = new UpdatesCell(new AptPackageService(), updateWindow("--updates"), updateWindow("--settings"));
+        statusWidget = new StatusDockWidget(List.of(networkCell, updatesCell));
         widgets.add(statusWidget);
         rightSlots.add(statusWidget.component());
         // --8<-- [end:status]
@@ -382,6 +393,16 @@ public final class AmadeDesktopPanel extends JFrame {
                     SwingUtilities.invokeLater(this::refillDrawers);
                 });
         // --8<-- [end:follow]
+
+        // Settings > Front Panel and Settings > Workspaces write panel.conf and workspaces.conf; follow them.
+        applyPanelSettings();
+        settingsWatch = new ConfigWatcher(XdgDirectories.amadeosConfigDir(),
+                Set.of(PanelSettingsStore.FILE_NAME, WorkspaceNames.FILE_NAME), "panel-settings",
+                () -> SwingUtilities.invokeLater(() -> {
+                    applyPanelSettings();
+                    switcher.reloadNames();
+                }));
+        settingsWatch.start();
 
         // Listen for internal ThemeManager changes
         ThemeManager.addListener(this::applyTheme);
@@ -544,6 +565,14 @@ public final class AmadeDesktopPanel extends JFrame {
         refills.forEach(Runnable::run);
     }
     // --8<-- [end:drawer]
+
+    /** Shows the clock style and the status cells chosen in Settings > Front Panel; on the event dispatch thread. */
+    private void applyPanelSettings() {
+        PanelSettings settings = panelSettings.load();
+        clockWidget.showClockStyle(settings.clock());
+        statusWidget.setShown(networkCell, settings.networkCell());
+        statusWidget.setShown(updatesCell, settings.updatesCell());
+    }
 
     /** The watch over the panel while an application starts, as the window manager shows it elsewhere. */
     private void showBusy(boolean busy) {

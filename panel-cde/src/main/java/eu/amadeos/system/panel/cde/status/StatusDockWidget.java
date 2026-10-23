@@ -4,7 +4,9 @@ import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.GridLayout;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import javax.swing.BorderFactory;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
@@ -24,6 +26,7 @@ public final class StatusDockWidget extends AbstractDockWidget {
     private final List<StatusCell> cells;
     private final JPanel slotPanel;
     private final JPanel grid;
+    private final Set<StatusCell> hidden = new HashSet<>();
     private int shownCells;
 
     public StatusDockWidget(List<StatusCell> cells) {
@@ -58,13 +61,18 @@ public final class StatusDockWidget extends AbstractDockWidget {
     /** Puts the available cells into the grid again, e.g. after one gained or lost its hardware. */
     public void relayout() {
         grid.removeAll();
-        List<StatusCell> shown = cells.stream().filter(StatusCell::available).toList();
+        List<StatusCell> shown = cells.stream().filter(c -> c.available() && !hidden.contains(c)).toList();
         grid.setLayout(new GridLayout(2, 2, 2, 2));
         for (StatusCell cell : shown) grid.add(cell.component());
         for (int i = shown.size(); i < MAX_CELLS; i++) grid.add(emptyBay());
         shownCells = shown.size();
         grid.revalidate();
         grid.repaint();
+    }
+
+    /** Shows or hides a cell as the user chose in Settings > Front Panel; on the event dispatch thread. */
+    public void setShown(StatusCell cell, boolean show) {
+        if (show ? hidden.remove(cell) : hidden.add(cell)) relayout();
     }
 
     int shownCells() {

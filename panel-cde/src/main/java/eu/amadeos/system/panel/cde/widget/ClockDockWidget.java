@@ -1,6 +1,7 @@
 package eu.amadeos.system.panel.cde.widget;
 
-import eu.amadeos.system.base.xdg.XdgDirectories;
+import eu.amadeos.system.base.panel.PanelSettings;
+import eu.amadeos.system.base.panel.PanelSettingsStore;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -13,9 +14,6 @@ import java.awt.RenderingHints;
 import java.awt.Stroke;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -323,21 +321,26 @@ public final class ClockDockWidget extends AbstractDockWidget {
     }
 
     private void loadPersistedStyle() {
-        try {
-            Path conf = XdgDirectories.amadeosConfigDir().resolve("clock.conf");
-            if (Files.exists(conf)) {
-                String val = Files.readString(conf, StandardCharsets.UTF_8).trim();
-                style = ClockStyle.valueOf(val.toUpperCase());
-            }
-        } catch (Exception ignored) {}
+        style = ClockStyle.valueOf(PanelSettingsStore.user().load().clock().name());
     }
 
     private void persistStyle(ClockStyle newStyle) {
         try {
-            Path dir = XdgDirectories.amadeosConfigDir();
-            Files.createDirectories(dir);
-            Files.writeString(dir.resolve("clock.conf"), newStyle.name(), StandardCharsets.UTF_8);
-        } catch (Exception ignored) {}
+            PanelSettingsStore store = PanelSettingsStore.user();
+            store.save(store.load().withClock(PanelSettings.Clock.valueOf(newStyle.name())));
+        } catch (RuntimeException e) {
+            // The clock keeps the style until the next login.
+        }
+    }
+
+    /** Shows a style chosen elsewhere (Settings > Front Panel) without writing it again. */
+    public void showClockStyle(PanelSettings.Clock clock) {
+        ClockStyle newStyle = ClockStyle.valueOf(clock.name());
+        if (style != newStyle) {
+            style = newStyle;
+            syncMenuItems();
+            panel.repaint();
+        }
     }
 
     @Override

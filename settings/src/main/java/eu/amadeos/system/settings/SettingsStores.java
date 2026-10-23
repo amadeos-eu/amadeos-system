@@ -1,7 +1,13 @@
 package eu.amadeos.system.settings;
 
 import eu.amadeos.commons.config.PropertiesFile;
+import eu.amadeos.commons.i18n.LocaleStore;
+import eu.amadeos.system.base.panel.PanelSettingsStore;
+import eu.amadeos.system.base.startup.DesktopServices;
+import eu.amadeos.system.base.startup.StartupSettings;
+import eu.amadeos.system.base.startup.UserAutostart;
 import eu.amadeos.system.base.window.WindowSettingsStore;
+import eu.amadeos.system.base.workspace.WorkspaceNames;
 import eu.amadeos.system.base.xdg.XdgDirectories;
 import eu.amadeos.system.clipboard.ClipboardSettingsStore;
 import eu.amadeos.system.input.InputSettingsStore;
@@ -14,9 +20,13 @@ import java.util.Properties;
 /**
  * Where the Settings keep what they change, and their own view in {@code ~/.config/amadeos/settings.conf}. The
  * theme, the font size and the backdrops go through {@code ThemeManager} and {@code WallpaperManager} in base.
+ *
+ * @param servicesDir the desktop services the session starts, {@code /etc/amadeos/autostart.d}
  */
 record SettingsStores(ScreenSettingsStore screen, ClipboardSettingsStore clipboard, InputSettingsStore input,
-                      WindowSettingsStore window, Path viewFile) {
+                      WindowSettingsStore window, PanelSettingsStore panel, WorkspaceNames workspaces,
+                      StartupSettings startup, UserAutostart autostart, Path servicesDir, LocaleStore locales,
+                      Path viewFile) {
     static final String VIEW_FILE = "settings.conf";
 
     /** The sidebar with one page per control, or CDE's row of buttons that open a dialog each. */
@@ -24,14 +34,19 @@ record SettingsStores(ScreenSettingsStore screen, ClipboardSettingsStore clipboa
 
     static SettingsStores user() {
         return new SettingsStores(ScreenSettingsStore.user(), ClipboardSettingsStore.user(), InputSettingsStore.user(),
-                WindowSettingsStore.user(), XdgDirectories.amadeosConfigDir().resolve(VIEW_FILE));
+                WindowSettingsStore.user(), PanelSettingsStore.user(), WorkspaceNames.user(), StartupSettings.user(),
+                UserAutostart.user(), DesktopServices.SYSTEM_DIR, new LocaleStore(XdgDirectories.amadeosConfigDir()),
+                XdgDirectories.amadeosConfigDir().resolve(VIEW_FILE));
     }
 
     /** The stores of one directory, for tests. */
     static SettingsStores in(Path dir) {
         return new SettingsStores(new ScreenSettingsStore(dir.resolve("screen.conf")),
                 new ClipboardSettingsStore(dir.resolve("clipboard.conf")), new InputSettingsStore(dir.resolve("input.conf")),
-                new WindowSettingsStore(dir.resolve(WindowSettingsStore.FILE_NAME)), dir.resolve(VIEW_FILE));
+                new WindowSettingsStore(dir.resolve(WindowSettingsStore.FILE_NAME)),
+                new PanelSettingsStore(dir.resolve(PanelSettingsStore.FILE_NAME)), new WorkspaceNames(dir),
+                new StartupSettings(dir.resolve(StartupSettings.FILE_NAME)), new UserAutostart(dir.resolve("autostart")),
+                dir.resolve("autostart.d"), new LocaleStore(dir), dir.resolve(VIEW_FILE));
     }
 
     View view() {

@@ -25,8 +25,9 @@ public final class SettingsLauncher {
                 if (isControl(mode)) {
                     SettingsWindow.main(args);
                 } else {
-                    System.err.println("Usage: amadeos-settings [input | color | font | backdrop | keyboard | mouse"
-                            + " | beep | screen | window | clipboard]");
+                    System.err.println("Usage: amadeos-settings [input | color | font | backdrop | workspaces | panel"
+                            + " | keyboard | mouse | beep | screen | window | clipboard | startup | passwords | updates"
+                            + " | language]");
                     System.exit(2);
                 }
             }

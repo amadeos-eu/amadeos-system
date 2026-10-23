@@ -182,6 +182,74 @@ final class SettingsIcons {
                 g.drawRect(4, 6, 28, 24);
                 g.drawRect(26, 7, 4, 4);
             }
+            case WORKSPACES -> {
+                // CDE's four workspace buttons, two by two, in the theme's workspace colours.
+                for (int i = 0; i < 4; i++) {
+                    int cx = 3 + (i % 2) * 16;
+                    int cy = 6 + (i / 2) * 13;
+                    g.setColor(enabled ? t.workspaceColor(i) : t.shadow());
+                    g.fillRect(cx, cy, 14, 11);
+                    AmadeUI.paintBevel(g, cx, cy, 14, 11, i != 0, 1);
+                }
+            }
+            case PANEL -> {
+                // The Front Panel: a long raised bar with slots and a clock face in the first one.
+                g.setColor(t.base());
+                g.fillRect(1, 14, 34, 16);
+                AmadeUI.paintBevel(g, 1, 14, 34, 16, true, 1);
+                g.setColor(t.sunkenBg());
+                for (int x = 4; x < 32; x += 7) g.fillRect(x, 18, 5, 9);
+                g.setColor(paper);
+                g.fillOval(4, 18, 6, 6);
+                g.setColor(ink);
+                g.drawOval(4, 18, 6, 6);
+                g.setColor(enabled ? t.activeTitleBg() : t.shadow());
+                g.fillRect(14, 8, 8, 6);
+            }
+            case PASSWORDS -> {
+                // A key: a round bow with a hole, the shaft and two bits.
+                g.setColor(enabled ? new Color(0xD8, 0xB0, 0x40) : t.shadow());
+                g.fillOval(3, 9, 15, 15);
+                g.fillRect(16, 14, 17, 5);
+                g.fillRect(26, 19, 3, 6);
+                g.fillRect(30, 19, 3, 4);
+                g.setColor(ink);
+                g.drawOval(3, 9, 15, 15);
+                g.setColor(paper);
+                g.fillOval(7, 14, 5, 5);
+            }
+            case UPDATES -> {
+                // An arrow down into a tray, like the Front Panel's updates cell.
+                g.setColor(enabled ? new Color(0x50, 0x90, 0x60) : t.shadow());
+                Path2D arrow = new Path2D.Double();
+                arrow.moveTo(14, 3);
+                arrow.lineTo(22, 3);
+                arrow.lineTo(22, 14);
+                arrow.lineTo(28, 14);
+                arrow.lineTo(18, 24);
+                arrow.lineTo(8, 14);
+                arrow.lineTo(14, 14);
+                arrow.closePath();
+                g.fill(arrow);
+                g.setColor(ink);
+                g.draw(arrow);
+                g.drawLine(4, 22, 4, 31);
+                g.drawLine(4, 31, 32, 31);
+                g.drawLine(32, 31, 32, 22);
+            }
+            case LANGUAGE -> {
+                // A globe with its meridian and two parallels.
+                g.setColor(enabled ? new Color(0x4A, 0x69, 0x84) : t.shadow());
+                g.fillOval(4, 4, 28, 28);
+                g.setColor(enabled ? new Color(0x8F, 0xB0, 0x60) : t.sunkenBg());
+                g.fillOval(9, 9, 9, 8);
+                g.fillOval(17, 18, 10, 9);
+                g.setColor(ink);
+                g.drawOval(4, 4, 28, 28);
+                g.drawOval(12, 4, 12, 28);
+                g.drawLine(5, 13, 31, 13);
+                g.drawLine(5, 23, 31, 23);
+            }
             case STARTUP -> {
                 g.setColor(ink);
                 g.setStroke(new BasicStroke(2.4f));

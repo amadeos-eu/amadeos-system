@@ -21,13 +21,13 @@ public final class WorkspaceNames {
     public static final int COUNT = 4;
     /** The longest name a workspace button takes; longer input is cut. */
     public static final int MAX_LENGTH = 24;
-    static final String FILE = "workspaces.conf";
+    public static final String FILE_NAME = "workspaces.conf";
 
     private final Path file;
 
     /** @param configDir the amadeOS config directory, {@code ~/.config/amadeos} for the user */
     public WorkspaceNames(Path configDir) {
-        this.file = configDir.resolve(FILE);
+        this.file = configDir.resolve(FILE_NAME);
     }
 
     /** The names of the current user. */

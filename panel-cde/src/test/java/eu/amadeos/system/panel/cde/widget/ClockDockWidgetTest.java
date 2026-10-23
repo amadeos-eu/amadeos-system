@@ -1,11 +1,11 @@
 package eu.amadeos.system.panel.cde.widget;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import eu.amadeos.commons.theme.DesktopTheme;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -13,21 +13,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ClockDockWidgetTest {
 
-    private void cleanConfig() {
-        try {
-            Path conf = Path.of(System.getProperty("user.home", "/tmp"), ".config", "amadeos", "clock.conf");
-            Files.deleteIfExists(conf);
-        } catch (Exception ignored) {}
-    }
+    @TempDir
+    Path home;
+    private String userHome;
 
+    // A home of its own, so the test neither sees nor deletes the clock style of the user running it.
     @BeforeEach
     void setUp() {
-        cleanConfig();
+        userHome = System.getProperty("user.home");
+        System.setProperty("user.home", home.toString());
     }
 
     @AfterEach
     void tearDown() {
-        cleanConfig();
+        System.setProperty("user.home", userHome);
     }
 
     @Test

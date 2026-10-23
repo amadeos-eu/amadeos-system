@@ -5,26 +5,33 @@ application {
 }
 
 dependencies {
-    // The Screen controls preview the saver modules and write the settings the screen saver reads.
+    // The Screen controls preview the saver modules and write the settings the screen saver reads; the
+    // Passwords page talks to the keyring through the session's D-Bus client.
     implementation project(':session')
+    // The Updates page reads and changes the automatic security updates through the package helper.
+    implementation project(':packages')
 }
 
 debian = [
     section    : 'x11',
     javaOptions: '--enable-native-access=ALL-UNNAMED',
-    // xset, xmodmap, xrdb and xsetroot apply the keyboard, mouse, bell and backdrop settings.
-    depends    : ['x11-xserver-utils'],
+    // xset, xmodmap, xrdb and xsetroot apply the keyboard, mouse, bell and backdrop settings; the package
+    // helper changes the automatic security updates.
+    depends    : ['x11-xserver-utils', 'amadeos-packages'],
     // The package was amadeos-style while the program was called Style Manager.
     provides   : ['amadeos-style'],
     conflicts  : ['amade-desktop', 'amade-style', 'amadeos-style'],
     replaces   : ['amade-desktop', 'amade-style', 'amadeos-style'],
     summary    : 'Settings and input settings tool of amadeOS',
     description: '''The Settings of the amadeOS desktop, formerly CDE's Style Manager (dtstyle): Color
-(palette and icon theme), Font (size), Backdrop, Keyboard, Mouse, Beep, Screen,
-Window (focus, raising, moving) and Clipboard, in a window with a sidebar and a
-search, or as CDE's compact row of controls. Writes ~/.config/amadeos/theme.conf
-and font.conf, which the window manager, the panel and every amade application
-follow, and window.conf for the window manager. amadeos-settings input applies
-the keyboard, mouse and bell settings at login
+(palette and icon theme), Font (size), Backdrop, Workspaces (names), Front Panel
+(clock, status cells), Keyboard, Mouse, Beep, Screen, Window (focus, raising,
+moving), Clipboard, Startup (programs and services at login), Passwords (the
+login keyring), Updates (automatic security updates) and Language (desktop
+language, time zone), in a window with a sidebar and a search, or as CDE's
+compact controls. Writes ~/.config/amadeos/theme.conf and font.conf, which the
+window manager, the panel and every amade application follow, window.conf for
+the window manager and panel.conf for the Front Panel. amadeos-settings input
+applies the keyboard, mouse and bell settings at login
 (/etc/amadeos/autostart.d/10-amadeos-input).'''
 ]

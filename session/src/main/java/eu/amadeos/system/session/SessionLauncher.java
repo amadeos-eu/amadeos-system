@@ -6,6 +6,7 @@ import eu.amadeos.system.clipboard.ClipboardDaemon;
 import eu.amadeos.system.lock.ScreenLock;
 import eu.amadeos.system.polkit.PolkitAgent;
 import eu.amadeos.system.screen.ScreenSaverDaemon;
+import eu.amadeos.system.startup.AutostartLauncher;
 
 /**
  * Entry point of the amadeos-session jar: {@code amadeos-session lock} is the screen lock (started by
@@ -13,7 +14,8 @@ import eu.amadeos.system.screen.ScreenSaverDaemon;
  * by {@code /etc/amadeos/autostart.d/50-amadeos-screen}), {@code amadeos-session polkit-agent} the polkit
  * authentication agent (started by {@code /etc/amadeos/autostart.d/30-amadeos-polkit-agent}),
  * {@code amadeos-session clipboard} the clipboard manager (started by
- * {@code /etc/amadeos/autostart.d/40-amadeos-clipboard}, its history shown by {@code /usr/bin/amadeos-clipboard}).
+ * {@code /etc/amadeos/autostart.d/40-amadeos-clipboard}, its history shown by {@code /usr/bin/amadeos-clipboard}),
+ * {@code amadeos-session autostart} the user's programs of {@code ~/.config/autostart} (started by the session).
  * The session itself is the script {@code /usr/bin/amadeos-session}.
  */
 public final class SessionLauncher {
@@ -28,8 +30,9 @@ public final class SessionLauncher {
             case "screen" -> ScreenSaverDaemon.main(rest);
             case "polkit-agent" -> PolkitAgent.main(rest);
             case "clipboard" -> ClipboardDaemon.main(rest);
+            case "autostart" -> AutostartLauncher.main(rest);
             default -> {
-                System.err.println("Usage: amadeos-session <lock|screen|polkit-agent|clipboard>");
+                System.err.println("Usage: amadeos-session <lock|screen|polkit-agent|clipboard|autostart>");
                 System.exit(2);
             }
         }

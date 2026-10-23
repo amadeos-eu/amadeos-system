@@ -77,6 +77,7 @@ public final class SettingsWindow extends JFrame {
     }
 
     private final SettingsStores stores;
+    private final SystemAccess system;
     private final InputControls input;
     private final JLabel status = new JLabel(" ");
     // Sidebar view: one page per control, created when first shown, kept until Reset or the window closes.
@@ -106,7 +107,7 @@ public final class SettingsWindow extends JFrame {
      * @param control the control to show first, e.g. {@code backdrop}, or null
      */
     public static SettingsWindow open(String control) {
-        SettingsWindow window = new SettingsWindow(SettingsStores.user(), new InputApplier());
+        SettingsWindow window = new SettingsWindow(SettingsStores.user(), new InputApplier(), SystemAccess.system());
         if (control != null) {
             for (SettingsCategory category : SettingsCategory.values()) {
                 if (category.name().equalsIgnoreCase(control) && category.available()) window.openControl(category);
@@ -116,9 +117,10 @@ public final class SettingsWindow extends JFrame {
         return window;
     }
 
-    SettingsWindow(SettingsStores stores, InputApplier applier) {
+    SettingsWindow(SettingsStores stores, InputApplier applier, SystemAccess system) {
         super(SettingsTexts.get("title"));
         this.stores = stores;
+        this.system = system;
         this.input = new InputControls(stores.input(), applier);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         setJMenuBar(menuBar());
@@ -233,13 +235,20 @@ public final class SettingsWindow extends JFrame {
             case COLOR -> new ColorPage(this::setStatus);
             case FONT -> new FontPage(this::setStatus);
             case BACKDROP -> new BackdropPage(this::setStatus);
+            case WORKSPACES -> new WorkspacesPage(this::setStatus, stores.workspaces(),
+                    () -> openControl(SettingsCategory.BACKDROP));
+            case PANEL -> new PanelPage(this::setStatus, stores.panel());
             case KEYBOARD -> new KeyboardPage(this::setStatus, input);
             case MOUSE -> new MousePage(this::setStatus, input);
             case BEEP -> new BeepPage(this::setStatus, input);
             case SCREEN -> new ScreenPage(this::setStatus, stores.screen());
             case WINDOW -> new WindowPage(this::setStatus, stores.window());
             case CLIPBOARD -> new ClipboardPage(this::setStatus, stores.clipboard());
-            case STARTUP -> null;
+            case STARTUP -> new StartupPage(this::setStatus, stores.startup(), stores.autostart(), stores.servicesDir(),
+                    system.applications());
+            case PASSWORDS -> new PasswordsPage(this::setStatus, system.keyring());
+            case UPDATES -> new UpdatesPage(this::setStatus, system.packages(), system.launcher());
+            case LANGUAGE -> new LanguagePage(this::setStatus, stores.locales(), system.timeZones());
         };
     }
 
@@ -248,7 +257,8 @@ public final class SettingsWindow extends JFrame {
     // --8<-- [start:compact]
     private JComponent compactView() {
         buttons.clear();
-        JPanel row = new JPanel(new GridLayout(1, 0, 4, 0));
+        // CDE's row had nine buttons; with amadeOS's controls it takes two rows.
+        JPanel row = new JPanel(new GridLayout(2, 0, 4, 4));
         row.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
         for (SettingsCategory category : SettingsCategory.values()) {
             JButton button = new JButton(category.label(), SettingsIcons.of(category));
@@ -601,7 +611,7 @@ public final class SettingsWindow extends JFrame {
         public Dimension getPreferredSize() {
             FontMetrics fm = getFontMetrics(entryFont(true));
             return new Dimension(SIDEBAR_ICON + 32 + fm.stringWidth(category.label()),
-                    Math.max(SIDEBAR_ICON + 8, fm.getHeight() + 12));
+                    Math.max(SIDEBAR_ICON + 4, fm.getHeight() + 10));
         }
 
         @Override

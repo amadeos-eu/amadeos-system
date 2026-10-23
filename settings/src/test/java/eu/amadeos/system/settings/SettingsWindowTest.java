@@ -55,7 +55,7 @@ class SettingsWindowTest {
     }
 
     private SettingsWindow window() {
-        return new SettingsWindow(SettingsStores.in(dir), new RecordingApplier());
+        return new SettingsWindow(SettingsStores.in(dir), new RecordingApplier(), SystemPagesTest.fakeSystem());
     }
 
     @Test
@@ -76,8 +76,6 @@ class SettingsWindowTest {
                 assertEquals(SettingsCategory.WINDOW, window.selected());
                 SettingsPage page = window.page(SettingsCategory.WINDOW);
                 assertInstanceOf(WindowPage.class, page);
-                window.openControl(SettingsCategory.STARTUP); // not available: nothing changes
-                assertEquals(SettingsCategory.WINDOW, window.selected());
 
                 window.reset(SettingsCategory.WINDOW);
                 assertNotSame(page, window.page(SettingsCategory.WINDOW), "Reset builds the page anew");
@@ -90,16 +88,18 @@ class SettingsWindowTest {
 
     @Test
     void searchFindsControlsByNameDescriptionAndKeyword() throws Exception {
-        assertEquals(List.of(SettingsCategory.SCREEN), SettingsWindow.matches("LOCK"));
+        assertTrue(SettingsWindow.matches("LOCK").containsAll(List.of(SettingsCategory.SCREEN, SettingsCategory.PASSWORDS)));
         assertEquals(List.of(SettingsCategory.BACKDROP), SettingsWindow.matches("wallpaper"));
         assertTrue(SettingsWindow.matches("bell").contains(SettingsCategory.BEEP));
         assertTrue(SettingsWindow.matches("zzz").isEmpty());
-        assertFalse(SettingsWindow.matches("login").contains(SettingsCategory.STARTUP), "not available yet");
+        assertTrue(SettingsWindow.matches("login").contains(SettingsCategory.STARTUP));
+        assertEquals(List.of(SettingsCategory.PASSWORDS), SettingsWindow.matches("keyring"));
+        assertEquals(List.of(SettingsCategory.LANGUAGE), SettingsWindow.matches("time zone"));
         assumeFalse(GraphicsEnvironment.isHeadless());
         SwingUtilities.invokeAndWait(() -> {
             SettingsWindow window = window();
             try {
-                window.searchField().setText("lock");
+                window.searchField().setText("screen saver");
                 assertTrue(window.entry(SettingsCategory.COLOR).dimmed);
                 assertFalse(window.entry(SettingsCategory.SCREEN).dimmed);
                 window.searchField().postActionEvent(); // Enter opens the first match
