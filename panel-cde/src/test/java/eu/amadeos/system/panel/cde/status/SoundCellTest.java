@@ -95,6 +95,25 @@ class SoundCellTest {
     }
 
     @Test
+    void aVolumeFromElsewhereMovesTheSliderButKeepsMuting() throws Exception {
+        FakeService service = new FakeService();
+        SoundCell cell = new SoundCell(service, EN);
+        SoundStatus muted = new SoundStatus(true, List.of(new AudioDevice("x", "Speakers", 45, true)), "x",
+                List.of(), "");
+        cell.show(muted);
+        cell.buildMenu(muted);
+        cell.show(new SoundStatus(true, List.of(new AudioDevice("x", "Speakers", 60, true)), "x", List.of(), ""));
+        assertEquals(60, cell.slider.getValue());
+        assertTrue(cell.shownMuted());
+        assertEquals(null, service.calls.poll(300, TimeUnit.MILLISECONDS));
+
+        cell.slider.setValue(30);
+        assertEquals("mute false", service.calls.poll(5, TimeUnit.SECONDS));
+        assertEquals("volume 30", service.calls.poll(5, TimeUnit.SECONDS));
+        cell.stop();
+    }
+
+    @Test
     void withoutSoundServerTheMenuSaysSo() {
         SoundCell cell = new SoundCell(new FakeService(), EN);
         cell.changeVolume(10);

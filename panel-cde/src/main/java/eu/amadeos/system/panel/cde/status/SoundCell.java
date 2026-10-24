@@ -75,6 +75,8 @@ public final class SoundCell implements StatusCell {
     private AutoCloseable watch;
     JPopupMenu menu;
     JSlider slider;
+    /** Set while {@link #show} moves the slider, so that this is not taken for the user's change. */
+    private boolean followingServer;
 
     public SoundCell(SoundService service) {
         this(service, Messages.load(SoundCell.class, NetworkCell.DESKTOP_TEXTS,
@@ -144,7 +146,9 @@ public final class SoundCell implements StatusCell {
             shownVolume = status.volume();
             shownMuted = status.muted();
             if (slider != null && !slider.getValueIsAdjusting()) {
+                followingServer = true;
                 slider.setValue(Math.min(SLIDER_MAX, shownVolume));
+                followingServer = false;
             }
         }
         button.setToolTipText(tooltip());
@@ -192,6 +196,7 @@ public final class SoundCell implements StatusCell {
         setVolume(Math.max(0, Math.min(150, shownVolume + delta)));
     }
 
+    // --8<-- [start:volume]
     /**
      * Asks for a volume; the cell shows it at once. While the slider is dragged only the newest value is
      * sent once the previous one is done, so pactl does not queue up. A change of volume also unmutes.
@@ -214,6 +219,7 @@ public final class SoundCell implements StatusCell {
             scheduleRefresh();
         });
     }
+    // --8<-- [end:volume]
 
     void setMuted(boolean muted) {
         shownMuted = muted;
@@ -331,7 +337,7 @@ public final class SoundCell implements StatusCell {
         JSlider s = slider;
         s.addChangeListener(e -> {
             percent.setText(s.getValue() + " %");
-            if (s.getValue() != Math.min(SLIDER_MAX, shownVolume) || shownMuted) {
+            if (!followingServer && (s.getValue() != Math.min(SLIDER_MAX, shownVolume) || shownMuted)) {
                 setVolume(s.getValue());
                 mute.setSelected(false);
             }

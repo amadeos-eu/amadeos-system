@@ -82,6 +82,7 @@ public final class Pactl {
         return "";
     }
 
+    // --8<-- [start:devices]
     /**
      * Devices of {@code pactl list sinks} or {@code pactl list sources}. The monitors, through which a
      * recording program can hear what an output plays, are left out of the sources.
@@ -120,6 +121,7 @@ public final class Pactl {
         }
         return devices;
     }
+    // --8<-- [end:devices]
 
     /** The mean of the per-channel percentages of a {@code Volume:} line, rounded. */
     static int averagePercent(String volumeLine) {
