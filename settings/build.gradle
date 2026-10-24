@@ -36,5 +36,6 @@ the window manager and panel.conf for the Front Panel. amadeos-settings input
 applies the keyboard, mouse and bell settings at login
 (/etc/amadeos/autostart.d/10-amadeos-input), amadeos-settings display-apply
 the kept monitor layout (/etc/amadeos/autostart.d/15-amadeos-display). Comes with
-the Halloween palette and its backdrop halloween.png.'''
+the Halloween palette and its backdrop halloween.png, and the Christmas palette
+with christmas.png (nativity) and christmas-santa.png.'''
 ]
