@@ -500,32 +500,47 @@ def stable(img, x, y):
 
 
 def ox(d, x, y):
-    body, light = (122, 82, 50), (176, 136, 104)
-    ellipse(d, x - 2, y + 10, 30, 26, body)
-    ellipse(d, x + 30, y - 4, 17, 15, body)
-    ellipse(d, x + 40, y + 6, 11, 9, light)
-    for nx in (36, 44):
-        ellipse(d, x + nx, y + 7, 1.8, 1.4, (60, 40, 30))
-    for sx in (-1, 1):
-        line(d, (x + 30 + sx * 10, y - 14), (x + 30 + sx * 20, y - 24), 3, (236, 226, 200))
-        line(d, (x + 30 + sx * 20, y - 24), (x + 30 + sx * 18, y - 32), 2.4, (236, 226, 200))
-        ellipse(d, x + 30 + sx * 17, y - 10, 6, 3.5, body)
-    for ex in (24, 36):
-        ellipse(d, x + ex, y - 6, 2, 2, (30, 20, 16))
+    """The ox in profile, facing right: (x, y) is the middle of its head."""
+    body, dark, light, horn = (138, 92, 56), (100, 64, 38), (214, 184, 150), (240, 230, 206)
+    ellipse(d, x - 44, y + 62, 38, 30, body)                                        # body, behind the head
+    for lx in (-68, -50, -30):
+        line(d, (x + lx, y + 80), (x + lx, y + 116), 9, dark)
+        ellipse(d, x + lx, y + 117, 6, 3, (60, 40, 26))
+    d.polygon(P([(x - 30, y + 14), (x - 8, y - 10), (x + 6, y - 8), (x + 2, y + 40), (x - 20, y + 60), (x - 44, y + 40)]), fill=body)  # neck
+    d.polygon(P([(x - 12, y - 14), (x + 12, y - 16), (x + 26, y + 2), (x + 26, y + 14), (x + 10, y + 18),
+                 (x - 10, y + 10)]), fill=body)                                     # head
+    ellipse(d, x + 22, y + 10, 10, 9, light)                                        # muzzle
+    ellipse(d, x + 26, y + 9, 2, 1.6, (70, 46, 34))
+    ellipse(d, x + 4, y - 5, 2.6, 2.6, (30, 20, 16))                               # eye
+    ellipse(d, x + 4.8, y - 5.8, 0.9, 0.9, (255, 255, 255))
+    d.polygon(P([(x - 12, y - 10), (x - 26, y - 4), (x - 14, y + 2)]), fill=dark)  # ear
+    d.polygon(P([(x - 6, y - 14), (x - 12, y - 24), (x - 6, y - 34), (x - 2, y - 32), (x - 6, y - 24), (x, y - 15)]),
+              fill=horn)                                                            # horn
+    d.polygon(P([(x + 2, y - 15), (x + 8, y - 26), (x + 16, y - 32), (x + 18, y - 29), (x + 11, y - 24), (x + 7, y - 14)]),
+              fill=horn)
 
 
 def donkey(d, x, y):
-    body, muzzle = (134, 128, 124), (92, 88, 86)
-    ellipse(d, x + 14, y + 6, 44, 28, body)
-    d.polygon(P([(x - 14, y - 6), (x - 4, y - 30), (x - 22, y - 34), (x - 38, y - 4)]), fill=body)
-    ellipse(d, x - 30, y - 6, 11, 16, body)
-    ellipse(d, x - 34, y + 6, 9, 7, muzzle)
-    for ex, tilt in ((-20, 4), (-12, 10)):
-        d.polygon(P([(x + ex - 4, y - 28), (x + ex + tilt - 3, y - 56), (x + ex + tilt + 3, y - 56), (x + ex + 4, y - 28)]),
-                  fill=body)
-    for k in range(5):
-        line(d, (x - 6 + k * 3, y - 28 + k * 2), (x - 2 + k * 3, y - 34 + k * 2), 2, (70, 66, 64))
-    ellipse(d, x - 30, y - 10, 2, 2, (30, 20, 16))
+    """The donkey in profile, facing left: (x, y) is the middle of its head."""
+    body, dark, muzzle = (150, 144, 140), (96, 92, 90), (226, 222, 214)
+    ellipse(d, x + 52, y + 36, 40, 28, body)
+    for lx in (34, 52, 76):
+        line(d, (x + lx, y + 52), (x + lx, y + 100), 7, dark)
+        ellipse(d, x + lx, y + 101, 5, 3, (50, 46, 46))
+    d.polygon(P([(x + 26, y + 18), (x + 8, y - 8), (x - 6, y - 6), (x - 2, y + 30), (x + 26, y + 40)]), fill=body)
+    for k in range(6):
+        line(d, (x + 8 + k * 3.5, y - 10 + k * 4.5), (x + 13 + k * 3.5, y - 14 + k * 4.5), 3, (60, 56, 56))   # mane
+    d.polygon(P([(x + 10, y - 12), (x - 6, y - 14), (x - 24, y + 6), (x - 26, y + 18), (x - 10, y + 20), (x + 8, y + 10)]),
+              fill=body)
+    ellipse(d, x - 20, y + 13, 10, 9, muzzle)
+    ellipse(d, x - 26, y + 11, 1.8, 1.4, (60, 56, 56))
+    ellipse(d, x - 2, y - 4, 2.6, 2.6, (30, 20, 16))
+    ellipse(d, x - 2.8, y - 4.8, 0.9, 0.9, (255, 255, 255))
+    for ex, tilt in ((2, -6), (10, 4)):                                             # the long ears
+        d.polygon(P([(x + ex - 4, y - 12), (x + ex + tilt - 4, y - 40), (x + ex + tilt, y - 46), (x + ex + tilt + 4, y - 40),
+                     (x + ex + 4, y - 12)]), fill=body)
+        d.polygon(P([(x + ex - 1.5, y - 16), (x + ex + tilt - 1.5, y - 38), (x + ex + tilt + 1.5, y - 38), (x + ex + 1.5, y - 16)]),
+                  fill=dark)
 
 
 def manger(img, x, y):
@@ -711,12 +726,12 @@ def main():
     sx = 985
     stable(img, sx, gy(sx))
     d = ImageDraw.Draw(img)
-    ox(d, sx - 112, gy(sx) - 80)
-    donkey(d, sx + 114, gy(sx) - 80)
-    mary(d, sx - 58, gy(sx))
+    ox(d, sx - 78, gy(sx) - 122)
+    donkey(d, sx + 80, gy(sx) - 104)
+    mary(d, sx - 54, gy(sx))
     manger(img, sx, gy(sx))
     d = ImageDraw.Draw(img)
-    joseph(d, sx + 52, gy(sx))
+    joseph(d, sx + 46, gy(sx))
     sheep(d, 770, gy(770) + 4, 1.1)
     shepherd(d, 730, gy(730), (132, 104, 70), (196, 176, 140))
     shepherd(d, 810, gy(810) + 6, (96, 110, 80), (150, 60, 50), kneel=True)
