@@ -38,6 +38,11 @@ import eu.amadeos.system.base.sound.BellPlayer;
 import eu.amadeos.system.wm.menu.DesktopMenuActions;
 import eu.amadeos.system.wm.menu.DesktopRootMenu;
 import eu.amadeos.system.wm.menu.WindowMenu;
+import eu.amadeos.system.wm.switcher.PreviewArea;
+import eu.amadeos.system.wm.switcher.RecentWindows;
+import eu.amadeos.system.wm.switcher.SwitcherEntry;
+import eu.amadeos.system.wm.switcher.SwitcherPopup;
+import eu.amadeos.system.wm.switcher.SwitcherSelection;
 import eu.amadeos.system.base.x11.LaunchFeedback;
 import eu.amadeos.commons.theme.DesktopTheme;
 import eu.amadeos.system.base.theme.ThemeManager;
@@ -181,6 +186,19 @@ public final class X11WindowManagerService implements AutoCloseable {
     private final Map<Long, DesktopIconTile> clientToTile = new HashMap<>();
 
     private int lockKeycode = 0;
+
+    // Alt+Tab: the windows in the order they were last active, their previews and icons, and the open round
+    // (null while the switcher is closed).
+    private int tabKeycode = 0;
+    private final Set<Integer> altKeycodes = new java.util.HashSet<>();
+    private int escapeKeycode = 0;
+    private int returnKeycode = 0;
+    private int leftKeycode = 0;
+    private int rightKeycode = 0;
+    private final RecentWindows recentWindows = new RecentWindows();
+    private WindowPreviews previews;
+    private SwitcherPopup switcherPopup;
+    private SwitcherSelection switcher;
 
     private static volatile boolean anotherWmDetected = false;
 
@@ -365,6 +383,52 @@ public final class X11WindowManagerService implements AutoCloseable {
         } catch (Exception e) {
             LOGGER.warning(() -> "Failed to bind Super+L screen lock shortcut: " + e.getMessage());
         }
+
+        // --8<-- [start:alt-tab-keys]
+        // Alt+Tab and Alt+Shift+Tab open the window switcher; once it is open the keyboard is grabbed, so
+        // the further Tabs, the arrows, Esc and the release of Alt come here too.
+        try {
+            this.previews = new WindowPreviews(x11, display, rootWindow);
+            this.tabKeycode = keycode(LibX11.XK_Tab);
+            for (long sym : new long[]{LibX11.XK_Alt_L, LibX11.XK_Alt_R, LibX11.XK_Meta_L, LibX11.XK_Meta_R}) {
+                int kc = keycode(sym);
+                if (kc != 0) altKeycodes.add(kc);
+            }
+            this.escapeKeycode = keycode(LibX11.XK_Escape);
+            this.returnKeycode = keycode(LibX11.XK_Return);
+            this.leftKeycode = keycode(LibX11.XK_Left);
+            this.rightKeycode = keycode(LibX11.XK_Right);
+            if (tabKeycode != 0) {
+                for (long shift : new long[]{0, LibX11.ShiftMask}) {
+                    for (long lock : new long[]{0, LibX11.Mod2Mask, LibX11.LockMask, LibX11.Mod2Mask | LibX11.LockMask}) {
+                        x11.XGrabKey(display, tabKeycode, new NativeLong(LibX11.Mod1Mask | shift | lock),
+                                new NativeLong(rootWindow), 1, LibX11.GrabModeAsync, LibX11.GrabModeAsync);
+                    }
+                }
+                LOGGER.fine(() -> "Registered the Alt+Tab window switcher (keycode=" + tabKeycode + ")");
+            }
+        } catch (Exception e) {
+            LOGGER.warning(() -> "Failed to bind the Alt+Tab window switcher: " + e.getMessage());
+        }
+        // --8<-- [end:alt-tab-keys]
+        this.switcherPopup = new SwitcherPopup(new SwitcherPopup.Actions() {
+            @Override
+            public void select(int index) {
+                runOnEventThread(() -> {
+                    if (switcher != null) switcher.select(index);
+                });
+            }
+
+            @Override
+            public void pick(int index) {
+                runOnEventThread(() -> {
+                    if (switcher != null) {
+                        switcher.select(index);
+                        commitSwitcher();
+                    }
+                });
+            }
+        });
 
         // Menu actions arrive on the Swing EDT; anything touching X runs on the event thread.
         this.menuActions = new DesktopMenuActions() {
@@ -1106,6 +1170,11 @@ public final class X11WindowManagerService implements AutoCloseable {
         if (win == 0 || core.registry().find(win).isEmpty()) {
             return;
         }
+        // The window losing the focus is in full view until the new one comes up: keep its picture for
+        // Alt+Tab. During a switcher round the popup is on screen, so nothing is read then.
+        if (switcher == null && activeWindow != 0 && activeWindow != win) {
+            capturePreview(activeWindow);
+        }
 
         FrameWindow targetFrame = clientToFrame.get(win);
         if (targetFrame != null && targetFrame.isMinimized()) {
@@ -1128,6 +1197,7 @@ public final class X11WindowManagerService implements AutoCloseable {
             grabWindowButtons(activeWindow);
         }
         activeWindow = win;
+        recentWindows.touch(win);
         ungrabWindowButtons(win);
         core.focus(win);
         if (raise) core.raise(win);
@@ -1625,6 +1695,16 @@ public final class X11WindowManagerService implements AutoCloseable {
                 LibX11.XKeyEvent keyEvent = new LibX11.XKeyEvent(event.getPointer());
                 if (LockSelection.isLocked(x11, display)) {
                     LOGGER.fine("Screen is locked; ignoring window manager key press");
+                    if (switcher != null) cancelSwitcher();
+                    return;
+                }
+                if (switcher != null) {
+                    handleSwitcherKey(keyEvent);
+                    return;
+                }
+                boolean isAlt = (keyEvent.state & (int) LibX11.Mod1Mask) != 0;
+                if (isAlt && tabKeycode != 0 && keyEvent.keycode == tabKeycode) {
+                    openSwitcher((keyEvent.state & (int) LibX11.ShiftMask) != 0);
                     return;
                 }
                 // Check if Super modifier (Mod4Mask) is held and keycode matches 'l'
@@ -1632,6 +1712,12 @@ public final class X11WindowManagerService implements AutoCloseable {
                 if (isSuper && (lockKeycode != 0 && keyEvent.keycode == lockKeycode)) {
                     LOGGER.info("Super+L pressed: starting the amadeOS screen lock");
                     LockLauncher.lockScreen();
+                }
+            }
+            case LibX11.KeyRelease -> {
+                LibX11.XKeyEvent keyEvent = new LibX11.XKeyEvent(event.getPointer());
+                if (switcher != null && altKeycodes.contains(keyEvent.keycode)) {
+                    commitSwitcher();
                 }
             }
             case LibX11.MapRequest -> {
@@ -1731,6 +1817,8 @@ public final class X11WindowManagerService implements AutoCloseable {
                 frameY = Math.max(0, Math.min(frameY, maxUsableH - frameH));
                 WindowGeometry initialGeom = new WindowGeometry(frameX, frameY, clientW, clientH);
 
+                // The new window will cover the active one: keep the active one's picture for Alt+Tab first.
+                if (switcher == null && activeWindow != 0) capturePreview(activeWindow);
                 FrameWindow frame = decorateAndReparent(win, initialGeom);
                 WindowGeometry managedGeom = (frame != null)
                         ? new WindowGeometry(frame.frameX(), frame.frameY(), frame.frameWidth(), frame.frameHeight())
@@ -1850,6 +1938,10 @@ public final class X11WindowManagerService implements AutoCloseable {
                     if (themeId != null && !themeId.isEmpty()) {
                         ThemeManager.applyTheme(themeId);
                     }
+                    break;
+                }
+                if (previews != null && previews.isIconProperty(prop.atom)) {
+                    previews.iconChanged(win);
                     break;
                 }
                 FrameWindow frame = clientToFrame.get(win);
@@ -2421,6 +2513,163 @@ public final class X11WindowManagerService implements AutoCloseable {
     }
 
     /** Runs the action with the frame of the client window, if it is still managed. */
+    private int keycode(long keysym) {
+        return Byte.toUnsignedInt(x11.XKeysymToKeycode(display, new NativeLong(keysym)));
+    }
+
+    private boolean onCurrentDesktop(long clientWin) {
+        int desk = getClientDesktop(clientWin);
+        return desk == currentDesktop || isSticky(desk);
+    }
+
+    /** Whether the window is mapped and visible on this workspace. */
+    private boolean isShown(long clientWin) {
+        FrameWindow frame = clientToFrame.get(clientWin);
+        return frame != null && !frame.isMinimized() && onCurrentDesktop(clientWin);
+    }
+
+    private static Rectangle bounds(FrameWindow frame) {
+        return new Rectangle(frame.frameX(), frame.frameY(), frame.frameWidth(), frame.frameHeight());
+    }
+
+    // --8<-- [start:preview]
+    /** Keeps a preview of the window for Alt+Tab, if nothing covers it right now. */
+    private void capturePreview(long clientWin) {
+        FrameWindow frame = clientToFrame.get(clientWin);
+        if (previews == null || frame == null || !isShown(clientWin)) {
+            return;
+        }
+        try {
+            List<Rectangle> above = new java.util.ArrayList<>();
+            boolean isAbove = false;
+            for (WindowRecord rec : core.registry().snapshot()) {
+                if (rec.id() == clientWin) {
+                    isAbove = true;
+                } else if (isAbove && isShown(rec.id())) {
+                    above.add(bounds(clientToFrame.get(rec.id())));
+                }
+            }
+            // Minimized windows' tiles lie on top of every window.
+            for (DesktopIconTile tile : iconTiles) {
+                if (onCurrentDesktop(tile.clientWin())) {
+                    above.add(new Rectangle(tile.x(), tile.y(), DesktopIconTile.TILE_WIDTH, DesktopIconTile.TILE_HEIGHT));
+                }
+            }
+            int usableHeight = frame.isFullScreen() ? screenHeight : screenHeight - dockMarginBottom;
+            Rectangle area = PreviewArea.readable(bounds(frame), above, new Rectangle(0, 0, screenWidth, usableHeight));
+            if (area != null) {
+                previews.capture(clientWin, area);
+            }
+        } catch (RuntimeException e) {
+            LOGGER.log(Level.FINE, "Cannot keep a preview of window " + clientWin, e);
+        }
+    }
+    // --8<-- [end:preview]
+
+    /** The windows Alt+Tab offers, the topmost first: this workspace's, without dialogs of another window. */
+    private List<Long> switcherCandidates() {
+        List<Long> result = new java.util.ArrayList<>();
+        List<WindowRecord> stack = new java.util.ArrayList<>(core.registry().snapshot());
+        for (int i = stack.size() - 1; i >= 0; i--) {
+            long win = stack.get(i).id();
+            if (!clientToFrame.containsKey(win) || dockWindows.contains(win) || !onCurrentDesktop(win)) continue;
+            Long owner = transientOwners.get(win);
+            if (owner != null && clientToFrame.containsKey(owner)) continue;
+            result.add(win);
+        }
+        return result;
+    }
+
+    // --8<-- [start:open-switcher]
+    /** Alt+Tab: grabs the keyboard and shows the popup with the window that was active before selected. */
+    void openSwitcher(boolean backwards) {
+        List<Long> candidates = switcherCandidates();
+        if (candidates.isEmpty()) {
+            return;
+        }
+        // Whatever is in full view right now gives a fresh picture, before the popup covers the screen.
+        for (long win : candidates) capturePreview(win);
+        List<SwitcherEntry> entries = new java.util.ArrayList<>();
+        for (long win : recentWindows.order(candidates)) {
+            FrameWindow frame = clientToFrame.get(win);
+            entries.add(new SwitcherEntry(win, frame.title(), previews.preview(win), previews.icon(win), frame.isMinimized()));
+        }
+        switcher = new SwitcherSelection(entries, backwards);
+        int grab = x11.XGrabKeyboard(display, new NativeLong(rootWindow), 0,
+                LibX11.GrabModeAsync, LibX11.GrabModeAsync, new NativeLong(LibX11.CurrentTime));
+        if (grab != LibX11.GrabSuccess) {
+            LOGGER.fine(() -> "Alt+Tab: keyboard grab failed (" + grab + "), switching without the popup");
+            commitSwitcher();
+            return;
+        }
+        // A quick Alt+Tab may be over before the grab: then switch straight away, as Windows does.
+        com.sun.jna.ptr.IntByReference mask = new com.sun.jna.ptr.IntByReference();
+        x11.XQueryPointer(display, new NativeLong(rootWindow), new com.sun.jna.ptr.NativeLongByReference(),
+                new com.sun.jna.ptr.NativeLongByReference(), new IntByReference(), new IntByReference(),
+                new IntByReference(), new IntByReference(), mask);
+        if ((mask.getValue() & (int) LibX11.Mod1Mask) == 0) {
+            commitSwitcher();
+            return;
+        }
+        switcherPopup.show(switcher.entries(), switcher.selectedIndex());
+        LOGGER.fine(() -> "Alt+Tab: switcher open with " + entries.size() + " windows");
+    }
+    // --8<-- [end:open-switcher]
+
+    private void handleSwitcherKey(LibX11.XKeyEvent key) {
+        boolean shift = (key.state & (int) LibX11.ShiftMask) != 0;
+        if (key.keycode == tabKeycode) {
+            switcher.move(shift ? -1 : 1);
+        } else if (key.keycode == leftKeycode) {
+            switcher.move(-1);
+        } else if (key.keycode == rightKeycode) {
+            switcher.move(1);
+        } else if (key.keycode == escapeKeycode) {
+            cancelSwitcher();
+            return;
+        } else if (key.keycode == returnKeycode) {
+            commitSwitcher();
+            return;
+        } else {
+            return;
+        }
+        switcherPopup.select(switcher.selectedIndex());
+    }
+
+    /** Alt released (or a tile clicked): brings the selected window to the front and closes the switcher. */
+    void commitSwitcher() {
+        if (switcher == null) {
+            return;
+        }
+        long win = switcher.selected().clientWin();
+        closeSwitcher();
+        if (clientToFrame.containsKey(win)) {
+            focusClient(win);
+            // Its open dialogs come up with it, the topmost last so that it gets the focus.
+            for (WindowRecord rec : core.registry().snapshot()) {
+                Long owner = transientOwners.get(rec.id());
+                if (owner != null && owner == win && isShown(rec.id())) focusClient(rec.id());
+            }
+        }
+        switcher = null;
+    }
+
+    void cancelSwitcher() {
+        closeSwitcher();
+        switcher = null;
+    }
+
+    private void closeSwitcher() {
+        switcherPopup.hide();
+        x11.XUngrabKeyboard(display, new NativeLong(LibX11.CurrentTime));
+        x11.XFlush(display);
+    }
+
+    /** The open Alt+Tab round, for tests; null while the switcher is closed. */
+    SwitcherSelection switcher() {
+        return switcher;
+    }
+
     private void withFrame(long clientWin, java.util.function.Consumer<FrameWindow> action) {
         FrameWindow frame = clientToFrame.get(clientWin);
         if (frame != null) {
@@ -2456,9 +2705,10 @@ public final class X11WindowManagerService implements AutoCloseable {
         if (frame == null || frame.isMinimized()) {
             return;
         }
+        long clientWin = frame.clientWindow().longValue();
+        if (switcher == null) capturePreview(clientWin);
         frame.setMinimized(true);
         x11.XUnmapWindow(display, frame.frameWindow());
-        long clientWin = frame.clientWindow().longValue();
 
         // Spawn/show desktop icon tile at top-left corner
         createAndShowIconTile(clientWin, frame.title());
@@ -2568,6 +2818,11 @@ public final class X11WindowManagerService implements AutoCloseable {
 
         dockWindows.remove(win);
         clientToDesktop.remove(win);
+        recentWindows.remove(win);
+        if (previews != null) previews.forget(win);
+        if (switcher != null && switcher.entries().stream().anyMatch(e -> e.clientWin() == win)) {
+            cancelSwitcher();
+        }
         removeAndReflowIconTile(win);
         FrameWindow frame = clientToFrame.remove(win);
         if (frame != null) {
@@ -2607,6 +2862,7 @@ public final class X11WindowManagerService implements AutoCloseable {
         windowSettingsWatcher.close();
         desktopMenu.dispose();
         windowMenu.dispose();
+        if (switcherPopup != null) switcherPopup.dispose();
         if (bellPlayer != null) {
             bellPlayer.close();
         }
