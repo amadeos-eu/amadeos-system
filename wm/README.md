@@ -7,7 +7,10 @@ a desktop root menu and the EWMH/ICCCM hints that panels and toolkits rely on (`
 `/usr/bin/amadeos-wm [display]`; `amadeos-session` (package amadeos-session) starts it under supervision.
 
 The window manager knows no panel by name: a window of type `_NET_WM_WINDOW_TYPE_DOCK` is the panel,
-kept above the others, outside the frames, with its strut taken from the usable screen. Super+L and the
+kept above the others, outside the frames, with its strut taken from the usable screen. Alt+Tab opens the
+window switcher (package `switcher`): the windows of the current workspace with small previews, most
+recently used first; the previews are read from the screen while a window is in full view, since there is
+no compositor. Super+L and the
 root menu start the screen lock through `/usr/bin/amadeos-lock` and the Settings through
 `/usr/bin/amadeos-settings`; the session dialogs (logout, power) are in the module `base`, shared with the
 panel.

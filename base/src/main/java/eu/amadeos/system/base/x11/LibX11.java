@@ -89,6 +89,13 @@ public interface LibX11 extends Library {
     long XK_l = 0x006C;
     long XK_L = 0x004C;
     long XK_v = 0x0076;
+    long XK_Tab = 0xFF09;
+    long XK_Left = 0xFF51;
+    long XK_Right = 0xFF53;
+    long XK_Alt_L = 0xFFE9;
+    long XK_Alt_R = 0xFFEA;
+    long XK_Meta_L = 0xFFE7;
+    long XK_Meta_R = 0xFFE8;
 
     // Cursor shapes
     int XC_left_ptr = 68;
@@ -771,6 +778,18 @@ public interface LibX11 extends Library {
     );
 
     int XDestroyImage(Pointer ximage);
+
+    /** Reads pixels back from the server; free the XImage with {@link #XDestroyImage}. */
+    Pointer XGetImage(
+        Pointer display,
+        NativeLong drawable,
+        int x,
+        int y,
+        int width,
+        int height,
+        NativeLong plane_mask,
+        int format
+    );
 
     NativeLong XCreatePixmap(Pointer display, NativeLong drawable, int width, int height, int depth);
 

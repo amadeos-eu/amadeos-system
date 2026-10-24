@@ -91,6 +91,37 @@ class X11WindowManagerIntegrationTest {
     }
 
     @Test
+    void quickAltTabGoesBackToThePreviousWindow() throws Exception {
+        try (X11WindowManagerService wm = X11WindowManagerService.open(display)) {
+            Process first = new ProcessBuilder("xmessage", "-display", display, "-geometry", "+20+20", "First").start();
+            Process second = new ProcessBuilder("xmessage", "-display", display, "-geometry", "+400+300", "Second").start();
+            try {
+                Thread.sleep(800);
+                wm.processPendingEvents();
+                var ids = wm.core().registry().snapshot().stream().map(r -> r.id()).toList();
+                assertEquals(2, ids.size(), "Expected both windows to be managed");
+                long a = ids.get(0);
+                long b = ids.get(1);
+                wm.focusClient(a);
+                wm.focusClient(b);
+                assertTrue(wm.getFrameForClient(b).isActive());
+
+                // No Alt key is held here, so the switcher switches at once, like a quick Alt+Tab.
+                wm.openSwitcher(false);
+                assertNull(wm.switcher(), "The switcher closes after a quick Alt+Tab");
+                assertTrue(wm.getFrameForClient(a).isActive(), "Alt+Tab brings back the window active before");
+                assertFalse(wm.getFrameForClient(b).isActive());
+
+                wm.openSwitcher(false);
+                assertTrue(wm.getFrameForClient(b).isActive(), "A second Alt+Tab goes back again");
+            } finally {
+                first.destroyForcibly();
+                second.destroyForcibly();
+            }
+        }
+    }
+
+    @Test
     void testInteractiveFrameMoveAndResize() throws Exception {
         try (X11WindowManagerService wm = X11WindowManagerService.open(display)) {
             Process client = new ProcessBuilder("xmessage", "-display", display, "-buttons", "OK:0", "Drag Test").start();
