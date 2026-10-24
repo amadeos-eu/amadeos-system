@@ -1,5 +1,5 @@
 // The CDE Front Panel: the dock with clock, calendar, workspace switcher, lock and language buttons, the
-// network and updates cells and the drawers listing the installed applications. `amadeos-panel-cde`; installed as the
+// network, sound and updates cells and the drawers listing the installed applications. `amadeos-panel-cde`; installed as the
 // alternative /usr/bin/amadeos-panel, which amadeos-session starts.
 application {
     mainClass = 'eu.amadeos.system.panel.cde.AmadeDesktopPanel'
@@ -13,8 +13,8 @@ dependencies {
 debian = [
     section    : 'x11',
     javaOptions: '--enable-native-access=ALL-UNNAMED',
-    // NetworkManager and polkit for the network cell.
-    depends    : ['network-manager', 'polkitd'],
+    // NetworkManager and polkit for the network cell, pactl (PipeWire through pipewire-pulse) for the sound cell.
+    depends    : ['network-manager', 'polkitd', 'pulseaudio-utils'],
     // The window manager, the programs of the Tools drawer and the Printers slot, and the helper through
     // which the updates cell installs (without it the cell still shows the pending updates).
     recommends : ['amadeos-wm', 'amadeos-logviewer', 'amadeos-sysinfo', 'amadeos-print', 'amadeos-settings',
@@ -24,7 +24,8 @@ debian = [
     replaces   : ['amade-desktop', 'amade-panel-cde'],
     summary    : 'CDE Front Panel of amadeOS',
     description: '''The front panel of the amadeOS desktop in the style of CDE: clock, calendar,
-workspace switcher, lock and language buttons, the network cell, a cell for
+workspace switcher, lock and language buttons, the network cell, the sound cell
+(volume, output and input device), a cell for
 waiting software updates and drawers that list the installed applications from their .desktop files. Provides
 amadeos-panel: amadeos-session starts /usr/bin/amadeos-panel, which this package
 registers as an alternative, so another panel can take its place.'''

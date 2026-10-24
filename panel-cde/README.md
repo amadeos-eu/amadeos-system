@@ -2,7 +2,7 @@
 
 The CDE Front Panel of amadeOS: a dock with clock, calendar, workspace switcher, lock and language
 
-buttons, the network and updates cell and drawers that list the installed applications from their `.desktop` files.
+buttons, the network, sound and updates cells and drawers that list the installed applications from their `.desktop` files.
 The Games drawer lists the entries of category `Game` (the amade-*-game packages). The Text & Office drawer lists the `TextEditor` and `WordProcessor` entries, then the other `Office` ones (Calendar, spreadsheets, presentations), as Mail & Internet lists `Email` and then `Network`. The Tools drawer holds
 the terminals, the Style Manager and the log viewer. The Help drawer opens the amadeOS User's Handbook
 (`/usr/share/doc/amadeos-handbook/html/index.html` from the package `amadeos-handbook`, else the copy on
@@ -19,7 +19,13 @@ same way; the window manager treats any `_NET_WM_WINDOW_TYPE_DOCK` window as the
 to the window manager only through X11: the EWMH properties on the root window, the `_AMADEOS_THEME`
 atom and the `_AMADEOS_LAUNCH` message (busy cursor while a program starts).
 
-The status slot on the right holds up to four cells. The network cell is always there. The updates cell
+The status slot on the right holds up to four cells. The network cell is always there. Next to it, the
+sound cell shows a loudspeaker with one to three waves for the volume, crossed out when muted. Its menu
+has a volume slider with a mute button, the outputs and the inputs as radio items and *Mute microphone*;
+choosing a device also moves the sounds playing or the recordings running to it. The mouse wheel over the
+cell changes the volume in 5 % steps and the middle button mutes. It works through `pactl`
+(`PactlSoundService` in base, which reaches PipeWire through pipewire-pulse) and follows `pactl subscribe`,
+so changes made by other programs show at once. The updates cell
 appears only while software updates wait: an arrow into a tray with their number, on red when security
 updates are among them; the tooltip says "12 updates, 3 security". Its menu lists the first updates
 (security first) and offers *Install all updates*, *Install security updates only* and *Check now*;
