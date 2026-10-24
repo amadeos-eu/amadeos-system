@@ -48,6 +48,8 @@ import eu.amadeos.system.panel.cde.widget.SlotSpacerDockWidget;
 import eu.amadeos.system.panel.cde.widget.WorkspaceSwitcherDockWidget;
 import eu.amadeos.system.base.net.NmcliNetworkService;
 import eu.amadeos.system.base.sound.PactlSoundService;
+import eu.amadeos.system.base.power.PowerSupplies;
+import eu.amadeos.system.panel.cde.status.BatteryCell;
 import eu.amadeos.system.panel.cde.status.NetworkCell;
 import eu.amadeos.system.panel.cde.status.SoundCell;
 import eu.amadeos.system.panel.cde.status.StatusDockWidget;
@@ -112,6 +114,7 @@ public final class AmadeDesktopPanel extends JFrame {
     private final StatusDockWidget statusWidget;
     private final NetworkCell networkCell;
     private final SoundCell soundCell;
+    private final BatteryCell batteryCell;
     private final UpdatesCell updatesCell;
     private final PanelSettingsStore panelSettings = PanelSettingsStore.user();
     private ConfigWatcher settingsWatch;
@@ -373,13 +376,15 @@ public final class AmadeDesktopPanel extends JFrame {
         rightSlots.add(trashWidget.component());
 
         // --8<-- [start:status]
-        // Slot 13: Status (network, sound and software updates now; battery and Bluetooth to follow),
-        // outermost on the right. The updates cell shows only while updates are waiting.
+        // Slot 13: Status (network, sound, battery and software updates now; Bluetooth to follow), outermost
+        // on the right. The battery cell shows only on computers with a battery, the updates cell only while
+        // updates are waiting.
         networkCell = new NetworkCell(new NmcliNetworkService(),
                 () -> launchProcess("xterm", "-title", "Network Settings", "-e", "nmtui"));
         soundCell = new SoundCell(new PactlSoundService());
+        batteryCell = new BatteryCell(new PowerSupplies());
         updatesCell = new UpdatesCell(new AptPackageService(), updateWindow("--updates"), updateWindow("--settings"));
-        statusWidget = new StatusDockWidget(List.of(networkCell, soundCell, updatesCell));
+        statusWidget = new StatusDockWidget(List.of(networkCell, soundCell, batteryCell, updatesCell));
         widgets.add(statusWidget);
         rightSlots.add(statusWidget.component());
         // --8<-- [end:status]
@@ -598,6 +603,7 @@ public final class AmadeDesktopPanel extends JFrame {
         clockWidget.showClockStyle(settings.clock());
         statusWidget.setShown(networkCell, settings.networkCell());
         statusWidget.setShown(soundCell, settings.soundCell());
+        statusWidget.setShown(batteryCell, settings.batteryCell());
         statusWidget.setShown(updatesCell, settings.updatesCell());
         switcher.activityLight().setMeterShown(settings.activityMeter());
     }

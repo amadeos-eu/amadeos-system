@@ -16,7 +16,7 @@ class PanelSettingsStoreTest {
     void savesAndLoadsTheSettings() {
         PanelSettingsStore store = new PanelSettingsStore(dir.resolve(PanelSettingsStore.FILE_NAME));
         assertEquals(PanelSettings.DEFAULTS, store.load(), "no file: the panel as before");
-        PanelSettings digital = new PanelSettings(PanelSettings.Clock.DIGITAL, false, true, true, false);
+        PanelSettings digital = new PanelSettings(PanelSettings.Clock.DIGITAL, false, true, false, true, false);
         store.save(digital);
         assertEquals(digital, store.load());
     }
@@ -38,6 +38,7 @@ class PanelSettingsStoreTest {
         PanelSettings loaded = new PanelSettingsStore(file).load();
         assertEquals(PanelSettings.Clock.ANALOG, loaded.clock());
         assertEquals(true, loaded.networkCell());
+        assertEquals(true, loaded.batteryCell(), "a file from before the battery cell: shown");
         assertEquals(false, loaded.updatesCell());
         assertEquals(true, loaded.activityMeter(), "a file from before the busy light: disk and network shown");
     }
