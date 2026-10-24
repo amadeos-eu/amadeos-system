@@ -25,7 +25,11 @@ has a volume slider with a mute button, the outputs and the inputs as radio item
 choosing a device also moves the sounds playing or the recordings running to it. The mouse wheel over the
 cell changes the volume in 5 % steps and the middle button mutes. It works through `pactl`
 (`PactlSoundService` in base, which reaches PipeWire through pipewire-pulse) and follows `pactl subscribe`,
-so changes made by other programs show at once. The updates cell
+so changes made by other programs show at once. The battery cell appears only on a computer with a
+battery: a lying battery filled green above 50 %, yellow down to 21 % and red at 20 % and below, with a
+bolt on mains power; the tooltip gives the percentage and the time until empty or full. It reads
+`/sys/class/power_supply` every 20 seconds (`PowerSupplies` in base), leaving out the batteries of a
+wireless mouse or keyboard. The updates cell
 appears only while software updates wait: an arrow into a tray with their number, on red when security
 updates are among them; the tooltip says "12 updates, 3 security". Its menu lists the first updates
 (security first) and offers *Install all updates*, *Install security updates only* and *Check now*;

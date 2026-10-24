@@ -19,6 +19,7 @@ final class PanelPage extends SettingsPage {
     private final JRadioButton digital = new JRadioButton(SettingsTexts.get("panel.clock.digital"));
     private final JCheckBox network = new JCheckBox(SettingsTexts.get("panel.cell.network"));
     private final JCheckBox sound = new JCheckBox(SettingsTexts.get("panel.cell.sound"));
+    private final JCheckBox battery = new JCheckBox(SettingsTexts.get("panel.cell.battery"));
     private final JCheckBox updates = new JCheckBox(SettingsTexts.get("panel.cell.updates"));
     private final JCheckBox activity = new JCheckBox(SettingsTexts.get("panel.activity.meter"));
 
@@ -32,12 +33,13 @@ final class PanelPage extends SettingsPage {
         (settings.clock() == PanelSettings.Clock.DIGITAL ? digital : analog).setSelected(true);
         network.setSelected(settings.networkCell());
         sound.setSelected(settings.soundCell());
+        battery.setSelected(settings.batteryCell());
         updates.setSelected(settings.updatesCell());
         activity.setSelected(settings.activityMeter());
 
         layoutSections(
                 section(SettingsTexts.get("panel.clock.title"), analog, digital),
-                section(SettingsTexts.get("panel.cells.title"), network, sound, updates,
+                section(SettingsTexts.get("panel.cells.title"), network, sound, battery, updates,
                         note(SettingsTexts.get("panel.cells.hint"))),
                 section(SettingsTexts.get("panel.activity.title"), activity,
                         note(SettingsTexts.get("panel.activity.hint"))),
@@ -46,7 +48,8 @@ final class PanelPage extends SettingsPage {
 
     PanelSettings selected() {
         return new PanelSettings(digital.isSelected() ? PanelSettings.Clock.DIGITAL : PanelSettings.Clock.ANALOG,
-                network.isSelected(), sound.isSelected(), updates.isSelected(), activity.isSelected());
+                network.isSelected(), sound.isSelected(), battery.isSelected(), updates.isSelected(),
+                activity.isSelected());
     }
 
     @Override

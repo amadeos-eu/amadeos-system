@@ -104,7 +104,7 @@ class SystemPagesTest {
             findButton(page, "Show disk and network activity").doClick();
             assertEquals("Front Panel applied", page.apply());
         });
-        assertEquals(new PanelSettings(PanelSettings.Clock.DIGITAL, false, true, true, false), store.load());
+        assertEquals(new PanelSettings(PanelSettings.Clock.DIGITAL, false, true, true, true, false), store.load());
     }
 
     @Test
