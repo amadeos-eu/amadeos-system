@@ -35,7 +35,9 @@ jobs:
       - name: Install X11 test tools
         run: sudo apt-get update -q && sudo apt-get install -y -q x11-utils x11-xserver-utils xvfb
       - name: Test
-        run: xvfb-run --auto-servernum ./gradlew test --no-daemon
+        # The same version as the Package step: settings puts the session jar on its classpath, and a second
+        # jar with the local version would make the package check below find two.
+        run: xvfb-run --auto-servernum ./gradlew test --no-daemon -PappVersion=${{ steps.version.outputs.version }}
       - name: Check that the tests ran
         run: |
           for module in base wm panel-cde dm session settings logviewer print sysinfo packages software; do
