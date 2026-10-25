@@ -17,7 +17,12 @@ subprojects {
     apply plugin: 'java'
 
     group = 'eu.amadeos.system'
-    version = '0.1.0'
+    // CI computes the version from the Conventional Commits since the last release tag and passes it as
+    // -PappVersion (datazuul/amadeos-ci scripts/next-version.sh); a build without it is a local development
+    // build. All modules share it.
+    version = rootProject.findProperty('appVersion') ?: '0.0.0-dev.0'
+    // Debian sorts 1.1.0~dev.57 before 1.1.0 (with - it would sort after it).
+    ext.debVersion = version.toString().replace('-', '~')
 
     java {
         toolchain {
@@ -206,7 +211,7 @@ exec /usr/bin/java ${javaOptions}-jar /opt/${packageName}/${packageName}.jar "\$
 
                 def depends = ((program ? ['openjdk-25-jre | java-runtime (>= 25)'] : []) + (deb.depends ?: [])).join(', ')
                 def control = """Package: ${packageName}
-Version: ${project.version}
+Version: ${project.debVersion}
 Section: ${deb.section}
 Priority: optional
 Architecture: all
@@ -222,7 +227,7 @@ ${deb.description.readLines().collect { ' ' + it }.join('\n')}
 """
                 new File(debianDir, 'control').text = control
 
-                def debFile = new File(distDir, "${packageName}_${project.version}_all.deb")
+                def debFile = new File(distDir, "${packageName}_${project.debVersion}_all.deb")
                 def process = new ProcessBuilder('dpkg-deb', '--root-owner-group', '--build',
                         stagingDir.absolutePath, debFile.absolutePath)
                         .redirectErrorStream(true)
@@ -244,7 +249,7 @@ ${deb.description.readLines().collect { ' ' + it }.join('\n')}
                 def targetDir = rootProject.file('../amadeos/config/packages.chroot')
                 targetDir.mkdirs()
                 def debFile = new File(layout.buildDirectory.get().asFile,
-                        "distributions/${packageName}_${project.version}_all.deb")
+                        "distributions/${packageName}_${project.debVersion}_all.deb")
                 copy {
                     from debFile
                     into targetDir

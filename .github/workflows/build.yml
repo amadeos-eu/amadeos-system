@@ -1,8 +1,10 @@
 name: Build
 
+# develop builds X.Y.Z-dev.N, release X.Y.Z-pre.N and main the release X.Y.Z, which the release job
+# tags and publishes with the packages (see CONTRIBUTING.md of datazuul/amadeos, "Commits and versions").
 on:
   push:
-    branches: [main]
+    branches: [develop, release, main]
   pull_request:
 
 permissions:
@@ -11,8 +13,16 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      channel: ${{ steps.version.outputs.channel }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          # The version is computed from the history since the last release tag.
+          fetch-depth: 0
+      - id: version
+        uses: datazuul/amadeos-ci/version@main
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
@@ -37,7 +47,7 @@ jobs:
             if [ "$module" = base ]; then test "$skipped" -le 1; else test "$skipped" -eq 0; fi
           done
       - name: Package
-        run: ./gradlew deb --no-daemon
+        run: ./gradlew deb --no-daemon -PappVersion=${{ steps.version.outputs.version }}
       - name: Check the packages
         run: |
           for module in wm panel-cde dm session settings logviewer print sysinfo software; do
@@ -46,6 +56,7 @@ jobs:
             unzip -p "$jar" META-INF/MANIFEST.MF | grep -q "Main-Class: eu.amadeos.system."
             deb=$(ls $module/build/distributions/${name}_*_all.deb)
             dpkg-deb --info "$deb"
+            test "$(dpkg-deb --field "$deb" Version)" = "${{ steps.version.outputs.deb-version }}"
             dpkg-deb --contents "$deb" > contents.txt
             # The jar launcher is in /usr/libexec when the module has a script of the same name.
             launcher=usr/bin/$name
@@ -95,3 +106,32 @@ jobs:
         with:
           name: test-reports
           path: '*/build/reports/tests/test'
+
+  # Only on main, after the release branch was promoted: tag vX.Y.Z and publish the GitHub Release.
+  release:
+    needs: build
+    if: needs.build.outputs.channel == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v8
+        with:
+          name: amadeos-system-debs
+          path: dist
+      - uses: datazuul/amadeos-ci/release@main
+        with:
+          version: ${{ needs.build.outputs.version }}
+          files: dist/*/build/distributions/*.deb
+
+  commits:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: datazuul/amadeos-ci/check-commits@main
