@@ -72,6 +72,35 @@ class ActivityLightTest {
     }
 
     @Test
+    void findsResticOnlyWhileItBacksUp() throws Exception {
+        ActivityCounters counters = new ActivityCounters(proc);
+        Files.createDirectories(proc.resolve("900"));
+        Files.writeString(proc.resolve("900/comm"), "restic\n");
+        Files.writeString(proc.resolve("900/cmdline"), "restic\0--repo\0/media/ralf/BACKUP/amadeos-backup/home\0snapshots\0--json\0");
+        assertEquals(ActivityCounters.Processes.NONE, counters.processes(), "a look at the backups is not a backup");
+        Files.writeString(proc.resolve("900/cmdline"), "restic\0--repo\0/media/ralf/BACKUP/amadeos-backup/home\0backup\0--json\0/home/ralf\0");
+        assertEquals(new ActivityCounters.Processes(false, true), counters.processes());
+        Files.createDirectories(proc.resolve("901"));
+        Files.writeString(proc.resolve("901/comm"), "dpkg\n");
+        assertEquals(new ActivityCounters.Processes(true, true), counters.processes());
+    }
+
+    @Test
+    void aVioletChaserRunsTheOtherWayWhileABackupRuns() {
+        ActivityLight light = new ActivityLight(new ActivityCounters(proc));
+        light.tick(50L << 20, 0, false, true);
+        assertEquals(Dash.BACKUP, light.dashes()[ActivityLight.DASHES - 1], "comes in on the right");
+        for (int step = 0; step < 4; step++) {
+            long violet = Arrays.stream(light.dashes()).filter(d -> d == Dash.BACKUP).count();
+            assertTrue(violet >= 1 && violet <= ActivityLight.CHASER, "a short run of violet dashes, no disk meter");
+            light.tick(50L << 20, 0, false, true);
+        }
+        assertEquals("<html>System Activity &amp; Status<br>Backing up…</html>", light.describe());
+        light.tick(0, 0, true, true);
+        assertTrue(Arrays.stream(light.dashes()).noneMatch(d -> d == Dash.BACKUP), "installing goes first");
+    }
+
+    @Test
     void withoutProcEverythingReadsZero() {
         ActivityCounters counters = new ActivityCounters(proc.resolve("missing"));
         assertEquals(0, counters.diskBytes());
