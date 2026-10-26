@@ -5,11 +5,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
  * The counters behind the activity light, read from {@code /proc}: the bytes moved by the disks since boot
- * ({@code /proc/diskstats}), the bytes moved by the network ({@code /proc/net/dev}) and whether dpkg is running.
+ * ({@code /proc/diskstats}), the bytes moved by the network ({@code /proc/net/dev}) and whether dpkg or a
+ * backup is running.
  * Only the change between two readings matters, so the counters need no units beyond bytes. Without
  * {@code /proc} (or a file in it) the counter reads 0 and the light stays dark.
  */
@@ -19,6 +21,13 @@ public final class ActivityCounters {
     /** Whole disks only: their partitions, loop and RAM devices, device mapper and optical drives would count twice or not at all. */
     private static final Pattern WHOLE_DISK = Pattern.compile("(?:[shv]d|xvd)[a-z]+|nvme\\d+n\\d+|mmcblk\\d+");
     private static final Pattern PID = Pattern.compile("\\d+");
+    /** The restic commands that back up, thin out, check or restore; not the short looks of a restore window. */
+    private static final Set<String> BACKUP_COMMANDS = Set.of("backup", "forget", "prune", "check", "restore", "dump");
+
+    /** What the processes show: software being installed, a backup running. */
+    public record Processes(boolean installer, boolean backup) {
+        public static final Processes NONE = new Processes(false, false);
+    }
 
     private final Path proc;
 
@@ -42,13 +51,36 @@ public final class ActivityCounters {
 
     /** Whether a dpkg process runs: software is being unpacked, installed or removed, by whatever program. */
     public boolean installerRunning() {
+        return processes().installer();
+    }
+
+    // --8<-- [start:processes]
+    /**
+     * One walk over the processes: dpkg (software is being unpacked, installed or removed, by whatever program)
+     * and restic backing up, thinning out, checking or restoring (Backup &amp; Sync, or restic by hand).
+     */
+    public Processes processes() {
+        boolean installer = false;
+        boolean backup = false;
         try (DirectoryStream<Path> processes = Files.newDirectoryStream(proc,
                 p -> PID.matcher(p.getFileName().toString()).matches())) {
             for (Path process : processes) {
-                if ("dpkg".equals(read(process.resolve("comm")).strip())) return true;
+                String comm = read(process.resolve("comm")).strip();
+                if (comm.equals("dpkg")) installer = true;
+                else if (comm.equals("restic") && backupCommand(read(process.resolve("cmdline")))) backup = true;
+                if (installer && backup) break;
             }
         } catch (IOException | RuntimeException e) {
-            return false;
+            return new Processes(installer, backup);
+        }
+        return new Processes(installer, backup);
+    }
+    // --8<-- [end:processes]
+
+    /** Whether restic's command line ({@code /proc/<pid>/cmdline}, NUL between the words) names a backup command. */
+    static boolean backupCommand(String cmdline) {
+        for (String word : cmdline.split("\0")) {
+            if (BACKUP_COMMANDS.contains(word)) return true;
         }
         return false;
     }

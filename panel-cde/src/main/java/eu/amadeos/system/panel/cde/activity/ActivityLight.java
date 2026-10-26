@@ -18,7 +18,8 @@ import eu.amadeos.system.panel.cde.PanelTexts;
 
 /**
  * The busy light above Exit: a sunken slit with ten LED dashes, as in CDE. All ten blink yellow while an
- * application starts; an amber chaser runs while software is installed; otherwise the left five show the
+ * application starts; an amber chaser runs while software is installed, a violet one from right to left while
+ * a backup runs; otherwise the left five show the
  * disks in green and the right five the network in cyan, more dashes the more bytes move, and the slit is
  * dark when nothing happens. Settings > Front Panel turns the disk and network halves off, which leaves the
  * plain CDE busy light.
@@ -31,7 +32,7 @@ public final class ActivityLight extends JComponent {
     static final int DASHES = 10;
     static final int HALF = DASHES / 2;
     static final long TICK_MILLIS = 250;
-    /** Whether dpkg runs is checked every this many ticks (2 s); it walks all processes. */
+    /** Whether dpkg or a backup runs is checked every this many ticks (2 s); it walks all processes. */
     static final int INSTALLER_EVERY = 8;
     /** Bytes per second from which the disk half lights 1, 2, ... 5 dashes. */
     static final long[] DISK_STEPS = {64L << 10, 512L << 10, 4L << 20, 16L << 20, 50L << 20};
@@ -44,6 +45,7 @@ public final class ActivityLight extends JComponent {
         OFF(new Color(0x45, 0x42, 0x30)),
         BUSY(new Color(0xFA, 0xCC, 0x15)),
         INSTALL(new Color(0xF5, 0x9E, 0x0B)),
+        BACKUP(new Color(0xA7, 0x8B, 0xFA)),
         DISK(new Color(0x4A, 0xDE, 0x80)),
         NETWORK(new Color(0x38, 0xBD, 0xF8));
 
@@ -65,6 +67,7 @@ public final class ActivityLight extends JComponent {
     private boolean launching;
     private boolean installing;
     private boolean installerRunning;
+    private boolean backupRunning;
     private boolean meterShown = true;
     private int diskLevel;
     private int networkLevel;
@@ -143,20 +146,21 @@ public final class ActivityLight extends JComponent {
         private long lastNetwork = -1;
         private long lastNanos;
         private int count;
-        private boolean dpkg;
+        private ActivityCounters.Processes processes = ActivityCounters.Processes.NONE;
 
         @Override
         public void run() {
             long now = System.nanoTime();
             long disk = counters.diskBytes();
             long network = counters.networkBytes();
-            if (count++ % INSTALLER_EVERY == 0) dpkg = counters.installerRunning();
+            if (count++ % INSTALLER_EVERY == 0) processes = counters.processes();
             if (lastDisk >= 0) {
                 double seconds = Math.max(1e-3, (now - lastNanos) / 1e9);
                 long diskPerSecond = (long) (Math.max(0, disk - lastDisk) / seconds);
                 long networkPerSecond = (long) (Math.max(0, network - lastNetwork) / seconds);
-                boolean installer = dpkg;
-                SwingUtilities.invokeLater(() -> tick(diskPerSecond, networkPerSecond, installer));
+                ActivityCounters.Processes running = processes;
+                SwingUtilities.invokeLater(() -> tick(diskPerSecond, networkPerSecond, running.installer(),
+                        running.backup()));
             }
             lastDisk = disk;
             lastNetwork = network;
@@ -166,7 +170,12 @@ public final class ActivityLight extends JComponent {
 
     /** One step of the light with the rates just measured; on the event dispatch thread. */
     void tick(long diskPerSecond, long networkPerSecond, boolean installer) {
+        tick(diskPerSecond, networkPerSecond, installer, false);
+    }
+
+    void tick(long diskPerSecond, long networkPerSecond, boolean installer, boolean backup) {
         tick++;
+        backupRunning = backup;
         diskRate = diskPerSecond;
         networkRate = networkPerSecond;
         installerRunning = installer;
@@ -197,6 +206,12 @@ public final class ActivityLight extends JComponent {
             for (int i = head - CHASER + 1; i <= head; i++) {
                 if (i >= 0 && i < DASHES) dashes[i] = Dash.INSTALL;
             }
+        } else if (backupRunning) {
+            // The same chaser in violet, from right to left: the data goes off to the backup disk
+            int head = tick % (DASHES + CHASER - 1);
+            for (int i = head - CHASER + 1; i <= head; i++) {
+                if (i >= 0 && i < DASHES) dashes[DASHES - 1 - i] = Dash.BACKUP;
+            }
         } else if (meterShown) {
             for (int i = 0; i < diskLevel; i++) dashes[i] = Dash.DISK;
             for (int i = 0; i < networkLevel; i++) dashes[DASHES - 1 - i] = Dash.NETWORK;
@@ -213,6 +228,8 @@ public final class ActivityLight extends JComponent {
             detail = PanelTexts.get("activity.launching");
         } else if (installing || installerRunning) {
             detail = PanelTexts.get("activity.installing");
+        } else if (backupRunning) {
+            detail = PanelTexts.get("activity.backup");
         } else if (meterShown) {
             detail = PanelTexts.format("activity.rates", rate(diskRate), rate(networkRate));
         } else {
