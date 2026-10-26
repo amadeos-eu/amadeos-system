@@ -1,5 +1,7 @@
 package eu.amadeos.system.settings;
 
+import eu.amadeos.commons.net.ProxyCheck;
+import eu.amadeos.commons.net.ProxySettings;
 import eu.amadeos.system.base.process.ProcessLauncher;
 import eu.amadeos.system.base.xdg.XdgApplicationManager;
 import eu.amadeos.system.base.xdg.XdgDesktopEntry;
@@ -11,19 +13,21 @@ import eu.amadeos.system.packages.PackageService;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
 
 /**
  * What the System pages of the Settings reach beyond files of the user: the login keyring, the package
- * manager, the computer's time zone, the monitors (through xrandr), and starting other programs. Tests give the window stand-ins.
+ * manager, the computer's time zone, the monitors (through xrandr), starting other programs, and trying a proxy. Tests give the window stand-ins.
  *
  * @param launcher     starts a program of the desktop, e.g. {@code amadeos-software --updates}
  * @param applications the installed programs, as the Front Panel's drawers list them
  */
 record SystemAccess(Keyring keyring, PackageService packages, TimeZones timeZones, Consumer<List<String>> launcher,
-                    Supplier<List<XdgDesktopEntry>> applications, DisplayApplier displays) {
+                    Supplier<List<XdgDesktopEntry>> applications, DisplayApplier displays,
+                    BiFunction<ProxySettings, String, ProxyCheck.Result> proxyCheck) {
     private static final Logger LOGGER = Logger.getLogger(SystemAccess.class.getName());
 
     static SystemAccess system() {
@@ -33,6 +37,7 @@ record SystemAccess(Keyring keyring, PackageService packages, TimeZones timeZone
             } catch (IOException e) {
                 LOGGER.warning("Cannot start " + command + ": " + e.getMessage());
             }
-        }, () -> XdgApplicationManager.getInstance().getAllApplications(), new DisplayApplier());
+        }, () -> XdgApplicationManager.getInstance().getAllApplications(), new DisplayApplier(),
+                (settings, password) -> new ProxyCheck().check(settings, password));
     }
 }

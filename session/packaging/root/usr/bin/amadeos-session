@@ -49,6 +49,13 @@ if [ -f "$USER_CONF" ]; then
     . "$USER_CONF"
 fi
 
+# The proxy of Settings > Network (~/.config/amadeos/proxy.conf) as http_proxy and friends, for everything the
+# session starts: terminals, the browser, curl, git. Programs started later from the desktop get the proxy as
+# it is then (amade-commons NetworkProxy.applyTo in ProcessLauncher and the applications).
+if [ -x /usr/libexec/amadeos-proxy-env ]; then
+    eval "$(/usr/libexec/amadeos-proxy-env 2>/dev/null)"
+fi
+
 # Ensure log files are writable by current user; fallback to /tmp if necessary
 mkdir -p "$(dirname "$SESSION_LOG_FILE")" "$(dirname "$WM_LOG_FILE")" 2>/dev/null || true
 if ! touch "$SESSION_LOG_FILE" 2>/dev/null; then

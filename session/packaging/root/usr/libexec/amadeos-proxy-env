@@ -1,0 +1,101 @@
+#!/bin/bash
+# amadeos-proxy-env: prints the proxy of Settings > Network as shell assignments, for amadeos-session:
+#     eval "$(/usr/libexec/amadeos-proxy-env)"
+# so that everything started in the session (terminals, the browser, curl, git) has it. Programs started
+# later from the desktop get the proxy as it is then, from amade-commons (NetworkProxy.applyTo).
+#
+# Reads ~/.config/amadeos/proxy.conf (written by amade-commons' ProxyStore) and the password from the keyring
+# (secret-tool lookup service amadeos account proxy). Mode "manual" exports http_proxy, https_proxy and
+# no_proxy in lower and upper case, user and password percent-encoded in the URL; mode "none" unsets them;
+# mode "system" or no file prints nothing, so the variables the session already has stay.
+set -u
+
+CONF="${AMADEOS_PROXY_CONF:-${XDG_CONFIG_HOME:-$HOME/.config}/amadeos/proxy.conf}"
+SECRET_TOOL="${AMADEOS_PROXY_SECRET_TOOL:-secret-tool}"
+VARIABLES="http_proxy https_proxy all_proxy no_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY"
+
+[ -r "$CONF" ] || exit 0
+
+# A value of a Java properties file: the first "key=value" line, with Properties' escapes ("\:", "\ ") undone.
+value() {
+    local line
+    line="$(grep -m1 "^$1=" "$CONF" 2>/dev/null)" || return 0
+    line="${line#*=}"
+    line="${line%$'\r'}"
+    printf '%s' "$line" | sed -e 's/\\\(.\)/\1/g'
+}
+
+# Percent-encodes everything but unreserved characters (RFC 3986), byte by byte.
+encode() {
+    local LC_ALL=C s="$1" out="" c i
+    for ((i = 0; i < ${#s}; i++)); do
+        c="${s:i:1}"
+        case "$c" in
+            [a-zA-Z0-9.~_-]) out+="$c" ;;
+            *) out+="$(printf '%%%02X' "'$c")" ;;
+        esac
+    done
+    printf '%s' "$out"
+}
+
+# A host name, IPv4 or IPv6 address; nothing a shell or a URL could take for something else.
+valid_host() {
+    [[ "$1" =~ ^[A-Za-z0-9.:_-]+$ ]]
+}
+
+valid_port() {
+    [[ "$1" =~ ^[0-9]{1,5}$ ]] && [ "$1" -ge 1 ] && [ "$1" -le 65535 ]
+}
+
+quote() {
+    printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
+}
+
+mode="$(value mode)"
+case "$mode" in
+    none)
+        echo "unset $VARIABLES"
+        exit 0 ;;
+    manual) ;;
+    *) exit 0 ;;
+esac
+
+host="$(value http.host)"
+port="$(value http.port)"
+valid_port "$port" || port=3128
+if [ -z "$host" ] || ! valid_host "$host"; then
+    exit 0
+fi
+https_host="$host"
+https_port="$port"
+if [ "$(value https.same)" = "false" ] && [ -n "$(value https.host)" ]; then
+    https_host="$(value https.host)"
+    https_port="$(value https.port)"
+    valid_host "$https_host" || https_host="$host"
+    valid_port "$https_port" || https_port=3128
+fi
+
+credentials=""
+user="$(value user)"
+if [ -n "$user" ]; then
+    password=""
+    if command -v "$SECRET_TOOL" >/dev/null 2>&1; then
+        password="$(timeout 5 "$SECRET_TOOL" lookup service amadeos account proxy 2>/dev/null || true)"
+    fi
+    credentials="$(encode "$user")"
+    [ -n "$password" ] && credentials+=":$(encode "$password")"
+    credentials+="@"
+fi
+
+url_host() {
+    case "$1" in *:*) printf '[%s]' "$1" ;; *) printf '%s' "$1" ;; esac
+}
+
+http_url="http://${credentials}$(url_host "$host"):$port"
+https_url="http://${credentials}$(url_host "$https_host"):$https_port"
+no_proxy="$(value no.proxy | tr -s ' ,' ',' | sed -e 's/^,//' -e 's/,$//')"
+
+echo "unset $VARIABLES"
+for name in http_proxy HTTP_PROXY; do echo "export $name=$(quote "$http_url")"; done
+for name in https_proxy HTTPS_PROXY; do echo "export $name=$(quote "$https_url")"; done
+for name in no_proxy NO_PROXY; do echo "export $name=$(quote "$no_proxy")"; done

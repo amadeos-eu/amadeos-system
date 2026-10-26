@@ -247,6 +247,8 @@ public final class SettingsWindow extends JFrame {
             case CLIPBOARD -> new ClipboardPage(this::setStatus, stores.clipboard());
             case STARTUP -> new StartupPage(this::setStatus, stores.startup(), stores.autostart(), stores.servicesDir(),
                     system.applications());
+            case NETWORK -> new NetworkPage(this::setStatus, stores.proxy(), system.packages(), stores,
+                    system.proxyCheck(), System.getenv());
             case PASSWORDS -> new PasswordsPage(this::setStatus, system.keyring());
             case UPDATES -> new UpdatesPage(this::setStatus, system.packages(), system.launcher());
             case LANGUAGE -> new LanguagePage(this::setStatus, stores.locales(), system.timeZones());

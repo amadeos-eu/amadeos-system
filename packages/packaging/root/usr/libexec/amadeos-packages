@@ -9,6 +9,7 @@
 #   remove PKG…                      remove packages (configuration files stay, nothing is autoremoved)
 #   check                            list the pending upgrades; read-only, needs no root
 #   automatic-security on|off        install security updates automatically (unattended-upgrades) or not
+#   proxy                            apt's proxy from standard input ("http URL", "https URL"); none: removed
 # --8<-- [end:commands]
 #
 # Output for the caller: apt's progress (APT::Status-Fd: "dlstatus:…", "pmstatus:…", "pmerror:…") and the
@@ -32,6 +33,8 @@ APT_CONF_DIR="${AMADEOS_PACKAGES_APT_CONF_DIR:-/etc/apt/apt.conf.d}"
 DPKG_QUERY="${AMADEOS_PACKAGES_DPKG_QUERY:-/usr/bin/dpkg-query}"
 # Sorts after Debian's 20auto-upgrades, so this file decides.
 AUTOMATIC_CONF="50amadeos-unattended"
+# Settings > Network: apt's proxy. Read only by root, as it may hold the proxy password.
+PROXY_CONF="80amadeos-proxy"
 
 export LC_ALL=C.UTF-8
 export DEBIAN_FRONTEND=noninteractive
@@ -45,6 +48,7 @@ Usage: amadeos-packages refresh
        amadeos-packages remove PACKAGE…
        amadeos-packages check
        amadeos-packages automatic-security on|off
+       amadeos-packages proxy < "http URL" and "https URL" lines
        amadeos-packages --version
 
 Installs, upgrades and removes software with apt for the amadeOS desktop. The desktop runs it through
@@ -191,6 +195,41 @@ APT::Periodic::Unattended-Upgrade "$VALUE";
 EOF
         chmod 644 "$TMP"
         mv -f "$TMP" "$APT_CONF_DIR/$AUTOMATIC_CONF"
+        finish
+        ;;
+    proxy)
+        # The URLs come on standard input, not as arguments, so that a password in them never shows in the
+        # process list. http://[user[:password]@]host:port with user and password percent-encoded: nothing
+        # that could end the quoted string in apt.conf.
+        [ "$#" -eq 0 ] || fail usage 1 "proxy reads its URLs from standard input"
+        require_root
+        PROXY_URL='^http://([A-Za-z0-9._~*%-]+(:[A-Za-z0-9._~*%-]*)?@)?(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9.-]+):[0-9]{1,5}/?$'
+        HTTP_URL=""
+        HTTPS_URL=""
+        while IFS=' ' read -r SCHEME URL; do
+            [ -n "$SCHEME" ] || continue
+            [[ "$URL" =~ $PROXY_URL ]] || fail usage 1 "not a proxy URL for $SCHEME"
+            case "$SCHEME" in
+                http) HTTP_URL="$URL" ;;
+                https) HTTPS_URL="$URL" ;;
+                *) fail usage 1 "proxy takes http and https lines" ;;
+            esac
+        done
+        if [ -z "$HTTP_URL" ] && [ -z "$HTTPS_URL" ]; then
+            log proxy off
+            rm -f "$APT_CONF_DIR/$PROXY_CONF"
+            finish
+            exit 0
+        fi
+        log proxy on
+        TMP="$(mktemp "$APT_CONF_DIR/.$PROXY_CONF.XXXXXX")"
+        chmod 600 "$TMP"
+        {
+            echo "// Written by amadeos-packages (Settings > Network): apt's proxy."
+            if [ -n "$HTTP_URL" ]; then echo "Acquire::http::Proxy \"$HTTP_URL\";"; fi
+            if [ -n "$HTTPS_URL" ]; then echo "Acquire::https::Proxy \"$HTTPS_URL\";"; fi
+        } >"$TMP"
+        mv -f "$TMP" "$APT_CONF_DIR/$PROXY_CONF"
         finish
         ;;
     check)

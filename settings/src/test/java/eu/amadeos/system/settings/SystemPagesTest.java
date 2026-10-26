@@ -2,6 +2,8 @@ package eu.amadeos.system.settings;
 
 import eu.amadeos.commons.i18n.Language;
 import eu.amadeos.commons.i18n.LocaleStore;
+import eu.amadeos.commons.net.ProxyCheck;
+import eu.amadeos.commons.net.ProxySettings;
 import eu.amadeos.system.base.panel.PanelSettings;
 import eu.amadeos.system.base.panel.PanelSettingsStore;
 import eu.amadeos.system.base.startup.StartupSettings;
@@ -29,6 +31,7 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
@@ -50,7 +53,8 @@ class SystemPagesTest {
     /** A system without a keyring, with an apt that has nothing to offer, and a time zone that only remembers. */
     static SystemAccess fakeSystem() {
         return new SystemAccess(new FakeKeyring(), packages(new ArrayList<>(), List.of()), new FakeTimeZones(),
-                command -> { }, List::of, new FakeDisplays());
+                command -> { }, List::of, new FakeDisplays(),
+                (settings, password) -> new ProxyCheck.Result(ProxyCheck.Outcome.OK, "", "200"));
     }
 
     /** An apt whose automatic security updates are off and which records the calls that change them. */
@@ -174,6 +178,67 @@ class SystemPagesTest {
         assertEquals(List.of(true), calls);
         assertEquals("1 update, 1 of them for security", UpdatesPage.describe(List.of(openssl)));
         assertEquals("no updates, the system is up to date", UpdatesPage.describe(List.of()));
+    }
+
+    @Test
+    void networkPageWritesTheProxyAndHandsItToApt() throws Exception {
+        assumeFalse(GraphicsEnvironment.isHeadless());
+        SettingsStores stores = SettingsStores.in(dir);
+        List<String> aptCalls = new ArrayList<>();
+        PackageService apt = (PackageService) Proxy.newProxyInstance(SystemPagesTest.class.getClassLoader(),
+                new Class<?>[]{PackageService.class}, (proxy, method, args) -> switch (method.getName()) {
+                    case "setAptProxy" -> {
+                        aptCalls.add(args[0] + " " + args[1]);
+                        yield new Result(Result.Status.DONE, "", false);
+                    }
+                    case "toString" -> "fake apt";
+                    default -> throw new UnsupportedOperationException(method.getName());
+                });
+        List<ProxySettings> tested = new ArrayList<>();
+        List<String> lines = new ArrayList<>();
+        AtomicReference<NetworkPage> page = new AtomicReference<>();
+        SwingUtilities.invokeAndWait(() -> {
+            page.set(new NetworkPage(lines::add, stores.proxy(), apt, stores, (s, pw) -> {
+                tested.add(s);
+                return new ProxyCheck.Result(ProxyCheck.Outcome.CREDENTIALS_REFUSED, "proxy.example:3128", "407");
+            }, Map.of("https_proxy", "http://env.example:8080")));
+            assertEquals("Now: env.example:8080", page.get().describeEnvironment());
+            assertEquals(ProxySettings.Mode.SYSTEM, page.get().selected().mode());
+            assertFalse(page.get().hostField().isEnabled(), "the manual fields wait for Manual");
+            findButton(page.get(), "Use this proxy:").doClick();
+            page.get().hostField().setText(" proxy.example ");
+            page.get().userField().setText("ralf");
+            page.get().passwordField().setText("p@ss");
+            findButton(page.get(), "Test").doClick();
+        });
+        waitFor(() -> page.get().testResult().getText().contains("refused"));
+        assertEquals("proxy.example", tested.getFirst().host());
+
+        SwingUtilities.invokeAndWait(() -> {
+            page.get().aptBox().setSelected(true);
+            assertEquals("Network: saving…", page.get().apply());
+        });
+        waitFor(() -> !aptCalls.isEmpty());
+        assertEquals(List.of("http://ralf:p%40ss@proxy.example:3128 http://ralf:p%40ss@proxy.example:3128"), aptCalls);
+        assertEquals(ProxySettings.manual("proxy.example", 3128, "ralf", ProxySettings.DEFAULT_NO_PROXY),
+                stores.proxy().current());
+        assertEquals("p@ss", stores.proxy().password());
+        assertTrue(stores.aptProxy());
+        waitFor(() -> lines.contains("Network applied, also for software"));
+
+        SwingUtilities.invokeAndWait(() -> page.get().apply());
+        waitFor(() -> lines.size() > 1);
+        assertEquals(1, aptCalls.size(), "unchanged settings do not ask for the administrator's password again");
+
+        SwingUtilities.invokeAndWait(() -> {
+            findButton(page.get(), "No proxy, always connect directly").doClick();
+            page.get().aptBox().setSelected(false);
+            page.get().apply();
+        });
+        waitFor(() -> aptCalls.size() == 2);
+        assertEquals(" ", aptCalls.getLast());
+        assertEquals(ProxySettings.Mode.NONE, stores.proxy().current().mode());
+        assertEquals("", stores.proxy().password(), "no password kept without a manual proxy");
     }
 
     @Test

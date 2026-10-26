@@ -79,6 +79,16 @@ public interface PackageService {
     /** Turns automatic security updates on (installing unattended-upgrades if needed) or off. */
     Result setAutomaticSecurityUpdates(boolean on, ProgressListener listener);
 
+    /**
+     * Sets apt's proxy (Settings &gt; Network), or removes it when both are empty.
+     *
+     * @param httpUrl  {@code http://[user[:password]@]host:port}, user and password percent-encoded; empty for none
+     * @param httpsUrl the same for HTTPS archives
+     */
+    default Result setAptProxy(String httpUrl, String httpsUrl, ProgressListener listener) {
+        return Result.failed("not supported");
+    }
+
     /** A line of {@code apt-cache search}. */
     record SearchHit(String name, String summary) {
     }

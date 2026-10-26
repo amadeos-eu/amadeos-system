@@ -199,6 +199,31 @@ class AptPackageServiceTest {
     }
 
     @Test
+    void theProxyGoesIntoAnAptFileOnlyRootReads() throws Exception {
+        Path conf = Files.createDirectory(dir.resolve("apt.conf.d"));
+        AptPackageService service = new AptPackageService(List.of("bash", HELPER.toString()), Map.of(
+                "AMADEOS_PACKAGES_APT_GET", dir.resolve("apt-get").toString(),
+                "AMADEOS_PACKAGES_LOG", log.toString(),
+                "AMADEOS_PACKAGES_APT_CONF_DIR", conf.toString()), command -> "");
+
+        assertTrue(service.setAptProxy("http://anna:p%40ss@proxy.example:3128", "http://tls.example:8443",
+                ProgressListener.NONE).success());
+        Path file = conf.resolve("80amadeos-proxy");
+        String written = Files.readString(file);
+        assertTrue(written.contains("Acquire::http::Proxy \"http://anna:p%40ss@proxy.example:3128\";"), written);
+        assertTrue(written.contains("Acquire::https::Proxy \"http://tls.example:8443\";"), written);
+        assertEquals("rw-------", java.nio.file.attribute.PosixFilePermissions.toString(Files.getPosixFilePermissions(file)));
+
+        Result refused = service.setAptProxy("http://x\";Dir \"/tmp\":1", "", ProgressListener.NONE);
+        assertFalse(refused.success());
+        assertEquals(written, Files.readString(file), "a refused URL leaves the file as it was");
+
+        assertTrue(service.setAptProxy("", "", ProgressListener.NONE).success());
+        assertFalse(Files.exists(file));
+        assertTrue(aptCalls().isEmpty(), "apt itself does not run");
+    }
+
+    @Test
     void listsAreThereOnceAptFetchedPackages() throws Exception {
         Path lists = Files.createDirectory(dir.resolve("lists"));
         Files.createDirectory(lists.resolve("partial"));
