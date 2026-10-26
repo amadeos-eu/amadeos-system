@@ -1,7 +1,9 @@
 package eu.amadeos.system.settings;
 
 import eu.amadeos.commons.config.PropertiesFile;
+import eu.amadeos.commons.desktop.SessionPasswordStore;
 import eu.amadeos.commons.i18n.LocaleStore;
+import eu.amadeos.commons.net.ProxyStore;
 import eu.amadeos.system.base.panel.PanelSettingsStore;
 import eu.amadeos.system.base.startup.DesktopServices;
 import eu.amadeos.system.base.startup.StartupSettings;
@@ -27,7 +29,7 @@ import java.util.Properties;
 record SettingsStores(ScreenSettingsStore screen, ClipboardSettingsStore clipboard, InputSettingsStore input,
                       WindowSettingsStore window, PanelSettingsStore panel, WorkspaceNames workspaces,
                       StartupSettings startup, UserAutostart autostart, Path servicesDir, LocaleStore locales,
-                      DisplaySettingsStore display, Path viewFile) {
+                      DisplaySettingsStore display, ProxyStore proxy, Path viewFile) {
     static final String VIEW_FILE = "settings.conf";
 
     /** The sidebar with one page per control, or CDE's row of buttons that open a dialog each. */
@@ -37,7 +39,7 @@ record SettingsStores(ScreenSettingsStore screen, ClipboardSettingsStore clipboa
         return new SettingsStores(ScreenSettingsStore.user(), ClipboardSettingsStore.user(), InputSettingsStore.user(),
                 WindowSettingsStore.user(), PanelSettingsStore.user(), WorkspaceNames.user(), StartupSettings.user(),
                 UserAutostart.user(), DesktopServices.SYSTEM_DIR, new LocaleStore(XdgDirectories.amadeosConfigDir()),
-                DisplaySettingsStore.user(),                 XdgDirectories.amadeosConfigDir().resolve(VIEW_FILE));
+                DisplaySettingsStore.user(), ProxyStore.system(), XdgDirectories.amadeosConfigDir().resolve(VIEW_FILE));
     }
 
     /** The stores of one directory, for tests. */
@@ -48,7 +50,8 @@ record SettingsStores(ScreenSettingsStore screen, ClipboardSettingsStore clipboa
                 new PanelSettingsStore(dir.resolve(PanelSettingsStore.FILE_NAME)), new WorkspaceNames(dir),
                 new StartupSettings(dir.resolve(StartupSettings.FILE_NAME)), new UserAutostart(dir.resolve("autostart")),
                 dir.resolve("autostart.d"), new LocaleStore(dir),
-                new DisplaySettingsStore(dir.resolve(DisplaySettingsStore.FILE_NAME)), dir.resolve(VIEW_FILE));
+                new DisplaySettingsStore(dir.resolve(DisplaySettingsStore.FILE_NAME)),
+                new ProxyStore(dir, new SessionPasswordStore()), dir.resolve(VIEW_FILE));
     }
 
     View view() {
@@ -61,8 +64,30 @@ record SettingsStores(ScreenSettingsStore screen, ClipboardSettingsStore clipboa
     }
 
     void saveView(View view) {
-        Properties p = new Properties();
-        p.setProperty("view", view.name().toLowerCase(Locale.ROOT));
+        save("view", view.name().toLowerCase(Locale.ROOT));
+    }
+
+    /** Whether Network's proxy is also apt's ("also for software"); the apt file itself only root can read. */
+    boolean aptProxy() {
+        try {
+            return Boolean.parseBoolean(PropertiesFile.load(viewFile).getProperty("proxy.apt", "false").strip());
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    void saveAptProxy(boolean on) {
+        save("proxy.apt", String.valueOf(on));
+    }
+
+    private synchronized void save(String key, String value) {
+        Properties p;
+        try {
+            p = PropertiesFile.load(viewFile);
+        } catch (RuntimeException e) {
+            p = new Properties();
+        }
+        p.setProperty(key, value);
         PropertiesFile.store(viewFile, p, "amadeOS Settings");
     }
 }

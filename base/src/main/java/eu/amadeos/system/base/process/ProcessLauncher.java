@@ -11,6 +11,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import eu.amadeos.commons.net.Network;
 import eu.amadeos.system.base.x11.LaunchFeedback;
 import eu.amadeos.system.base.xdg.XdgDirectories;
 
@@ -61,6 +62,8 @@ public final class ProcessLauncher {
         if (workingDirectory != null && workingDirectory.isDirectory()) {
             pb.directory(workingDirectory);
         }
+        // The proxy of Settings > Network as it is now, which may differ from the one this program started with.
+        Network.proxy().applyTo(pb.environment());
         pb.redirectInput(ProcessBuilder.Redirect.from(new File("/dev/null")));
         pb.redirectErrorStream(true);
         pb.redirectOutput(outputTarget(log));

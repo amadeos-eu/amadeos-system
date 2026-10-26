@@ -1,5 +1,7 @@
 package eu.amadeos.system.software.ui;
 
+import eu.amadeos.commons.net.Network;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -25,8 +27,8 @@ public final class ScreenshotCache {
     private static final long MAX_BYTES = 8L << 20;
 
     private final Path dir;
-    private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10))
-            .followRedirects(HttpClient.Redirect.NORMAL).build();
+    // The proxy of Settings > Network and its password, 10 s to connect, redirects followed.
+    private final HttpClient http = Network.httpClient().build();
 
     ScreenshotCache(Path dir) {
         this.dir = dir;

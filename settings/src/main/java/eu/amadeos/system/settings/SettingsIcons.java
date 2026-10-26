@@ -216,6 +216,24 @@ final class SettingsIcons {
                 g.setColor(enabled ? t.activeTitleBg() : t.shadow());
                 g.fillRect(14, 8, 8, 6);
             }
+            case NETWORK -> {
+                // The way out: a computer, the proxy in between and the internet as a globe, linked.
+                g.setColor(ink);
+                g.drawLine(10, 24, 18, 18);
+                g.drawLine(18, 18, 25, 11);
+                g.setColor(paper);
+                g.fillRect(3, 22, 12, 9);
+                g.setColor(enabled ? new Color(0xD0, 0x80, 0x40) : t.shadow());
+                g.fillRect(14, 14, 8, 8);
+                g.setColor(enabled ? new Color(0x4A, 0x69, 0x84) : t.shadow());
+                g.fillOval(21, 3, 12, 12);
+                g.setColor(ink);
+                g.drawRect(3, 22, 12, 9);
+                g.drawLine(6, 33, 12, 33);
+                g.drawRect(14, 14, 8, 8);
+                g.drawOval(21, 3, 12, 12);
+                g.drawLine(21, 9, 33, 9);
+            }
             case PASSWORDS -> {
                 // A key: a round bow with a hole, the shaft and two bits.
                 g.setColor(enabled ? new Color(0xD8, 0xB0, 0x40) : t.shadow());

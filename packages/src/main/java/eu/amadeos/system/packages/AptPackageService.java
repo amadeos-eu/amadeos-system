@@ -298,6 +298,15 @@ public final class AptPackageService implements PackageService {
     }
 
     @Override
+    public Result setAptProxy(String httpUrl, String httpsUrl, ProgressListener listener) {
+        // On standard input, so that a password in the URLs never shows in the process list.
+        StringBuilder input = new StringBuilder();
+        if (httpUrl != null && !httpUrl.isBlank()) input.append("http ").append(httpUrl.strip()).append('\n');
+        if (httpsUrl != null && !httpsUrl.isBlank()) input.append("https ").append(httpsUrl.strip()).append('\n');
+        return runHelper(List.of("proxy"), input.toString(), listener);
+    }
+
+    @Override
     public AutoCloseable watch(Runnable onChange) {
         return PackageWatcher.start(PackageWatcher.DIRECTORIES, PackageWatcher.SETTLE_MILLIS, onChange);
     }
@@ -345,6 +354,11 @@ public final class AptPackageService implements PackageService {
      * at a time.
      */
     private Result runHelper(List<String> args, ProgressListener listener) {
+        return runHelper(args, "", listener);
+    }
+
+    /** @param input written to the helper's standard input, which is closed after it */
+    private Result runHelper(List<String> args, String input, ProgressListener listener) {
         List<String> command = new ArrayList<>(helper);
         command.addAll(args);
         LOGGER.info("Starting " + String.join(" ", command));
@@ -353,7 +367,9 @@ public final class AptPackageService implements PackageService {
             ProcessBuilder builder = new ProcessBuilder(command);
             builder.environment().putAll(helperEnvironment);
             Process process = builder.start();
-            process.getOutputStream().close();
+            try (var stdin = process.getOutputStream()) {
+                stdin.write(input.getBytes(StandardCharsets.UTF_8));
+            }
             CompletableFuture<Void> messages = CompletableFuture.runAsync(() -> forEachLine(process.getErrorStream(),
                     line -> {
                         synchronized (lock) {
