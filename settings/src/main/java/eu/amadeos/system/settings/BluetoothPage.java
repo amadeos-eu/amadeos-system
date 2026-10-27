@@ -1,9 +1,9 @@
 package eu.amadeos.system.settings;
 
-import eu.amadeos.system.bluetooth.BluetoothDevice;
-import eu.amadeos.system.bluetooth.BluetoothService;
-import eu.amadeos.system.bluetooth.BluetoothStatus;
-import eu.amadeos.system.bluetooth.PairingAgent;
+import eu.amadeos.system.base.bluetooth.BluetoothDevice;
+import eu.amadeos.system.base.bluetooth.BluetoothService;
+import eu.amadeos.system.base.bluetooth.BluetoothStatus;
+import eu.amadeos.system.base.bluetooth.PairingAgent;
 
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.DefaultListModel;

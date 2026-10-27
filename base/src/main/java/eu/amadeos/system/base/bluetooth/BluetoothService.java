@@ -1,4 +1,4 @@
-package eu.amadeos.system.bluetooth;
+package eu.amadeos.system.base.bluetooth;
 
 /**
  * Bluetooth as the Settings use it. Calls block (pairing for up to a minute), so callers run them off the event

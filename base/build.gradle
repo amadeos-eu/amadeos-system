@@ -1,6 +1,6 @@
 // The library under the desktop modules: Xlib, Xss, Xkb, libc and PAM through JNA, the EWMH client helper
 // and launch feedback, the XDG directories and .desktop files, theme, icons and backdrops, the process
-// launcher, the network service and the bell. Nothing in here depends on the window manager, the panel,
+// launcher, the network, sound and Bluetooth services and the bell. Nothing in here depends on the window manager, the panel,
 // the display manager or the other desktop modules; they all depend on this. Part of the amade-desktop jar,
 // no package of its own.
 apply plugin: 'java-library'
@@ -8,6 +8,9 @@ apply plugin: 'java-library'
 dependencies {
     // Xlib, Xss, Xkb, libc and PAM through JNA; the modules call the bindings themselves, hence api.
     api 'net.java.dev.jna:jna:5.14.0'
+    // The Bluetooth service talks to BlueZ on the system bus (Settings page and Front Panel cell).
+    implementation 'com.github.hypfvieh:dbus-java-core:5.1.1'
+    implementation 'com.github.hypfvieh:dbus-java-transport-native-unixsocket:5.1.1'
 }
 
 jar {

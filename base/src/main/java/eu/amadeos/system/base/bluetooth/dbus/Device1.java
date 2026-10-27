@@ -1,4 +1,4 @@
-package eu.amadeos.system.bluetooth.dbus;
+package eu.amadeos.system.base.bluetooth.dbus;
 
 import org.freedesktop.dbus.annotations.DBusInterfaceName;
 import org.freedesktop.dbus.interfaces.DBusInterface;

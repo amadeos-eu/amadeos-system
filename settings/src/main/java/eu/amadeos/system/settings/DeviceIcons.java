@@ -2,7 +2,7 @@ package eu.amadeos.system.settings;
 
 import eu.amadeos.commons.swing.AmadeUI;
 import eu.amadeos.commons.theme.DesktopTheme;
-import eu.amadeos.system.bluetooth.BluetoothDevice;
+import eu.amadeos.system.base.bluetooth.BluetoothDevice;
 
 import javax.swing.Icon;
 import java.awt.BasicStroke;

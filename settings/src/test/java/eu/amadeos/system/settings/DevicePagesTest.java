@@ -1,7 +1,7 @@
 package eu.amadeos.system.settings;
 
 import eu.amadeos.system.base.net.WifiNetwork;
-import eu.amadeos.system.bluetooth.BluetoothDevice;
+import eu.amadeos.system.base.bluetooth.BluetoothDevice;
 import eu.amadeos.system.print.cups.Printer;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;

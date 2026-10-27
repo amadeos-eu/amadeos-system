@@ -48,8 +48,10 @@ import eu.amadeos.system.panel.cde.widget.SlotSpacerDockWidget;
 import eu.amadeos.system.panel.cde.widget.WorkspaceSwitcherDockWidget;
 import eu.amadeos.system.base.net.NmcliNetworkService;
 import eu.amadeos.system.base.sound.PactlSoundService;
+import eu.amadeos.system.base.bluetooth.BluezBluetoothService;
 import eu.amadeos.system.base.power.PowerSupplies;
 import eu.amadeos.system.panel.cde.status.BatteryCell;
+import eu.amadeos.system.panel.cde.status.BluetoothCell;
 import eu.amadeos.system.panel.cde.status.NetworkCell;
 import eu.amadeos.system.panel.cde.status.SoundCell;
 import eu.amadeos.system.panel.cde.status.StatusDockWidget;
@@ -115,6 +117,7 @@ public final class AmadeDesktopPanel extends JFrame {
     private final NetworkCell networkCell;
     private final SoundCell soundCell;
     private final BatteryCell batteryCell;
+    private final BluetoothCell bluetoothCell;
     private final UpdatesCell updatesCell;
     private final PanelSettingsStore panelSettings = PanelSettingsStore.user();
     private ConfigWatcher settingsWatch;
@@ -376,15 +379,16 @@ public final class AmadeDesktopPanel extends JFrame {
         rightSlots.add(trashWidget.component());
 
         // --8<-- [start:status]
-        // Slot 13: Status (network, sound, battery and software updates now; Bluetooth to follow), outermost
-        // on the right. The battery cell shows only on computers with a battery, the updates cell only while
-        // updates are waiting.
-        networkCell = new NetworkCell(new NmcliNetworkService(),
-                () -> launchProcess("xterm", "-title", "Network Settings", "-e", "nmtui"));
+        // Slot 13: Status (network, sound, battery, Bluetooth and software updates), outermost on the right. The
+        // battery cell shows only on computers with a battery, the Bluetooth cell only with an adapter, the
+        // updates cell only while updates are waiting; more than four open a second slot.
+        networkCell = new NetworkCell(new NmcliNetworkService(), () -> launchProcess("amadeos-settings", "network"));
         soundCell = new SoundCell(new PactlSoundService());
         batteryCell = new BatteryCell(new PowerSupplies());
+        bluetoothCell = new BluetoothCell(new BluezBluetoothService(),
+                () -> launchProcess("amadeos-settings", "bluetooth"));
         updatesCell = new UpdatesCell(new AptPackageService(), updateWindow("--updates"), updateWindow("--settings"));
-        statusWidget = new StatusDockWidget(List.of(networkCell, soundCell, batteryCell, updatesCell));
+        statusWidget = new StatusDockWidget(List.of(networkCell, soundCell, batteryCell, bluetoothCell, updatesCell));
         widgets.add(statusWidget);
         rightSlots.add(statusWidget.component());
         // --8<-- [end:status]
@@ -604,6 +608,7 @@ public final class AmadeDesktopPanel extends JFrame {
         statusWidget.setShown(networkCell, settings.networkCell());
         statusWidget.setShown(soundCell, settings.soundCell());
         statusWidget.setShown(batteryCell, settings.batteryCell());
+        statusWidget.setShown(bluetoothCell, settings.bluetoothCell());
         statusWidget.setShown(updatesCell, settings.updatesCell());
         switcher.activityLight().setMeterShown(settings.activityMeter());
     }

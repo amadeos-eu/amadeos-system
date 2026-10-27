@@ -1,9 +1,9 @@
-package eu.amadeos.system.bluetooth;
+package eu.amadeos.system.base.bluetooth;
 
-import eu.amadeos.system.bluetooth.dbus.Adapter1;
-import eu.amadeos.system.bluetooth.dbus.Agent1;
-import eu.amadeos.system.bluetooth.dbus.AgentManager1;
-import eu.amadeos.system.bluetooth.dbus.Device1;
+import eu.amadeos.system.base.bluetooth.dbus.Adapter1;
+import eu.amadeos.system.base.bluetooth.dbus.Agent1;
+import eu.amadeos.system.base.bluetooth.dbus.AgentManager1;
+import eu.amadeos.system.base.bluetooth.dbus.Device1;
 import org.bluez.Error;
 import org.freedesktop.dbus.DBusAsyncReply;
 import org.freedesktop.dbus.DBusPath;

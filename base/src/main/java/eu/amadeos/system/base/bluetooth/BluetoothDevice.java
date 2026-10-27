@@ -1,4 +1,4 @@
-package eu.amadeos.system.bluetooth;
+package eu.amadeos.system.base.bluetooth;
 
 import java.util.Locale;
 

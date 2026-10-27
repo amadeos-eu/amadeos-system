@@ -1,4 +1,4 @@
-package eu.amadeos.system.bluetooth;
+package eu.amadeos.system.base.bluetooth;
 
 /**
  * Asks the user what pairing needs, the way BlueZ's agent interface asks. The methods are called on a
