@@ -37,7 +37,8 @@ import eu.amadeos.system.panel.cde.widget.AbstractDockWidget.MotifBevelBorder;
 /**
  * Software updates in the status slot: shown only while updates are waiting, as a downward arrow into a tray
  * with their number, the number on red when security updates are among them. A click opens a menu with the
- * first updates and Install all / Install security updates only / Check now.
+ * first updates and Install all / Install security updates only / Check now. An installation can be followed in
+ * {@link UpdateProgressWindow}.
  * <p>
  * The cell reads what Debian's daily refresh (apt-daily.timer) fetched: every 30 minutes and whenever the
  * installed packages or the package lists change. Reading needs no privileges and no network; installing and
@@ -60,6 +61,57 @@ public final class UpdatesCell implements StatusCell {
         void notify(String message, boolean warning);
     }
 
+    /** Where an installation can be followed: {@link UpdateProgressWindow}; called on the event dispatch thread. */
+    interface ProgressView {
+        ProgressView NONE = new ProgressView() {
+            @Override
+            public void begin() {
+            }
+
+            @Override
+            public void progress(Progress progress) {
+            }
+
+            @Override
+            public void message(String line) {
+            }
+
+            @Override
+            public boolean finish(String message, boolean warning) {
+                return false;
+            }
+
+            @Override
+            public boolean running() {
+                return false;
+            }
+
+            @Override
+            public void show() {
+            }
+        };
+
+        /** Opens the view for a new installation. */
+        void begin();
+
+        void progress(Progress progress);
+
+        /** One line of apt's and dpkg's messages. */
+        void message(String line);
+
+        /**
+         * Ends the installation with its outcome (null when there is nothing to say).
+         *
+         * @return whether the view shows the outcome; otherwise the cell tells it in a dialog
+         */
+        boolean finish(String message, boolean warning);
+
+        boolean running();
+
+        /** Shows the view again after the user hid it. */
+        void show();
+    }
+
     private final PackageService service;
     private final Runnable showUpdates;
     private final Runnable openSettings;
@@ -72,6 +124,8 @@ public final class UpdatesCell implements StatusCell {
     private List<Change> updates = List.of();
     private Busy busy = Busy.NONE;
     private int percent;
+    private final Supplier<ProgressView> progressViews;
+    private ProgressView progressView;
     private Runnable relayout = () -> {};
     private AutoCloseable watch;
     JPopupMenu menu;
@@ -83,12 +137,15 @@ public final class UpdatesCell implements StatusCell {
     public UpdatesCell(PackageService service, Runnable showUpdates, Runnable openSettings) {
         this(service, showUpdates, openSettings, Messages.load(UpdatesCell.class, NetworkCell.DESKTOP_TEXTS,
                 LocaleResolution.resolve(Optional.empty(), Optional.empty(), System.getenv()).language().locale()),
-                null);
+                null, null);
     }
 
+    /** @param progressViews makes the view of an installation; null for {@link UpdateProgressWindow} */
     UpdatesCell(PackageService service, Runnable showUpdates, Runnable openSettings, Messages texts,
-                Notifier notifier) {
+                Notifier notifier, Supplier<ProgressView> progressViews) {
         this.service = service;
+        this.progressViews = progressViews != null ? progressViews
+                : () -> UpdateProgressWindow.create(this.texts, theme);
         this.showUpdates = showUpdates;
         this.openSettings = openSettings;
         this.texts = texts;
@@ -255,6 +312,11 @@ public final class UpdatesCell implements StatusCell {
             m.add(show);
         }
         boolean idle = busy == Busy.NONE;
+        if (busy == Busy.INSTALLING && progressView != null && progressView.running()) {
+            JMenuItem progress = new JMenuItem(texts.get("updates.progress.show"));
+            progress.addActionListener(e -> progressView.show());
+            m.add(progress);
+        }
         JMenuItem all = new JMenuItem(texts.get("updates.install.all"));
         all.setEnabled(idle && !updates.isEmpty());
         all.addActionListener(e -> install(false));
@@ -292,19 +354,23 @@ public final class UpdatesCell implements StatusCell {
     void install(boolean securityOnly) {
         if (busy != Busy.NONE) return;
         setBusy(Busy.INSTALLING);
+        if (progressView == null) progressView = progressViews.get();
+        ProgressView view = progressView;
+        view.begin();
         run(() -> service.upgrade(List.of(), securityOnly, new ProgressListener() {
             @Override
             public void progress(Progress progress) {
-                int overall = progress.overall();
                 SwingUtilities.invokeLater(() -> {
-                    percent = overall;
+                    percent = progress.overall();
                     refreshLook();
+                    view.progress(progress);
                 });
             }
 
             @Override
             public void message(String line) {
                 LOGGER.fine(line);
+                SwingUtilities.invokeLater(() -> view.message(line));
             }
         }), true);
     }
@@ -339,7 +405,9 @@ public final class UpdatesCell implements StatusCell {
         setBusy(Busy.NONE);
         show(pending);
         String message = resultMessage(result, installing);
-        if (message != null) notifier.notify(message, !result.success());
+        // The progress window, when the user kept it open, shows the outcome itself.
+        boolean shown = installing && progressView != null && progressView.finish(message, !result.success());
+        if (message != null && !shown) notifier.notify(message, !result.success());
     }
 
     private void showDialog(String message, boolean warning) {

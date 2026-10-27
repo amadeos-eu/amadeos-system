@@ -16,6 +16,7 @@ import eu.amadeos.system.packages.InstalledPackage;
 import eu.amadeos.system.packages.Origin;
 import eu.amadeos.system.packages.PackageInfo;
 import eu.amadeos.system.packages.PackageService;
+import eu.amadeos.system.packages.Progress;
 import eu.amadeos.system.packages.ProgressListener;
 import eu.amadeos.system.packages.Result;
 import org.junit.jupiter.api.Test;
@@ -39,7 +40,8 @@ class UpdatesCellTest {
     private final List<String> notified = new ArrayList<>();
 
     private UpdatesCell cell(PackageService service, Runnable showUpdates) {
-        return new UpdatesCell(service, showUpdates, null, EN, (message, warning) -> notified.add(message));
+        return new UpdatesCell(service, showUpdates, null, EN, (message, warning) -> notified.add(message),
+                () -> UpdatesCell.ProgressView.NONE);
     }
 
     // --8<-- [start:shown]
@@ -109,6 +111,60 @@ class UpdatesCellTest {
         assertEquals(List.of(), cell.updates());
         assertFalse(cell.available());
         assertEquals(List.of("The updates are installed. Restart the computer to complete them."), notified);
+        cell.stop();
+    }
+
+    @Test
+    void theProgressWindowFollowsTheInstallationAndShowsItsOutcome() throws Exception {
+        List<String> seen = new ArrayList<>();
+        UpdatesCell.ProgressView view = new UpdatesCell.ProgressView() {
+            boolean running;
+
+            @Override
+            public void begin() {
+                running = true;
+                seen.add("begin");
+            }
+
+            @Override
+            public void progress(Progress progress) {
+                seen.add(progress.overall() + " % " + progress.message());
+            }
+
+            @Override
+            public void message(String line) {
+                seen.add(line);
+            }
+
+            @Override
+            public boolean finish(String message, boolean warning) {
+                running = false;
+                seen.add("finish: " + message);
+                return true;
+            }
+
+            @Override
+            public boolean running() {
+                return running;
+            }
+
+            @Override
+            public void show() {
+            }
+        };
+        FakeService service = new FakeService();
+        UpdatesCell cell = new UpdatesCell(service, null, null, EN, (message, warning) -> notified.add(message),
+                () -> view);
+        cell.show(PENDING);
+        cell.install(false);
+        SwingUtilities.invokeAndWait(() -> assertTrue(items(cell.buildMenu()).stream()
+                .anyMatch(i -> i.getText().equals("Show progress…")), "the hidden window can be shown again"));
+        service.calls.poll(5, TimeUnit.SECONDS);
+        service.calls.poll(5, TimeUnit.SECONDS);
+        awaitIdle(cell);
+        assertEquals(List.of("begin", "66 % Unpacking bash (amd64)", "Unpacking bash (5.2.37-2) over (5.2.37-1) ...",
+                "finish: The updates are installed."), seen);
+        assertEquals(List.of(), notified, "the window shows the outcome, no second dialog");
         cell.stop();
     }
 
@@ -233,6 +289,8 @@ class UpdatesCellTest {
         @Override
         public Result upgrade(List<String> names, boolean securityOnly, ProgressListener listener) {
             calls.add(securityOnly ? "upgrade security" : "upgrade all");
+            listener.progress(new Progress(Progress.Phase.INSTALL, 50, "bash", "Unpacking bash (amd64)"));
+            listener.message("Unpacking bash (5.2.37-2) over (5.2.37-1) ...");
             return result;
         }
 
