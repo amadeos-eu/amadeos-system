@@ -42,7 +42,7 @@ final class StatusSlotDemo {
             bluetooth.show(BluetoothCellTest.status(true, new BluetoothDevice("/d1", "a", "WH-1000XM4",
                     BluetoothDevice.Kind.HEADPHONES, true, true, 80, 0), new BluetoothDevice("/d2", "b", "MX Master 3",
                     BluetoothDevice.Kind.MOUSE, true, true, 55, 0)));
-            UpdatesCell updates = new UpdatesCell(null, () -> { }, () -> { }, en, (m, w) -> { });
+            UpdatesCell updates = new UpdatesCell(null, () -> { }, () -> { }, en, (m, w) -> { }, null);
             updates.show(List.of(new eu.amadeos.system.packages.Change(eu.amadeos.system.packages.Change.Kind.UPGRADE,
                     "openssl", "1.0", "1.1", List.of(new eu.amadeos.system.packages.Origin("Debian-Security", "13",
                     "stable-security")), "amd64")));

@@ -144,11 +144,11 @@ public final class UpdatesCell implements StatusCell {
     UpdatesCell(PackageService service, Runnable showUpdates, Runnable openSettings, Messages texts,
                 Notifier notifier, Supplier<ProgressView> progressViews) {
         this.service = service;
-        this.progressViews = progressViews != null ? progressViews
-                : () -> UpdateProgressWindow.create(this.texts, theme);
         this.showUpdates = showUpdates;
         this.openSettings = openSettings;
         this.texts = texts;
+        this.progressViews = progressViews != null ? progressViews
+                : () -> UpdateProgressWindow.create(this.texts, theme);
         this.notifier = notifier != null ? notifier : this::showDialog;
         button.addActionListener(e -> openMenu());
         show(List.of());
