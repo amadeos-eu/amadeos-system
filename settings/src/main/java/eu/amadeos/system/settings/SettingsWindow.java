@@ -112,6 +112,8 @@ public final class SettingsWindow extends JFrame {
             for (SettingsCategory category : SettingsCategory.values()) {
                 if (category.name().equalsIgnoreCase(control) && category.available()) window.openControl(category);
             }
+            // The proxy has its own tab on the Network page; programs that send the user there name it.
+            if (control.equalsIgnoreCase("proxy")) window.openProxy();
         }
         window.setVisible(true);
         return window;
@@ -240,6 +242,7 @@ public final class SettingsWindow extends JFrame {
             case PANEL -> new PanelPage(this::setStatus, stores.panel());
             case KEYBOARD -> new KeyboardPage(this::setStatus, input);
             case MOUSE -> new MousePage(this::setStatus, input);
+            case SOUND -> new SoundPage(this::setStatus, system.sound(), system.soundTest());
             case BEEP -> new BeepPage(this::setStatus, input);
             case DISPLAY -> new DisplayPage(this::setStatus, system.displays(), stores.display());
             case SCREEN -> new ScreenPage(this::setStatus, stores.screen());
@@ -248,7 +251,9 @@ public final class SettingsWindow extends JFrame {
             case STARTUP -> new StartupPage(this::setStatus, stores.startup(), stores.autostart(), stores.servicesDir(),
                     system.applications());
             case NETWORK -> new NetworkPage(this::setStatus, stores.proxy(), system.packages(), stores,
-                    system.proxyCheck(), System.getenv());
+                    system.proxyCheck(), System.getenv(), system.network());
+            case BLUETOOTH -> new BluetoothPage(this::setStatus, system.bluetooth());
+            case PRINTERS -> new PrintersPage(this::setStatus, system.printers(), system.launcher());
             case PASSWORDS -> new PasswordsPage(this::setStatus, system.keyring());
             case UPDATES -> new UpdatesPage(this::setStatus, system.packages(), system.launcher());
             case LANGUAGE -> new LanguagePage(this::setStatus, stores.locales(), system.timeZones());
@@ -413,6 +418,14 @@ public final class SettingsWindow extends JFrame {
         return header;
     }
 
+    /** Opens the Network page at its Proxy tab. */
+    void openProxy() {
+        openControl(SettingsCategory.NETWORK);
+        SettingsPage page = view == View.SIDEBAR ? pages.get(SettingsCategory.NETWORK)
+                : dialogs.containsKey(SettingsCategory.NETWORK) ? dialogs.get(SettingsCategory.NETWORK).page() : null;
+        if (page instanceof NetworkPage network) network.tabs().setSelectedIndex(1);
+    }
+
     /** Shows the page of a control in the sidebar view. */
     void select(SettingsCategory category) {
         if (view != View.SIDEBAR || !category.available()) return;
@@ -483,7 +496,8 @@ public final class SettingsWindow extends JFrame {
         root.setBorder(BorderFactory.createEmptyBorder(12, 18, 10, 18));
         root.add(north, BorderLayout.NORTH);
         root.add(scroll, BorderLayout.CENTER);
-        root.add(south, BorderLayout.SOUTH);
+        // Pages that act at once (connecting a device) have nothing to apply or reset.
+        if (!category.immediate()) root.add(south, BorderLayout.SOUTH);
         return root;
     }
     // --8<-- [end:page]

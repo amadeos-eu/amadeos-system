@@ -12,7 +12,7 @@ import java.awt.event.WindowEvent;
 
 /**
  * A control of the compact view in a window of its own, as in CDE's Style Manager: OK applies and closes, Apply
- * applies, Cancel closes.
+ * applies, Cancel closes. Pages that act at once only have Close.
  */
 final class ControlDialog extends JDialog {
     private final SettingsPage page;
@@ -43,9 +43,17 @@ final class ControlDialog extends JDialog {
             }
         });
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.CENTER, 12, 0));
-        buttons.add(ok);
-        buttons.add(apply);
-        buttons.add(cancel);
+        if (page.category().immediate()) {
+            // Pages that act at once have nothing to apply.
+            JButton close = new JButton(SettingsTexts.get("button.close"));
+            close.addActionListener(e -> dispose());
+            buttons.add(close);
+            ok = close;
+        } else {
+            buttons.add(ok);
+            buttons.add(apply);
+            buttons.add(cancel);
+        }
         root.add(buttons, BorderLayout.SOUTH);
         setContentPane(root);
         getRootPane().setDefaultButton(ok);

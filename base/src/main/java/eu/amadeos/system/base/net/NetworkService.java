@@ -23,6 +23,31 @@ public interface NetworkService {
 
     void setWifiEnabled(boolean enabled) throws NetworkException;
 
+    /** The Ethernet and WLAN devices NetworkManager manages, in its order. */
+    default List<NetworkStatus.Device> devices() {
+        return List.of();
+    }
+
+    /** Addresses and hardware details of a device, e.g. for the Settings' "Details". */
+    default DeviceDetails details(String device) {
+        return DeviceDetails.NONE;
+    }
+
+    /** Connects a device with its best saved connection, e.g. an Ethernet port after "Disconnect". */
+    default void connectDevice(String device) throws NetworkException {
+        throw new NetworkException("not supported");
+    }
+
+    /** Disconnects a device until it is connected again by hand; NetworkManager does not reconnect it. */
+    default void disconnectDevice(String device) throws NetworkException {
+        throw new NetworkException("not supported");
+    }
+
+    /** Joins a network that does not announce its name; an empty password for an open network. */
+    default void connectHidden(String ssid, String password) throws NetworkException {
+        throw new NetworkException("not supported");
+    }
+
     /**
      * Calls {@code onChange} (on a background thread) whenever devices or connections change, until the
      * returned handle is closed.

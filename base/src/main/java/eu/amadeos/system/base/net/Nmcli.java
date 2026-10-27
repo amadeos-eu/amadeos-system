@@ -70,6 +70,30 @@ public final class Nmcli {
         return List.copyOf(args);
     }
 
+    public static List<String> deviceDetails(String device) {
+        return List.of("nmcli", "-t", "-f", "GENERAL.HWADDR,CAPABILITIES.SPEED,IP4.ADDRESS,IP4.GATEWAY,IP4.DNS,IP6.ADDRESS",
+                "device", "show", device);
+    }
+
+    public static List<String> connectDevice(String device) {
+        return List.of("nmcli", "--wait", WAIT_SECONDS, "device", "connect", device);
+    }
+
+    /** Joins a hidden network; nmcli then saves it like any other. */
+    public static List<String> connectHidden(String ssid, String password, String device) {
+        List<String> args = new ArrayList<>(List.of("nmcli", "--wait", WAIT_SECONDS, "device", "wifi", "connect",
+                ssid, "hidden", "yes"));
+        if (password != null && !password.isEmpty()) {
+            args.add("password");
+            args.add(password);
+        }
+        if (device != null) {
+            args.add("ifname");
+            args.add(device);
+        }
+        return List.copyOf(args);
+    }
+
     public static List<String> disconnect(String device) {
         return List.of("nmcli", "device", "disconnect", device);
     }
@@ -147,6 +171,38 @@ public final class Nmcli {
                         .thenComparing(Comparator.comparingInt(WifiNetwork::signal).reversed())
                         .thenComparing(WifiNetwork::ssid, String.CASE_INSENSITIVE_ORDER))
                 .toList();
+    }
+
+    /**
+     * The lines of {@code nmcli -t device show}: {@code IP4.ADDRESS[1]:192.168.1.23/24} and so on. Link-local
+     * IPv6 addresses ({@code fe80::}) are left out; "--" and "0" mean no value.
+     */
+    public static DeviceDetails parseDetails(String output) {
+        String hw = "";
+        String speed = "";
+        String gateway = "";
+        List<String> ipv4 = new ArrayList<>();
+        List<String> dns = new ArrayList<>();
+        List<String> ipv6 = new ArrayList<>();
+        for (String line : output.lines().toList()) {
+            int colon = line.indexOf(':');
+            if (colon < 0) continue;
+            String key = line.substring(0, colon).replaceFirst("\\[\\d+]$", "");
+            String value = String.join(":", fields(line.substring(colon + 1))).strip();
+            if (value.isEmpty() || value.equals("--")) continue;
+            switch (key) {
+                case "GENERAL.HWADDR" -> hw = value;
+                case "CAPABILITIES.SPEED" -> speed = value.equals("unknown") || value.equals("0") ? "" : value;
+                case "IP4.ADDRESS" -> ipv4.add(value);
+                case "IP4.GATEWAY" -> gateway = value;
+                case "IP4.DNS" -> dns.add(value);
+                case "IP6.ADDRESS" -> {
+                    if (!value.toLowerCase(java.util.Locale.ROOT).startsWith("fe80:")) ipv6.add(value);
+                }
+                default -> { }
+            }
+        }
+        return new DeviceDetails(hw, ipv4, gateway, dns, ipv6, speed);
     }
 
     /** nmcli's error text without the "Error: " prefix, for showing to the user. */

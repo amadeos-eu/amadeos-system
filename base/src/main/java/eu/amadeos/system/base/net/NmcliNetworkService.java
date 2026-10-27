@@ -80,6 +80,49 @@ public final class NmcliNetworkService implements NetworkService {
     }
 
     @Override
+    public List<NetworkStatus.Device> devices() {
+        try {
+            return Nmcli.parseDevices(run(Nmcli.deviceStatus())).stream()
+                    .filter(d -> d.type().equals("ethernet") || d.type().equals("wifi")).toList();
+        } catch (IOException | NetworkException e) {
+            LOGGER.log(Level.FINE, "NetworkManager not available", e);
+            return List.of();
+        }
+    }
+
+    @Override
+    public DeviceDetails details(String device) {
+        try {
+            return Nmcli.parseDetails(run(Nmcli.deviceDetails(device)));
+        } catch (IOException | NetworkException e) {
+            LOGGER.log(Level.FINE, "No details for " + device, e);
+            return DeviceDetails.NONE;
+        }
+    }
+
+    @Override
+    public void connectDevice(String device) throws NetworkException {
+        runOrThrow(Nmcli.connectDevice(device));
+    }
+
+    @Override
+    public void disconnectDevice(String device) throws NetworkException {
+        runOrThrow(Nmcli.disconnect(device));
+    }
+
+    @Override
+    public void connectHidden(String ssid, String password) throws NetworkException {
+        try {
+            run(Nmcli.connectHidden(ssid, password, status().wifiDevice()));
+        } catch (NetworkException e) {
+            tryRun(Nmcli.forget(ssid));
+            throw e;
+        } catch (IOException e) {
+            throw new NetworkException(e.getMessage());
+        }
+    }
+
+    @Override
     public AutoCloseable watch(Runnable onChange) {
         Watcher watcher = new Watcher(onChange);
         Thread thread = new Thread(watcher, "nmcli-monitor");
