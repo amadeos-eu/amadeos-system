@@ -17,6 +17,7 @@ final class Lpadmin {
     private Lpadmin() {
     }
 
+    // --8<-- [start:commands]
     /** Driverless printers only: announced with DNS-SD in the network, or USB printers through ipp-usb. */
     static List<String> discover() {
         return List.of("lpinfo", "--include-schemes", "dnssd", "-l", "-v");
@@ -28,6 +29,7 @@ final class Lpadmin {
         if (!location.isBlank()) args.addAll(List.of("-L", location));
         return List.copyOf(args);
     }
+    // --8<-- [end:commands]
 
     static List<String> remove(String name) {
         return List.of("lpadmin", "-x", name);

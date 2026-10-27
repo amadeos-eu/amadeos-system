@@ -71,6 +71,7 @@ public final class StatusDockWidget extends AbstractDockWidget {
         updateThemeStyles(currentTheme);
     }
 
+    // --8<-- [start:slots]
     /** Puts the available cells into the slots again, e.g. after one gained or lost its hardware. */
     public void relayout() {
         List<StatusCell> shown = cells.stream().filter(c -> c.available() && !hidden.contains(c)).toList();
@@ -88,6 +89,7 @@ public final class StatusDockWidget extends AbstractDockWidget {
         holder.revalidate();
         holder.repaint();
     }
+    // --8<-- [end:slots]
 
     /** Shows or hides a cell as the user chose in Settings > Front Panel; on the event dispatch thread. */
     public void setShown(StatusCell cell, boolean show) {

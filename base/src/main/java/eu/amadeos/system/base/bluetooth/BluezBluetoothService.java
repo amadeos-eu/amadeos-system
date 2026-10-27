@@ -204,6 +204,7 @@ public final class BluezBluetoothService implements BluetoothService {
         return m == null || m.isBlank() ? e.getClass().getSimpleName() : m.strip();
     }
 
+    // --8<-- [start:agent]
     /** The agent object bluetoothd calls while this process pairs. */
     private static final class Agent implements Agent1 {
         private final PairingAgent ui;
@@ -272,4 +273,5 @@ public final class BluezBluetoothService implements BluetoothService {
             return AGENT_PATH;
         }
     }
+    // --8<-- [end:agent]
 }
