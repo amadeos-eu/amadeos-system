@@ -153,13 +153,15 @@ class UpdatesCellTest {
             }
         };
         FakeService service = new FakeService();
+        service.hold = new java.util.concurrent.CountDownLatch(1);
         UpdatesCell cell = new UpdatesCell(service, null, null, EN, (message, warning) -> notified.add(message),
                 () -> view);
         cell.show(PENDING);
         cell.install(false);
+        assertEquals("upgrade all", service.calls.poll(5, TimeUnit.SECONDS));
         SwingUtilities.invokeAndWait(() -> assertTrue(items(cell.buildMenu()).stream()
                 .anyMatch(i -> i.getText().equals("Show progress…")), "the hidden window can be shown again"));
-        service.calls.poll(5, TimeUnit.SECONDS);
+        service.hold.countDown();
         service.calls.poll(5, TimeUnit.SECONDS);
         awaitIdle(cell);
         assertEquals(List.of("begin", "66 % Unpacking bash (amd64)", "Unpacking bash (5.2.37-2) over (5.2.37-1) ...",
@@ -218,6 +220,8 @@ class UpdatesCellTest {
     private static final class FakeService implements PackageService {
         final LinkedBlockingQueue<String> calls = new LinkedBlockingQueue<>();
         Result result = new Result(Result.Status.DONE, "", false);
+        /** Holds an upgrade until a test lets it finish, or null. */
+        java.util.concurrent.CountDownLatch hold;
 
         @Override
         public List<Change> upgrades() {
@@ -291,6 +295,13 @@ class UpdatesCellTest {
             calls.add(securityOnly ? "upgrade security" : "upgrade all");
             listener.progress(new Progress(Progress.Phase.INSTALL, 50, "bash", "Unpacking bash (amd64)"));
             listener.message("Unpacking bash (5.2.37-2) over (5.2.37-1) ...");
+            if (hold != null) {
+                try {
+                    hold.await(5, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
             return result;
         }
 
