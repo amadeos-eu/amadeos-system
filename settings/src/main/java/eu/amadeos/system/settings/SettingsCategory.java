@@ -6,8 +6,9 @@ import java.util.Locale;
 
 /**
  * The controls of the Settings: CDE's dtstyle controls in their order, grouped for the sidebar, with amadeOS's
- * own controls added: Workspaces and Front Panel after Backdrop, Display before Screen, Clipboard after Window,
- * and the System group (Network, Passwords, Updates, Language) at the end.
+ * own controls added: Workspaces and Front Panel after Backdrop, Sound after Mouse, Display before Screen,
+ * Clipboard after Window, the Network and Devices group (Network, Bluetooth, Printers) and the System group
+ * (Passwords, Updates, Language) at the end.
  */
 public enum SettingsCategory {
     COLOR(Group.APPEARANCE, true),
@@ -17,20 +18,23 @@ public enum SettingsCategory {
     PANEL(Group.APPEARANCE, true),
     KEYBOARD(Group.INPUT, true),
     MOUSE(Group.INPUT, true),
+    SOUND(Group.INPUT, true),
     BEEP(Group.INPUT, true),
     DISPLAY(Group.DESKTOP, true),
     SCREEN(Group.DESKTOP, true),
     WINDOW(Group.DESKTOP, true),
     CLIPBOARD(Group.DESKTOP, true),
     STARTUP(Group.DESKTOP, true),
-    NETWORK(Group.SYSTEM, true),
+    NETWORK(Group.DEVICES, true),
+    BLUETOOTH(Group.DEVICES, true),
+    PRINTERS(Group.DEVICES, true),
     PASSWORDS(Group.SYSTEM, true),
     UPDATES(Group.SYSTEM, true),
     LANGUAGE(Group.SYSTEM, true);
 
     /** The headings of the sidebar. */
     public enum Group {
-        APPEARANCE, INPUT, DESKTOP, SYSTEM;
+        APPEARANCE, INPUT, DESKTOP, DEVICES, SYSTEM;
 
         public String label() {
             return SettingsTexts.get("group." + name().toLowerCase(Locale.ROOT));
@@ -77,6 +81,14 @@ public enum SettingsCategory {
 
     private String key() {
         return "category." + name().toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * True for controls whose page acts at once, such as connecting a device: they have no Apply and Reset, and
+     * in the compact view only Close.
+     */
+    public boolean immediate() {
+        return this == SOUND || this == BLUETOOTH || this == PRINTERS;
     }
 
     /** False for controls that exist in CDE but are not implemented in amadeOS yet. */

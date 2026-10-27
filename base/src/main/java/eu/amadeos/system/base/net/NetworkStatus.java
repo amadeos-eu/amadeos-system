@@ -27,13 +27,18 @@ public record NetworkStatus(State state, Kind kind, String name, int signal, Str
         return wifiDevice != null;
     }
 
-    /** One line of {@code nmcli -t -f DEVICE,TYPE,STATE,CONNECTION device status}. */
+    /**
+     * One line of {@code nmcli -t -f DEVICE,TYPE,STATE,CONNECTION device status}.
+     *
+     * @param type  {@code ethernet}, {@code wifi}, {@code loopback}, {@code bridge}, ...
+     * @param state e.g. {@code connected}, {@code disconnected}, {@code unavailable} (no cable), {@code unmanaged}
+     */
     public record Device(String name, String type, String state, String connection) {
-        boolean connected() {
+        public boolean connected() {
             return state.startsWith("connected");
         }
 
-        boolean connecting() {
+        public boolean connecting() {
             return state.startsWith("connecting");
         }
     }

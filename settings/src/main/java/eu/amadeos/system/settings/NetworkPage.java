@@ -4,6 +4,7 @@ import eu.amadeos.commons.net.NetworkProxy;
 import eu.amadeos.commons.net.ProxyCheck;
 import eu.amadeos.commons.net.ProxySettings;
 import eu.amadeos.commons.net.ProxyStore;
+import eu.amadeos.system.base.net.NetworkService;
 import eu.amadeos.system.packages.PackageService;
 import eu.amadeos.system.packages.ProgressListener;
 import eu.amadeos.system.packages.Result;
@@ -17,6 +18,7 @@ import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JRadioButton;
 import javax.swing.JSpinner;
+import javax.swing.JTabbedPane;
 import javax.swing.JTextField;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingWorker;
@@ -29,10 +31,11 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 
 /**
- * Network: the proxy every program of amadeOS uses, in {@code ~/.config/amadeos/proxy.conf} with the password in
+ * Network, in two tabs. Connections: the Ethernet and WLAN devices of NetworkManager ({@link ConnectionsPanel}),
+ * which act at once. Proxy: the proxy every program of amadeOS uses, in {@code ~/.config/amadeos/proxy.conf} with the password in
  * the keyring (amade-commons {@link ProxyStore}). Programs follow the file at once; the session exports it as
  * {@code http_proxy} at the next login. With "also for software", apt gets it too, through the package helper,
- * for which polkit asks for the administrator's password.
+ * for which polkit asks for the administrator's password. Apply and Reset concern the proxy.
  */
 final class NetworkPage extends SettingsPage {
     private final ProxyStore store;
@@ -56,6 +59,8 @@ final class NetworkPage extends SettingsPage {
     private final JButton test = new JButton(SettingsTexts.get("network.test"));
     private final JLabel testResult = new JLabel(" ");
     private final JCheckBox apt = new JCheckBox(SettingsTexts.get("network.apt"));
+    private final ConnectionsPanel connections;
+    private final JTabbedPane tabs = new JTabbedPane();
 
     /** What was saved when the page opened or was last applied, to tell whether apt needs the new proxy. */
     private ProxySettings savedSettings;
@@ -63,8 +68,10 @@ final class NetworkPage extends SettingsPage {
     private boolean savedApt;
 
     NetworkPage(Consumer<String> status, ProxyStore store, PackageService packages, SettingsStores stores,
-                BiFunction<ProxySettings, String, ProxyCheck.Result> checker, Map<String, String> environment) {
+                BiFunction<ProxySettings, String, ProxyCheck.Result> checker, Map<String, String> environment,
+                NetworkService network) {
         super(SettingsCategory.NETWORK, status);
+        this.connections = new ConnectionsPanel(network, this::status);
         this.store = store;
         this.packages = packages;
         this.stores = stores;
@@ -85,12 +92,14 @@ final class NetworkPage extends SettingsPage {
         apt.setSelected(savedApt);
         detected.setText(describeEnvironment());
 
-        layoutSections(
+        tabs.addTab(SettingsTexts.get("network.tab.connections"), connections);
+        tabs.addTab(SettingsTexts.get("network.tab.proxy"), stack(
                 section(SettingsTexts.get("network.proxy.title"), system, indented(detected), none, manual),
                 section(SettingsTexts.get("network.manual.title"), form(),
                         line(test, testResult)),
                 section(SettingsTexts.get("network.apt.title"), apt, note(SettingsTexts.get("network.apt.hint"))),
-                note(SettingsTexts.get("network.hint")));
+                note(SettingsTexts.get("network.hint"))));
+        layoutPage(tabs);
         readPassword();
     }
 
@@ -236,6 +245,14 @@ final class NetworkPage extends SettingsPage {
             case HTTP_ERROR -> SettingsTexts.format("network.test.http-error", r.detail());
             case FAILED -> SettingsTexts.format("network.test.failed", via, r.detail());
         };
+    }
+
+    JTabbedPane tabs() {
+        return tabs;
+    }
+
+    ConnectionsPanel connections() {
+        return connections;
     }
 
     JLabel testResult() {

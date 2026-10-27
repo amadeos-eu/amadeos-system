@@ -16,7 +16,7 @@ class PanelSettingsStoreTest {
     void savesAndLoadsTheSettings() {
         PanelSettingsStore store = new PanelSettingsStore(dir.resolve(PanelSettingsStore.FILE_NAME));
         assertEquals(PanelSettings.DEFAULTS, store.load(), "no file: the panel as before");
-        PanelSettings digital = new PanelSettings(PanelSettings.Clock.DIGITAL, false, true, false, true, false);
+        PanelSettings digital = new PanelSettings(PanelSettings.Clock.DIGITAL, false, true, false, true, true, false);
         store.save(digital);
         assertEquals(digital, store.load());
     }

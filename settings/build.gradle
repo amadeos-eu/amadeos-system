@@ -10,6 +10,8 @@ dependencies {
     implementation project(':session')
     // The Updates page reads and changes the automatic security updates through the package helper.
     implementation project(':packages')
+    // The Printers page uses the print manager's CUPS client and its test page.
+    implementation project(':print')
 }
 
 debian = [

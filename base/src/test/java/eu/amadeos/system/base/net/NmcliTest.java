@@ -118,4 +118,41 @@ class NmcliTest {
         assertEquals(3, WifiNetwork.bars(74));
         assertEquals(4, WifiNetwork.bars(75));
     }
+
+    @Test
+    void deviceDetailsWithAddressesAndWithoutLinkLocal() {
+        String show = """
+                GENERAL.HWADDR:3C\\:52\\:82\\:1A\\:0B\\:7E
+                CAPABILITIES.SPEED:1000 Mb/s
+                IP4.ADDRESS[1]:192.168.1.23/24
+                IP4.GATEWAY:192.168.1.1
+                IP4.DNS[1]:192.168.1.1
+                IP4.DNS[2]:9.9.9.9
+                IP6.ADDRESS[1]:2a02\\:810d\\:4b3f\\:a100\\:\\:23/128
+                IP6.ADDRESS[2]:fe80\\:\\:3e52\\:82ff\\:fe1a\\:b7e/64
+                """;
+        DeviceDetails d = Nmcli.parseDetails(show);
+        assertEquals("3C:52:82:1A:0B:7E", d.hardwareAddress());
+        assertEquals("1000 Mb/s", d.speed());
+        assertEquals(List.of("192.168.1.23/24"), d.ipv4());
+        assertEquals("192.168.1.23", d.address());
+        assertEquals("192.168.1.1", d.gateway());
+        assertEquals(List.of("192.168.1.1", "9.9.9.9"), d.dns());
+        assertEquals(List.of("2a02:810d:4b3f:a100::23/128"), d.ipv6());
+    }
+
+    @Test
+    void detailsOfAnUnconnectedDeviceAreEmpty() {
+        DeviceDetails d = Nmcli.parseDetails("GENERAL.HWADDR:A4\\:C3\\:F0\\:85\\:3D\\:11\nCAPABILITIES.SPEED:unknown\nIP4.GATEWAY:--\n");
+        assertEquals("A4:C3:F0:85:3D:11", d.hardwareAddress());
+        assertEquals("", d.speed());
+        assertEquals("", d.gateway());
+        assertEquals("", d.address());
+    }
+
+    @Test
+    void hiddenNetworkCommand() {
+        assertEquals(List.of("nmcli", "--wait", "45", "device", "wifi", "connect", "Attic", "hidden", "yes",
+                "password", "secret", "ifname", "wlp2s0"), Nmcli.connectHidden("Attic", "secret", "wlp2s0"));
+    }
 }

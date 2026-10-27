@@ -94,6 +94,11 @@ abstract class SettingsPage extends JPanel {
 
     /** Sections and hints one below the other at the top of the page. */
     protected final void layoutSections(JComponent... parts) {
+        layoutPage(stack(parts));
+    }
+
+    /** Sections and hints one below the other at the top of a panel, e.g. for a tab of a page. */
+    protected static JPanel stack(JComponent... parts) {
         JPanel content = new JPanel();
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
         for (int i = 0; i < parts.length; i++) {
@@ -103,7 +108,7 @@ abstract class SettingsPage extends JPanel {
         }
         JPanel top = new JPanel(new BorderLayout());
         top.add(content, BorderLayout.NORTH);
-        layoutPage(top);
+        return top;
     }
 
     /** Applies the page's settings; returns a message for the status line. */

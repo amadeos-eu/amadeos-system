@@ -54,7 +54,9 @@ class SystemPagesTest {
     static SystemAccess fakeSystem() {
         return new SystemAccess(new FakeKeyring(), packages(new ArrayList<>(), List.of()), new FakeTimeZones(),
                 command -> { }, List::of, new FakeDisplays(),
-                (settings, password) -> new ProxyCheck.Result(ProxyCheck.Outcome.OK, "", "200"));
+                (settings, password) -> new ProxyCheck.Result(ProxyCheck.Outcome.OK, "", "200"),
+                new FakeDevices.Network(), new FakeDevices.Sound(), new FakeDevices.Check(), new FakeDevices.Bluetooth(),
+                new FakeDevices.Printers());
     }
 
     /** An apt whose automatic security updates are off and which records the calls that change them. */
@@ -108,7 +110,7 @@ class SystemPagesTest {
             findButton(page, "Show disk and network activity").doClick();
             assertEquals("Front Panel applied", page.apply());
         });
-        assertEquals(new PanelSettings(PanelSettings.Clock.DIGITAL, false, true, true, true, false), store.load());
+        assertEquals(new PanelSettings(PanelSettings.Clock.DIGITAL, false, true, true, true, true, false), store.load());
     }
 
     @Test
@@ -201,7 +203,7 @@ class SystemPagesTest {
             page.set(new NetworkPage(lines::add, stores.proxy(), apt, stores, (s, pw) -> {
                 tested.add(s);
                 return new ProxyCheck.Result(ProxyCheck.Outcome.CREDENTIALS_REFUSED, "proxy.example:3128", "407");
-            }, Map.of("https_proxy", "http://env.example:8080")));
+            }, Map.of("https_proxy", "http://env.example:8080"), new FakeDevices.Network()));
             assertEquals("Now: env.example:8080", page.get().describeEnvironment());
             assertEquals(ProxySettings.Mode.SYSTEM, page.get().selected().mode());
             assertFalse(page.get().hostField().isEnabled(), "the manual fields wait for Manual");

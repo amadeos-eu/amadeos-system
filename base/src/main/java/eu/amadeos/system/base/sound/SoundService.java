@@ -21,6 +21,34 @@ public interface SoundService {
 
     void setInputMuted(boolean muted) throws SoundException;
 
+    /** Sets the volume of one output, in use or not, 0-150 percent. */
+    default void setOutputVolume(AudioDevice output, int percent) throws SoundException {
+        throw new SoundException("not supported");
+    }
+
+    default void setOutputMuted(AudioDevice output, boolean muted) throws SoundException {
+        throw new SoundException("not supported");
+    }
+
+    /** Sets the recording level of one input, 0-150 percent. */
+    default void setInputVolume(AudioDevice input, int percent) throws SoundException {
+        throw new SoundException("not supported");
+    }
+
+    default void setInputMuted(AudioDevice input, boolean muted) throws SoundException {
+        throw new SoundException("not supported");
+    }
+
+    /** The sound cards with their profiles. */
+    default java.util.List<SoundCard> cards() {
+        return java.util.List.of();
+    }
+
+    /** Switches a card to another profile, e.g. from analog output to HDMI. */
+    default void setProfile(SoundCard card, String profile) throws SoundException {
+        throw new SoundException("not supported");
+    }
+
     /**
      * Calls {@code onChange} (on a background thread) whenever a device, its volume or the choice changes,
      * also when another program changed it, until the returned handle is closed.

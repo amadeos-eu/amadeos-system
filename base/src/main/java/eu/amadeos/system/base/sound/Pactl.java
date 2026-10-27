@@ -14,6 +14,9 @@ public final class Pactl {
     /** Highest volume the panel sets; PipeWire allows more, which distorts. */
     public static final int MAX_VOLUME = 150;
     private static final Pattern PERCENT = Pattern.compile("(\\d+)%");
+    private static final Pattern PROFILE =
+            Pattern.compile("(\\S+): (.*) \\(((?:sinks|sources|priority): [^()]*)\\)");
+    private static final Pattern AVAILABLE = Pattern.compile("available: (\\w+)");
     private static final Pattern EVENT = Pattern.compile("Event '(\\w+)' on ([\\w-]+) #\\d+");
 
     private Pactl() {
@@ -54,6 +57,34 @@ public final class Pactl {
 
     public static List<String> setInputMuted(boolean muted) {
         return List.of("pactl", "set-source-mute", "@DEFAULT_SOURCE@", muted ? "1" : "0");
+    }
+
+    public static List<String> cards() {
+        return List.of("pactl", "list", "cards");
+    }
+
+    public static List<String> setSinkVolume(String sink, int percent) {
+        return List.of("pactl", "set-sink-volume", sink, clamp(percent) + "%");
+    }
+
+    public static List<String> setSourceVolume(String source, int percent) {
+        return List.of("pactl", "set-source-volume", source, clamp(percent) + "%");
+    }
+
+    public static List<String> setSinkMuted(String sink, boolean muted) {
+        return List.of("pactl", "set-sink-mute", sink, muted ? "1" : "0");
+    }
+
+    public static List<String> setSourceMuted(String source, boolean muted) {
+        return List.of("pactl", "set-source-mute", source, muted ? "1" : "0");
+    }
+
+    public static List<String> setCardProfile(String card, String profile) {
+        return List.of("pactl", "set-card-profile", card, profile);
+    }
+
+    private static int clamp(int percent) {
+        return Math.max(0, Math.min(MAX_VOLUME, percent));
     }
 
     public static List<String> setDefaultSink(String name) {
@@ -122,6 +153,54 @@ public final class Pactl {
         return devices;
     }
     // --8<-- [end:devices]
+
+    /**
+     * The cards of {@code pactl list cards}: name, {@code device.description} from the properties, the
+     * profiles (lines {@code name: Description (sinks: 1, sources: 0, priority: 5900, available: no)}; the name
+     * itself may contain colons) and the active profile.
+     */
+    public static List<SoundCard> parseCards(String list) {
+        List<SoundCard> cards = new ArrayList<>();
+        String name = null;
+        String description = null;
+        String active = "";
+        List<SoundCard.Profile> profiles = new ArrayList<>();
+        boolean inProfiles = false;
+        for (String line : (list + "\nCard #end").split("\n")) {
+            if (line.startsWith("Card #")) {
+                if (name != null) cards.add(new SoundCard(name, description, profiles, active));
+                name = null;
+                description = null;
+                active = "";
+                profiles = new ArrayList<>();
+                inProfiles = false;
+                continue;
+            }
+            String l = line.strip();
+            if (line.startsWith("\t") && !line.startsWith("\t\t")) {
+                inProfiles = l.equals("Profiles:");
+                if (l.startsWith("Name:")) name = value(l);
+                else if (l.startsWith("Active Profile:")) active = value(l);
+            } else if (line.startsWith("\t\t")) {
+                if (l.startsWith("device.description = ")) {
+                    description = unquote(l.substring("device.description = ".length()));
+                } else if (inProfiles) {
+                    Matcher m = PROFILE.matcher(l);
+                    if (m.matches()) {
+                        Matcher a = AVAILABLE.matcher(m.group(3));
+                        boolean available = !a.find() || !a.group(1).equals("no");
+                        profiles.add(new SoundCard.Profile(m.group(1), m.group(2), available));
+                    }
+                }
+            }
+        }
+        return cards;
+    }
+
+    private static String unquote(String value) {
+        String v = value.strip();
+        return v.length() >= 2 && v.startsWith("\"") && v.endsWith("\"") ? v.substring(1, v.length() - 1) : v;
+    }
 
     /** The mean of the per-channel percentages of a {@code Volume:} line, rounded. */
     static int averagePercent(String volumeLine) {

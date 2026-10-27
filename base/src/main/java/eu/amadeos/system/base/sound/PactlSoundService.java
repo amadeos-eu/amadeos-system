@@ -61,6 +61,41 @@ public final class PactlSoundService implements SoundService {
     }
 
     @Override
+    public void setOutputVolume(AudioDevice output, int percent) throws SoundException {
+        runOrThrow(Pactl.setSinkVolume(output.name(), percent));
+    }
+
+    @Override
+    public void setOutputMuted(AudioDevice output, boolean muted) throws SoundException {
+        runOrThrow(Pactl.setSinkMuted(output.name(), muted));
+    }
+
+    @Override
+    public void setInputVolume(AudioDevice input, int percent) throws SoundException {
+        runOrThrow(Pactl.setSourceVolume(input.name(), percent));
+    }
+
+    @Override
+    public void setInputMuted(AudioDevice input, boolean muted) throws SoundException {
+        runOrThrow(Pactl.setSourceMuted(input.name(), muted));
+    }
+
+    @Override
+    public List<SoundCard> cards() {
+        try {
+            return Pactl.parseCards(run(Pactl.cards()));
+        } catch (IOException | SoundException e) {
+            LOGGER.log(Level.FINE, "Could not list sound cards", e);
+            return List.of();
+        }
+    }
+
+    @Override
+    public void setProfile(SoundCard card, String profile) throws SoundException {
+        runOrThrow(Pactl.setCardProfile(card.name(), profile));
+    }
+
+    @Override
     public AutoCloseable watch(Runnable onChange) {
         Watcher watcher = new Watcher(onChange);
         Thread thread = new Thread(watcher, "pactl-subscribe");

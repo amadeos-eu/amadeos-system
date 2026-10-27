@@ -132,6 +132,56 @@ final class SettingsIcons {
                 g.drawLine(18, 6, 18, 16);
                 g.drawLine(18, 6, 18, 1);
             }
+            case SOUND -> {
+                // A loudspeaker with its sound waves.
+                g.setColor(paper);
+                Path2D cone = new Path2D.Double();
+                cone.moveTo(4, 13);
+                cone.lineTo(10, 13);
+                cone.lineTo(18, 6);
+                cone.lineTo(18, 30);
+                cone.lineTo(10, 23);
+                cone.lineTo(4, 23);
+                cone.closePath();
+                g.fill(cone);
+                g.setColor(ink);
+                g.draw(cone);
+                g.setColor(enabled ? new Color(0x4A, 0x69, 0x84) : t.shadow());
+                g.draw(new Arc2D.Double(16, 11, 10, 14, -50, 100, Arc2D.OPEN));
+                g.draw(new Arc2D.Double(16, 6, 16, 24, -50, 100, Arc2D.OPEN));
+            }
+            case BLUETOOTH -> {
+                g.setColor(enabled ? new Color(0x2E, 0x5C, 0xA8) : t.shadow());
+                g.fillRoundRect(7, 2, 22, 32, 18, 18);
+                g.setColor(enabled ? Color.WHITE : paper);
+                g.setStroke(new BasicStroke(2.2f));
+                Path2D rune = new Path2D.Double();
+                rune.moveTo(12, 11);
+                rune.lineTo(24, 23);
+                rune.lineTo(18, 29);
+                rune.lineTo(18, 7);
+                rune.lineTo(24, 13);
+                rune.lineTo(12, 25);
+                g.draw(rune);
+            }
+            case PRINTERS -> {
+                g.setColor(paper);
+                g.fillRect(9, 3, 18, 11);
+                g.setColor(ink);
+                g.drawRect(9, 3, 18, 11);
+                g.setColor(t.shadow());
+                g.fillRoundRect(2, 12, 32, 14, 5, 5);
+                g.setColor(ink);
+                g.drawRoundRect(2, 12, 32, 14, 5, 5);
+                g.setColor(paper);
+                g.fillRect(9, 21, 18, 13);
+                g.setColor(ink);
+                g.drawRect(9, 21, 18, 13);
+                g.drawLine(12, 25, 24, 25);
+                g.drawLine(12, 29, 21, 29);
+                g.setColor(enabled ? new Color(0x4A, 0xA0, 0x4A) : t.shadow());
+                g.fillOval(27, 15, 4, 4);
+            }
             case BEEP -> {
                 g.setColor(enabled ? new Color(0xD8, 0xB0, 0x40) : t.shadow());
                 Path2D bell = new Path2D.Double();
