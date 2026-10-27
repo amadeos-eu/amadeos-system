@@ -15,7 +15,8 @@ public final class Pactl {
     public static final int MAX_VOLUME = 150;
     private static final Pattern PERCENT = Pattern.compile("(\\d+)%");
     private static final Pattern PROFILE =
-            Pattern.compile("(\\S+): (.*?) \\(.*?(?:available: (\\w+))?\\)");
+            Pattern.compile("(\\S+): (.*) \\(((?:sinks|sources|priority): [^()]*)\\)");
+    private static final Pattern AVAILABLE = Pattern.compile("available: (\\w+)");
     private static final Pattern EVENT = Pattern.compile("Event '(\\w+)' on ([\\w-]+) #\\d+");
 
     private Pactl() {
@@ -185,7 +186,11 @@ public final class Pactl {
                     description = unquote(l.substring("device.description = ".length()));
                 } else if (inProfiles) {
                     Matcher m = PROFILE.matcher(l);
-                    if (m.matches()) profiles.add(new SoundCard.Profile(m.group(1), m.group(2), !"no".equals(m.group(3))));
+                    if (m.matches()) {
+                        Matcher a = AVAILABLE.matcher(m.group(3));
+                        boolean available = !a.find() || !a.group(1).equals("no");
+                        profiles.add(new SoundCard.Profile(m.group(1), m.group(2), available));
+                    }
                 }
             }
         }

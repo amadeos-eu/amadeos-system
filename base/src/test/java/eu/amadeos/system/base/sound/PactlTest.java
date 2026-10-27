@@ -110,4 +110,51 @@ class PactlTest {
         assertEquals(List.of("120", "131"), Pactl.parseIds("120\t48\t118\tPipeWire\tfloat32le 2ch 48000Hz\n131\t48\t\n"));
         assertEquals("No such entity", Pactl.errorMessage("Failure: No such entity\n"));
     }
+
+    private static final String CARDS = """
+            Card #42
+            \tName: alsa_card.pci-0000_00_1f.3
+            \tDriver: alsa
+            \tOwner Module: n/a
+            \tProperties:
+            \t\tdevice.description = "Built-in Audio"
+            \t\tdevice.bus = "pci"
+            \tProfiles:
+            \t\toff: Off (sinks: 0, sources: 0, priority: 0, available: yes)
+            \t\toutput:analog-stereo+input:analog-stereo: Analog Stereo Duplex (sinks: 1, sources: 1, priority: 6565, available: yes)
+            \t\toutput:hdmi-stereo: Digital Stereo (HDMI) Output (sinks: 1, sources: 0, priority: 5900, available: no)
+            \tActive Profile: output:analog-stereo+input:analog-stereo
+            \tPorts:
+            \t\tanalog-output-speaker: Speakers (type: Speaker, priority: 10000, availability unknown)
+            Card #77
+            \tName: bluez_card.38_18_4C_12_9A_E0
+            \tProperties:
+            \t\tdevice.description = "WH-1000XM4"
+            \tProfiles:
+            \t\ta2dp-sink: High Fidelity Playback (A2DP Sink) (sinks: 1, sources: 0, priority: 18, available: yes)
+            \t\theadset-head-unit: Headset Head Unit (HSP/HFP) (sinks: 1, sources: 1, priority: 1, available: yes)
+            \tActive Profile: a2dp-sink
+            """;
+
+    @Test
+    void cardsWithTheirProfiles() {
+        List<SoundCard> cards = Pactl.parseCards(CARDS);
+        assertEquals(2, cards.size());
+        SoundCard builtIn = cards.get(0);
+        assertEquals("alsa_card.pci-0000_00_1f.3", builtIn.name());
+        assertEquals("Built-in Audio", builtIn.description());
+        assertEquals(3, builtIn.profiles().size(), "ports are not profiles");
+        assertEquals(new SoundCard.Profile("output:hdmi-stereo", "Digital Stereo (HDMI) Output", false),
+                builtIn.profiles().get(2));
+        assertEquals("Analog Stereo Duplex", builtIn.active().orElseThrow().description());
+        assertEquals("High Fidelity Playback (A2DP Sink)", cards.get(1).active().orElseThrow().description());
+        assertTrue(cards.get(1).profiles().get(1).available());
+    }
+
+    @Test
+    void perDeviceCommands() {
+        assertEquals(List.of("pactl", "set-source-volume", "mic", "150%"), Pactl.setSourceVolume("mic", 200));
+        assertEquals(List.of("pactl", "set-sink-mute", "hdmi", "1"), Pactl.setSinkMuted("hdmi", true));
+        assertEquals(List.of("pactl", "set-card-profile", "card", "off"), Pactl.setCardProfile("card", "off"));
+    }
 }
