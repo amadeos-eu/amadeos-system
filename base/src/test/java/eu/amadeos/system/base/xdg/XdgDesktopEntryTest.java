@@ -170,7 +170,7 @@ class XdgDesktopEntryTest {
         String content = """
                 [Desktop Entry]
                 Type=Link
-                URL=https://github.com/datazuul/amadeos
+                URL=https://github.com/amadeos-eu/amadeos
                 Name=amadeOS Web
                 """;
 

@@ -125,7 +125,7 @@ class InstalledAppsTest {
                       <li xml:lang="de">Zeilennummern</li>
                     </ul>
                   </description>
-                  <url type="homepage">https://github.com/datazuul/amade-pad</url>
+                  <url type="homepage">https://github.com/amadeos-eu/amade-pad</url>
                   <launchable type="desktop-id">amade-pad.desktop</launchable>
                   <screenshots>
                     <screenshot>
@@ -133,7 +133,7 @@ class InstalledAppsTest {
                     </screenshot>
                     <screenshot type="default">
                       <caption>The editor</caption>
-                      <image>https://raw.githubusercontent.com/datazuul/amade-pad/main/docs/screenshot.png</image>
+                      <image>https://raw.githubusercontent.com/amadeos-eu/amade-pad/main/docs/screenshot.png</image>
                     </screenshot>
                     <screenshot>
                       <image>file:///etc/passwd</image>
@@ -146,11 +146,11 @@ class InstalledAppsTest {
         assertEquals("eu.amadeos.pad", english.id());
         assertEquals("Edit text files with tabs", english.summary());
         assertEquals("<p>A fast tabbed editor &amp; more.</p><ul><li>Line numbers</li></ul>", english.description());
-        assertEquals("https://github.com/datazuul/amade-pad", english.homepage());
+        assertEquals("https://github.com/amadeos-eu/amade-pad", english.homepage());
         assertEquals(List.of("Utility", "TextEditor"), english.categories());
         assertEquals(Optional.of(padIcon), english.icon());
         assertEquals(List.of(new AppData.Screenshot("The editor",
-                        URI.create("https://raw.githubusercontent.com/datazuul/amade-pad/main/docs/screenshot.png")),
+                        URI.create("https://raw.githubusercontent.com/amadeos-eu/amade-pad/main/docs/screenshot.png")),
                 new AppData.Screenshot("", URI.create("https://example.org/second.png"))), english.screenshots());
 
         AppData german = read(Locale.GERMAN).get("amade-pad");

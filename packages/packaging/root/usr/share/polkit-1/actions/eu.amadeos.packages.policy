@@ -7,7 +7,7 @@
      refresh the package lists without one. -->
 <policyconfig>
   <vendor>amadeOS</vendor>
-  <vendor_url>https://github.com/datazuul/amadeos</vendor_url>
+  <vendor_url>https://github.com/amadeos-eu/amadeos</vendor_url>
   <action id="eu.amadeos.packages.manage">
     <description>Install, update and remove software</description>
     <description xml:lang="de">Software installieren, aktualisieren und entfernen</description>
