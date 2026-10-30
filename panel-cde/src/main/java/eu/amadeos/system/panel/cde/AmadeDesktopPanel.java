@@ -80,7 +80,7 @@ public final class AmadeDesktopPanel extends JFrame {
     private static final String CUPS_ADMIN = "http://localhost:631/admin";
     /** The amadeOS User's Handbook of the package amadeos-handbook, and the same book on the web. */
     private static final String DESKTOP_HELP = "/usr/share/doc/amadeos-handbook/html/index.html";
-    private static final String DESKTOP_HELP_ONLINE = "https://datazuul.github.io/amadeos/";
+    private static final String DESKTOP_HELP_ONLINE = "https://docs.amadeos.eu/amadeos/";
     private static java.nio.channels.FileLock panelLock = null;
 
     private static boolean acquireSingleInstanceLock() {
