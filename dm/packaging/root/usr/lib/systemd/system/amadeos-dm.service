@@ -1,6 +1,6 @@
 [Unit]
 Description=amadeOS Java Display Manager & Login Greeter
-Documentation=https://github.com/datazuul/amadeos-system
+Documentation=https://github.com/amadeos-eu/amadeos-system
 After=systemd-user-sessions.service plymouth-quit-wait.service
 After=getty.target systemd-logind.service
 Conflicts=getty@tty7.service

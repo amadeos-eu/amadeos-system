@@ -1,9 +1,9 @@
 # amadeos-system
 
-The system components of [amadeOS](https://github.com/datazuul/amadeos), built together as one Gradle
+The system components of [amadeOS](https://github.com/amadeos-eu/amadeos), built together as one Gradle
 multi-project: one module and one Debian package per component. The standalone applications
 (amade-files, amade-web, amade-pad, ...) keep their own repositories; the
-[amadeos](https://github.com/datazuul/amadeos) repository builds the live image from all packages.
+[amadeos](https://github.com/amadeos-eu/amadeos) repository builds the live image from all packages.
 
 ![License](https://img.shields.io/badge/license-EUPL--1.2-blue)
 ![Java](https://img.shields.io/badge/Java-25-orange)
@@ -77,7 +77,7 @@ file system; the files under `etc/` are conffiles):
 | `x-session-manager`, `amadeos-panel` | `amadeos-session`, `amadeos-panel-cde` | Alternatives registered by the postinst scripts. |
 
 What belongs to the live image alone (the live user's password, `/etc/X11/Xwrapper.config`, live-config)
-stays in the [amadeos](https://github.com/datazuul/amadeos) repository.
+stays in the [amadeos](https://github.com/amadeos-eu/amadeos) repository.
 
 ## Building
 
@@ -96,7 +96,7 @@ Java 25 and `dpkg-deb` (for the packages) are needed. The X11 integration tests 
 and the lock start their own Xvfb and use `xmessage` as a test client (`xvfb`, `x11-utils`); on a
 machine without a display run the tests under `xvfb-run -a`. One test of `base` is skipped unless the
 `amadeos-backdrops-cde` package is installed. With
-[amade-commons](https://github.com/datazuul/amade-commons) checked out next to this repository, the build
+[amade-commons](https://github.com/amadeos-eu/amade-commons) checked out next to this repository, the build
 uses that checkout (composite build); otherwise the version from JitPack named in `build.gradle`.
 
 ## amadeos-print and CUPS
