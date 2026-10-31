@@ -13,7 +13,7 @@ import java.util.Optional;
 
 /**
  * Pictures of Default Applications and Date and Time for the handbooks:
- * {@code DateAppsDemo applications|datetime|manual|formats [language]}.
+ * {@code DateAppsDemo applications|datetime|manual|formats|language [language]}.
  */
 final class DateAppsDemo {
     private DateAppsDemo() {
@@ -42,7 +42,11 @@ final class DateAppsDemo {
                 () -> SystemPagesTest.mimeApps(apps), () -> RegionalFormats.REGIONS);
         SwingUtilities.invokeLater(() -> {
             SettingsWindow window = new SettingsWindow(SettingsStores.in(home), new InputApplier(), system);
-            window.openControl(scene.equals("applications") ? SettingsCategory.APPLICATIONS : SettingsCategory.DATETIME);
+            window.openControl(switch (scene) {
+                case "applications" -> SettingsCategory.APPLICATIONS;
+                case "language" -> SettingsCategory.LANGUAGE;
+                default -> SettingsCategory.DATETIME;
+            });
             window.setSize(1000, 760);
             window.setVisible(true);
             if (scene.equals("applications")) {
