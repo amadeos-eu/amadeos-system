@@ -6,7 +6,7 @@ import java.util.Locale;
 
 /**
  * The controls of the Settings: CDE's dtstyle controls in their order, grouped for the sidebar, with amadeOS's
- * own controls added: Workspaces and Front Panel after Backdrop, Sound after Mouse, Display before Screen,
+ * own controls added: Workspaces and Front Panel after Backdrop, Sound after Mouse, Display before Screen, Power after it,
  * Notifications and Clipboard after Window, the Network and Devices group (Network, Bluetooth, Printers) and the System group
  * (Users and Groups, Passwords, Updates, Language) at the end.
  */
@@ -22,6 +22,7 @@ public enum SettingsCategory {
     BEEP(Group.INPUT, true),
     DISPLAY(Group.DESKTOP, true),
     SCREEN(Group.DESKTOP, true),
+    POWER(Group.DESKTOP, true),
     WINDOW(Group.DESKTOP, true),
     NOTIFICATIONS(Group.DESKTOP, true),
     CLIPBOARD(Group.DESKTOP, true),
