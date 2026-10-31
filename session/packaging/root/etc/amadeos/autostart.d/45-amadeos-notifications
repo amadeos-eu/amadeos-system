@@ -1,0 +1,19 @@
+#!/bin/sh
+# amadeOS notifications: owns org.freedesktop.Notifications on the session bus and shows the notifications of
+# all programs as pop-ups, keeps their history and tells the Front Panel's bell how many are new
+# (Settings > Notifications). Restarted if it crashes; stops on a clean exit (0), when another notification
+# service owns the name (3), without a session bus (4) or without an X display (5).
+set -u
+
+LOG_DIR="${XDG_CACHE_HOME:-${HOME:-/tmp}/.cache}/amadeos/logs"
+mkdir -p "$LOG_DIR" 2>/dev/null || LOG_DIR=/tmp
+LOG_FILE="$LOG_DIR/notifications.log"
+
+while :; do
+    /usr/libexec/amadeos-session notifications --daemon >> "$LOG_FILE" 2>&1
+    case "$?" in
+        0|3|4|5) exit 0 ;;
+        126|127) exit 1 ;;
+        *) echo "[amadeos-notifications] restarting in 2s" >> "$LOG_FILE"; sleep 2 ;;
+    esac
+done

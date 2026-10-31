@@ -13,6 +13,7 @@ import eu.amadeos.system.base.window.WindowSettingsStore;
 import eu.amadeos.system.base.workspace.WorkspaceNames;
 import eu.amadeos.system.base.xdg.XdgDirectories;
 import eu.amadeos.system.clipboard.ClipboardSettingsStore;
+import eu.amadeos.system.notify.NotificationSettingsStore;
 import eu.amadeos.system.display.DisplaySettingsStore;
 import eu.amadeos.system.input.InputSettingsStore;
 import eu.amadeos.system.screen.ScreenSettingsStore;
@@ -30,7 +31,8 @@ import java.util.Properties;
 record SettingsStores(ScreenSettingsStore screen, ClipboardSettingsStore clipboard, InputSettingsStore input,
                       WindowSettingsStore window, PanelSettingsStore panel, WorkspaceNames workspaces,
                       StartupSettings startup, UserAutostart autostart, Path servicesDir, LocaleStore locales,
-                      DisplaySettingsStore display, ProxyStore proxy, Path viewFile, PowerSettingsStore power) {
+                      DisplaySettingsStore display, ProxyStore proxy, NotificationSettingsStore notifications,
+                      Path viewFile, PowerSettingsStore power) {
     static final String VIEW_FILE = "settings.conf";
 
     /** The sidebar with one page per control, or CDE's row of buttons that open a dialog each. */
@@ -40,8 +42,8 @@ record SettingsStores(ScreenSettingsStore screen, ClipboardSettingsStore clipboa
         return new SettingsStores(ScreenSettingsStore.user(), ClipboardSettingsStore.user(), InputSettingsStore.user(),
                 WindowSettingsStore.user(), PanelSettingsStore.user(), WorkspaceNames.user(), StartupSettings.user(),
                 UserAutostart.user(), DesktopServices.SYSTEM_DIR, new LocaleStore(XdgDirectories.amadeosConfigDir()),
-                DisplaySettingsStore.user(), ProxyStore.system(), XdgDirectories.amadeosConfigDir().resolve(VIEW_FILE),
-                PowerSettingsStore.user());
+                DisplaySettingsStore.user(), ProxyStore.system(), NotificationSettingsStore.user(),
+                XdgDirectories.amadeosConfigDir().resolve(VIEW_FILE), PowerSettingsStore.user());
     }
 
     /** The stores of one directory, for tests. */
@@ -53,7 +55,8 @@ record SettingsStores(ScreenSettingsStore screen, ClipboardSettingsStore clipboa
                 new StartupSettings(dir.resolve(StartupSettings.FILE_NAME)), new UserAutostart(dir.resolve("autostart")),
                 dir.resolve("autostart.d"), new LocaleStore(dir),
                 new DisplaySettingsStore(dir.resolve(DisplaySettingsStore.FILE_NAME)),
-                new ProxyStore(dir, new SessionPasswordStore()), dir.resolve(VIEW_FILE),
+                new ProxyStore(dir, new SessionPasswordStore()),
+                new NotificationSettingsStore(dir.resolve(NotificationSettingsStore.FILE_NAME)), dir.resolve(VIEW_FILE),
                 new PowerSettingsStore(dir.resolve(PowerSettingsStore.FILE_NAME)));
     }
 

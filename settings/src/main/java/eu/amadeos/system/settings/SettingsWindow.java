@@ -248,6 +248,7 @@ public final class SettingsWindow extends JFrame {
             case SCREEN -> new ScreenPage(this::setStatus, stores.screen());
             case POWER -> new PowerPage(this::setStatus, stores.power(), system.power(), system.battery());
             case WINDOW -> new WindowPage(this::setStatus, stores.window());
+            case NOTIFICATIONS -> new NotificationsPage(this::setStatus, stores.notifications(), system.launcher());
             case CLIPBOARD -> new ClipboardPage(this::setStatus, stores.clipboard());
             case STARTUP -> new StartupPage(this::setStatus, stores.startup(), stores.autostart(), stores.servicesDir(),
                     system.applications());

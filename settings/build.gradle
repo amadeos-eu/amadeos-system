@@ -30,7 +30,7 @@ debian = [
 (palette and icon theme), Font (size), Backdrop, Workspaces (names), Front Panel
 (clock, status cells), Keyboard, Mouse, Beep, Display (resolution, refresh
 rate, rotation and arrangement of the monitors), Screen, Window (focus, raising,
-moving), Clipboard, Startup (programs and services at login), Passwords (the
+moving), Notifications (pop-ups, Do not disturb, per program), Clipboard, Startup (programs and services at login), Passwords (the
 login keyring), Users and Groups (accounts, administrators, permission
 groups, through the root helper /usr/libexec/amadeos-users and polkit),
 Updates (automatic security updates) and Language (desktop

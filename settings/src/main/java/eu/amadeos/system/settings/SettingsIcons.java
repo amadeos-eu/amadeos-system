@@ -194,6 +194,29 @@ final class SettingsIcons {
                 g.draw(bell);
                 g.fillOval(15, 26, 6, 5);
             }
+            case NOTIFICATIONS -> {
+                // A pop-up card with two lines of text, a bell on it and a red dot: a new notification.
+                g.setColor(t.highlight());
+                g.fillRect(3, 11, 26, 18);
+                g.setColor(ink);
+                g.drawRect(3, 11, 26, 18);
+                g.drawLine(15, 18, 26, 18);
+                g.drawLine(15, 23, 23, 23);
+                g.setColor(enabled ? new Color(0xD8, 0xB0, 0x40) : t.shadow());
+                Path2D small = new Path2D.Double();
+                small.moveTo(6, 25);
+                small.curveTo(7, 22, 7, 15, 10, 15);
+                small.curveTo(13, 15, 13, 22, 14, 25);
+                small.closePath();
+                g.fill(small);
+                g.setColor(ink);
+                g.draw(small);
+                g.fillOval(9, 25, 3, 3);
+                g.setColor(enabled ? new Color(0xC0, 0x28, 0x28) : t.textInactive());
+                g.fillOval(24, 4, 9, 9);
+                g.setColor(ink);
+                g.drawOval(24, 4, 9, 9);
+            }
             case CLIPBOARD -> {
                 // A clipboard with its clip and a sheet of text, a second sheet behind it: the history.
                 g.setColor(t.shadow());
