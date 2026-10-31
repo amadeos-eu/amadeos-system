@@ -71,6 +71,8 @@ public final class IconManager {
         map.put("shutdown", List.of("system-shutdown", "gnome-shutdown", "application-exit"));
         map.put("logout", List.of("system-log-out", "gnome-logout", "application-exit"));
         map.put("reboot", List.of("system-reboot", "view-refresh", "reload"));
+        map.put("suspend", List.of("system-suspend"));
+        map.put("hibernate", List.of("system-hibernate", "system-suspend-hibernate"));
         map.put("trash", List.of("user-trash", "trashcan_empty", "user-trash-empty", "user-trash-full", "trash-empty", "trash"));
         map.put("clipboard", List.of("edit-paste", "gtk-paste", "stock_paste", "clipboard"));
         map.put("diagnostics", List.of("utilities-system-monitor", "preferences-system", "system-help", "dialog-information", "diagnostics"));
@@ -555,6 +557,30 @@ public final class IconManager {
                 g.drawLine(11, 12, 20, 12);
                 g.drawLine(17, 9, 20, 12);
                 g.drawLine(17, 15, 20, 12);
+            }
+            case "suspend" -> {
+                // Crescent moon on the dark disc of the power buttons
+                g.setColor(new Color(0x40, 0x40, 0x40));
+                g.fillOval(3, 3, 18, 18);
+                g.setColor(new Color(0xF2, 0xE2, 0x9A));
+                g.fillOval(7, 6, 11, 12);
+                g.setColor(new Color(0x40, 0x40, 0x40));
+                g.fillOval(10, 4, 11, 11);
+            }
+            case "hibernate" -> {
+                // Moon above a disk drive: the session sleeps on the disk
+                g.setColor(new Color(0x40, 0x40, 0x40));
+                g.fillOval(3, 1, 18, 18);
+                g.setColor(new Color(0xF2, 0xE2, 0x9A));
+                g.fillOval(7, 4, 10, 10);
+                g.setColor(new Color(0x40, 0x40, 0x40));
+                g.fillOval(10, 2, 10, 10);
+                g.setColor(new Color(0x90, 0x90, 0x98));
+                g.fillRect(4, 16, 16, 6);
+                g.setColor(Color.BLACK);
+                g.drawRect(4, 16, 16, 6);
+                g.setColor(new Color(0x40, 0xC0, 0x40));
+                g.fillRect(16, 18, 2, 2);
             }
             case "reboot" -> {
                 // Circular arrow

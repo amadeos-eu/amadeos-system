@@ -25,6 +25,8 @@ import javax.swing.SwingUtilities;
 import eu.amadeos.commons.i18n.LocaleResolution;
 import eu.amadeos.commons.i18n.Messages;
 import eu.amadeos.commons.theme.DesktopTheme;
+import eu.amadeos.system.base.power.LogindPowerControl;
+import eu.amadeos.system.base.power.PowerControl;
 import eu.amadeos.system.base.theme.IconManager;
 import eu.amadeos.system.base.theme.ThemeManager;
 
@@ -60,6 +62,18 @@ public final class SessionDialogHelper {
     }
 
     public static void showSessionPowerDialog(Component parent) {
+        showSessionPowerDialog(parent, new LogindPowerControl());
+    }
+
+    // --8<-- [start:dialog]
+    /**
+     * The Exit dialog: Suspend and Hibernate keep the session, Log Out and Exit to Shell end it, Reboot and Shut
+     * Down end it and then the computer. Hibernate is greyed out where the system cannot do it (no swap space as
+     * large as the memory, or Secure Boot's lockdown).
+     */
+    public static void showSessionPowerDialog(Component parent, PowerControl power) {
+        boolean canSuspend = power.canSuspend();
+        boolean canHibernate = power.canHibernate();
         SwingUtilities.invokeLater(() -> {
             Messages texts = texts();
             JDialog dialog = new JDialog(
@@ -82,9 +96,25 @@ public final class SessionDialogHelper {
             header.add(subtitle);
             dialog.add(header, BorderLayout.NORTH);
 
-            JPanel grid = new JPanel(new GridLayout(2, 2, 12, 12));
+            JPanel grid = new JPanel(new GridLayout(3, 2, 12, 12));
             grid.setBackground(t.base());
             grid.setBorder(BorderFactory.createEmptyBorder(8, 16, 8, 16));
+
+            JButton suspendBtn = actionButton("suspend", texts.get("suspend"),
+                    texts.get(canSuspend ? "suspend.explanation" : "unavailable"));
+            suspendBtn.setEnabled(canSuspend);
+            suspendBtn.addActionListener(e -> {
+                dialog.dispose();
+                sleep(power::suspend);
+            });
+
+            JButton hibernateBtn = actionButton("hibernate", texts.get("hibernate"),
+                    texts.get(canHibernate ? "hibernate.explanation" : "hibernate.unavailable"));
+            hibernateBtn.setEnabled(canHibernate);
+            hibernateBtn.addActionListener(e -> {
+                dialog.dispose();
+                sleep(power::hibernate);
+            });
 
             JButton logoutBtn = actionButton("logout", texts.get("logout"), texts.get("logout.explanation"));
             logoutBtn.addActionListener(e -> requestSessionAction("restart"));
@@ -118,10 +148,12 @@ public final class SessionDialogHelper {
                 }
             });
 
+            grid.add(suspendBtn);
+            grid.add(hibernateBtn);
             grid.add(logoutBtn);
             grid.add(shellBtn);
-            grid.add(shutdownBtn);
             grid.add(rebootBtn);
+            grid.add(shutdownBtn);
             dialog.add(grid, BorderLayout.CENTER);
 
             JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT));
@@ -140,6 +172,30 @@ public final class SessionDialogHelper {
             dialog.setLocationRelativeTo(null);
             dialog.setVisible(true);
         });
+    }
+
+    // --8<-- [end:dialog]
+
+    private interface Sleep {
+        void run() throws PowerControl.PowerException;
+    }
+
+    /**
+     * Suspends or hibernates off the event thread: logind answers at once, but polkit may first ask for a password
+     * when other users are logged in. The session's power daemon locks the screen before the computer sleeps.
+     */
+    private static void sleep(Sleep action) {
+        Thread thread = new Thread(() -> {
+            try {
+                action.run();
+            } catch (PowerControl.PowerException e) {
+                LOGGER.warning(() -> "Could not sleep: " + e.getMessage());
+                SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(null,
+                        texts().format("sleep.failed", e.getMessage()), texts().get("title"), JOptionPane.ERROR_MESSAGE));
+            }
+        }, "amadeOS-sleep");
+        thread.setDaemon(true);
+        thread.start();
     }
 
     /** A large session action button: its icon above the action and a short explanation. */

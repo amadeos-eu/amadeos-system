@@ -5,6 +5,7 @@ import eu.amadeos.commons.desktop.SessionPasswordStore;
 import eu.amadeos.commons.i18n.LocaleStore;
 import eu.amadeos.commons.net.ProxyStore;
 import eu.amadeos.system.base.panel.PanelSettingsStore;
+import eu.amadeos.system.base.power.PowerSettingsStore;
 import eu.amadeos.system.base.startup.DesktopServices;
 import eu.amadeos.system.base.startup.StartupSettings;
 import eu.amadeos.system.base.startup.UserAutostart;
@@ -29,7 +30,7 @@ import java.util.Properties;
 record SettingsStores(ScreenSettingsStore screen, ClipboardSettingsStore clipboard, InputSettingsStore input,
                       WindowSettingsStore window, PanelSettingsStore panel, WorkspaceNames workspaces,
                       StartupSettings startup, UserAutostart autostart, Path servicesDir, LocaleStore locales,
-                      DisplaySettingsStore display, ProxyStore proxy, Path viewFile) {
+                      DisplaySettingsStore display, ProxyStore proxy, Path viewFile, PowerSettingsStore power) {
     static final String VIEW_FILE = "settings.conf";
 
     /** The sidebar with one page per control, or CDE's row of buttons that open a dialog each. */
@@ -39,7 +40,8 @@ record SettingsStores(ScreenSettingsStore screen, ClipboardSettingsStore clipboa
         return new SettingsStores(ScreenSettingsStore.user(), ClipboardSettingsStore.user(), InputSettingsStore.user(),
                 WindowSettingsStore.user(), PanelSettingsStore.user(), WorkspaceNames.user(), StartupSettings.user(),
                 UserAutostart.user(), DesktopServices.SYSTEM_DIR, new LocaleStore(XdgDirectories.amadeosConfigDir()),
-                DisplaySettingsStore.user(), ProxyStore.system(), XdgDirectories.amadeosConfigDir().resolve(VIEW_FILE));
+                DisplaySettingsStore.user(), ProxyStore.system(), XdgDirectories.amadeosConfigDir().resolve(VIEW_FILE),
+                PowerSettingsStore.user());
     }
 
     /** The stores of one directory, for tests. */
@@ -51,7 +53,8 @@ record SettingsStores(ScreenSettingsStore screen, ClipboardSettingsStore clipboa
                 new StartupSettings(dir.resolve(StartupSettings.FILE_NAME)), new UserAutostart(dir.resolve("autostart")),
                 dir.resolve("autostart.d"), new LocaleStore(dir),
                 new DisplaySettingsStore(dir.resolve(DisplaySettingsStore.FILE_NAME)),
-                new ProxyStore(dir, new SessionPasswordStore()), dir.resolve(VIEW_FILE));
+                new ProxyStore(dir, new SessionPasswordStore()), dir.resolve(VIEW_FILE),
+                new PowerSettingsStore(dir.resolve(PowerSettingsStore.FILE_NAME)));
     }
 
     View view() {
