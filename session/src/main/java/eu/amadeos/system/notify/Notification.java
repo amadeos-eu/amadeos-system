@@ -19,13 +19,15 @@ import java.util.List;
  * @param timeoutMs    {@code expire_timeout}: -1 the user's setting, 0 never
  * @param transientHint not kept in the history
  * @param resident     stays open after an action was chosen
- * @param sender       the unique bus name of the program that sent it, or empty
+ * @param sender       the unique bus name of the program that sent it, {@code pid:<n>} when it named its
+ *                     process in the {@code sender-pid} hint, or empty
  */
 record Notification(long id, String appName, String programKey, String desktopEntry, String icon, BufferedImage image,
                     String summary, String body, List<Action> actions, Urgency urgency, String category, int timeoutMs,
                     boolean transientHint, boolean resident, boolean suppressSound, Instant time, String sender) {
 
     static final String DEFAULT_ACTION = "default";
+    static final String PID_SENDER = "pid:";
 
     record Action(String key, String label) {
     }
@@ -49,6 +51,17 @@ record Notification(long id, String appName, String programKey, String desktopEn
         urgency = urgency == null ? Urgency.NORMAL : urgency;
         category = category == null ? "" : category;
         sender = sender == null ? "" : sender;
+    }
+
+    /** Whether the sender can still act on it: for a {@code pid:} sender, whether that process still runs. */
+    boolean senderAlive() {
+        if (!sender.startsWith(PID_SENDER)) return true;
+        try {
+            return ProcessHandle.of(Long.parseLong(sender.substring(PID_SENDER.length())))
+                    .map(ProcessHandle::isAlive).orElse(false);
+        } catch (NumberFormatException e) {
+            return false;
+        }
     }
 
     boolean critical() {

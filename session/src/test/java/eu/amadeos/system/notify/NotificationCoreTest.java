@@ -216,6 +216,24 @@ class NotificationCoreTest {
     }
 
     @Test
+    void aSenderNamedByItsProcessStaysOpenWhileTheProcessRuns() {
+        Notification alive = new Notification(0, "Calendar", "amade-calendar", "amade-calendar", "", null, "S", "",
+                List.of(new Notification.Action("snooze", "Snooze")), Notification.Urgency.NORMAL, "", -1, false,
+                false, false, clock.instant(), Notification.PID_SENDER + ProcessHandle.current().pid());
+        long id = core.notify(alive, 0);
+        core.senderGone(":1.7");
+        core.invoke(id, "snooze");
+        assertTrue(signals.contains("action " + id + " snooze"), "this test's own process still runs");
+
+        Notification gone = new Notification(0, "Calendar", "amade-calendar", "amade-calendar", "", null, "S", "",
+                List.of(new Notification.Action("snooze", "Snooze")), Notification.Urgency.NORMAL, "", -1, false,
+                false, false, clock.instant(), Notification.PID_SENDER + Long.MAX_VALUE);
+        long id2 = core.notify(gone, 0);
+        core.invoke(id2, "snooze");
+        assertFalse(signals.contains("action " + id2 + " snooze"), "no process with that id");
+    }
+
+    @Test
     void showingTheHistoryAndClearing() {
         core.notify(n("Mail"), 0);
         core.notify(n("Mail"), 0);

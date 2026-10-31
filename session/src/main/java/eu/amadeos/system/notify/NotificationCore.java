@@ -170,7 +170,7 @@ final class NotificationCore {
         Notification n = transients.containsKey(id) ? transients.get(id)
                 : history.find(id) != null ? history.find(id).notification() : null;
         if (n == null) return;
-        boolean open = transients.containsKey(id) || history.find(id).open();
+        boolean open = (transients.containsKey(id) || history.find(id).open()) && n.senderAlive();
         boolean known = n.actions().stream().anyMatch(a -> a.key().equals(key));
         if (open && known) {
             signals.actionInvoked(id, key);

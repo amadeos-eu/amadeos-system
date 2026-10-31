@@ -69,6 +69,10 @@ final class NotificationServer {
         String icon = firstNonBlank(string(h, "image-path"), string(h, "image_path"), appIcon,
                 entry.map(XdgDesktopEntry::icon).orElse(""));
         if (icon.startsWith("file://")) icon = icon.substring(7);
+        // A program that calls through short-lived helpers (gdbus call, as amade-commons does) names its own
+        // process; its notifications stay open as long as that process runs, not the helper's bus connection.
+        long senderPid = number(h.get("sender-pid"), 0);
+        if (senderPid > 0) sender = Notification.PID_SENDER + senderPid;
         BufferedImage image = NotificationImages.fromImageData(first(h, "image-data", "image_data", "icon_data"));
         Notification n = new Notification(0, name, NotificationSettings.programKey(desktopEntry, name), desktopEntry,
                 icon, image, summary, body, Notification.actions(actions),

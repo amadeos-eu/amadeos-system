@@ -112,6 +112,13 @@ class NotificationServerTest {
     }
 
     @Test
+    void theSenderPidHintNamesTheSendersProcess() {
+        server().notify("Calendar", 0, "", "S", "", List.of(), Map.of("sender-pid", new Variant<>(4242L)), -1,
+                ":1.9");
+        assertEquals("pid:4242", received.get(0).sender());
+    }
+
+    @Test
     void urgencyBytesAreUnsigned() {
         assertEquals(2, NotificationServer.number(new Variant<>((byte) 2), 1));
         assertEquals(1, NotificationServer.number(null, 1));
