@@ -52,6 +52,8 @@ import eu.amadeos.system.base.bluetooth.BluezBluetoothService;
 import eu.amadeos.system.base.power.PowerSupplies;
 import eu.amadeos.system.panel.cde.status.BatteryCell;
 import eu.amadeos.system.panel.cde.status.BluetoothCell;
+import eu.amadeos.system.panel.cde.status.CameraCell;
+import eu.amadeos.system.panel.cde.status.CameraUsers;
 import eu.amadeos.system.panel.cde.status.NetworkCell;
 import eu.amadeos.system.panel.cde.status.SoundCell;
 import eu.amadeos.system.panel.cde.status.StatusDockWidget;
@@ -119,6 +121,7 @@ public final class AmadeDesktopPanel extends JFrame {
     private final BatteryCell batteryCell;
     private final BluetoothCell bluetoothCell;
     private final UpdatesCell updatesCell;
+    private final CameraCell cameraCell;
     private final PanelSettingsStore panelSettings = PanelSettingsStore.user();
     private ConfigWatcher settingsWatch;
 
@@ -388,7 +391,10 @@ public final class AmadeDesktopPanel extends JFrame {
         bluetoothCell = new BluetoothCell(new BluezBluetoothService(),
                 () -> launchProcess("amadeos-settings", "bluetooth"));
         updatesCell = new UpdatesCell(new AptPackageService(), updateWindow("--updates"), updateWindow("--settings"));
-        statusWidget = new StatusDockWidget(List.of(networkCell, soundCell, batteryCell, bluetoothCell, updatesCell));
+        // The camera light comes last, so the other cells keep their places when it shows up; it cannot be hidden.
+        cameraCell = new CameraCell(new CameraUsers());
+        statusWidget = new StatusDockWidget(
+                List.of(networkCell, soundCell, batteryCell, bluetoothCell, updatesCell, cameraCell));
         widgets.add(statusWidget);
         rightSlots.add(statusWidget.component());
         // --8<-- [end:status]
