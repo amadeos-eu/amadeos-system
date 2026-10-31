@@ -46,8 +46,14 @@ final class StatusSlotDemo {
             updates.show(List.of(new eu.amadeos.system.packages.Change(eu.amadeos.system.packages.Change.Kind.UPGRADE,
                     "openssl", "1.0", "1.1", List.of(new eu.amadeos.system.packages.Origin("Debian-Security", "13",
                     "stable-security")), "amd64")));
-            List<StatusCell> cells = args.length > 0 && args[0].equals("four")
-                    ? List.of(network, sound, battery, bluetooth) : List.of(network, sound, battery, bluetooth, updates);
+            CameraCell camera = new CameraCell(java.util.Set::of, en);
+            camera.show(java.util.Set.of("amade-webcam"));
+            String variant = args.length > 0 ? args[0] : "";
+            List<StatusCell> cells = switch (variant) {
+                case "four" -> List.of(network, sound, battery, bluetooth);
+                case "camera" -> List.of(network, sound, battery, camera);
+                default -> List.of(network, sound, battery, bluetooth, updates);
+            };
             StatusDockWidget widget = new StatusDockWidget(cells);
             JFrame frame = new JFrame("Status slot");
             JPanel root = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 8));
