@@ -446,6 +446,12 @@ public final class SettingsWindow extends JFrame {
         cards.show(cardPanel, category.name());
         crumb.setText(SettingsTexts.format("crumb", category.group().label(), category.label()));
         cardPanel.revalidate();
+        // The System group is below the fold of a small window: show the chosen entry, also when opened by name.
+        SidebarEntry entry = entries.get(category);
+        if (entry != null) {
+            javax.swing.SwingUtilities.invokeLater(() -> entry.scrollRectToVisible(
+                    new java.awt.Rectangle(0, 0, entry.getWidth(), entry.getHeight())));
+        }
     }
 
     /** The control shown in the sidebar view. */
