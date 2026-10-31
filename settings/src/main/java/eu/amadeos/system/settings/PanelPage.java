@@ -21,6 +21,7 @@ final class PanelPage extends SettingsPage {
     private final JCheckBox sound = new JCheckBox(SettingsTexts.get("panel.cell.sound"));
     private final JCheckBox battery = new JCheckBox(SettingsTexts.get("panel.cell.battery"));
     private final JCheckBox bluetooth = new JCheckBox(SettingsTexts.get("panel.cell.bluetooth"));
+    private final JCheckBox notifications = new JCheckBox(SettingsTexts.get("panel.cell.notifications"));
     private final JCheckBox updates = new JCheckBox(SettingsTexts.get("panel.cell.updates"));
     private final JCheckBox activity = new JCheckBox(SettingsTexts.get("panel.activity.meter"));
 
@@ -36,12 +37,14 @@ final class PanelPage extends SettingsPage {
         sound.setSelected(settings.soundCell());
         battery.setSelected(settings.batteryCell());
         bluetooth.setSelected(settings.bluetoothCell());
+        notifications.setSelected(settings.notificationsCell());
         updates.setSelected(settings.updatesCell());
         activity.setSelected(settings.activityMeter());
 
         layoutSections(
                 section(SettingsTexts.get("panel.clock.title"), analog, digital),
-                section(SettingsTexts.get("panel.cells.title"), network, sound, battery, bluetooth, updates,
+                section(SettingsTexts.get("panel.cells.title"), network, sound, battery, bluetooth, notifications,
+                        updates,
                         note(SettingsTexts.get("panel.cells.hint"))),
                 section(SettingsTexts.get("panel.activity.title"), activity,
                         note(SettingsTexts.get("panel.activity.hint"))),
@@ -51,8 +54,7 @@ final class PanelPage extends SettingsPage {
     PanelSettings selected() {
         return new PanelSettings(digital.isSelected() ? PanelSettings.Clock.DIGITAL : PanelSettings.Clock.ANALOG,
                 network.isSelected(), sound.isSelected(), battery.isSelected(), bluetooth.isSelected(),
-                updates.isSelected(),
-                activity.isSelected());
+                updates.isSelected(), activity.isSelected(), notifications.isSelected());
     }
 
     @Override

@@ -19,6 +19,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -50,11 +52,14 @@ import eu.amadeos.system.base.net.NmcliNetworkService;
 import eu.amadeos.system.base.sound.PactlSoundService;
 import eu.amadeos.system.base.bluetooth.BluezBluetoothService;
 import eu.amadeos.system.base.power.PowerSupplies;
+import eu.amadeos.system.base.notify.NotificationClient;
 import eu.amadeos.system.panel.cde.status.BatteryCell;
 import eu.amadeos.system.panel.cde.status.BluetoothCell;
 import eu.amadeos.system.panel.cde.status.CameraCell;
 import eu.amadeos.system.panel.cde.status.CameraUsers;
+import eu.amadeos.system.panel.cde.status.DesktopNotices;
 import eu.amadeos.system.panel.cde.status.NetworkCell;
+import eu.amadeos.system.panel.cde.status.NotificationCell;
 import eu.amadeos.system.panel.cde.status.SoundCell;
 import eu.amadeos.system.panel.cde.status.StatusDockWidget;
 import eu.amadeos.system.panel.cde.status.UpdatesCell;
@@ -121,6 +126,7 @@ public final class AmadeDesktopPanel extends JFrame {
     private final BatteryCell batteryCell;
     private final BluetoothCell bluetoothCell;
     private final UpdatesCell updatesCell;
+    private final NotificationCell notificationCell;
     private final CameraCell cameraCell;
     private final PanelSettingsStore panelSettings = PanelSettingsStore.user();
     private ConfigWatcher settingsWatch;
@@ -382,19 +388,41 @@ public final class AmadeDesktopPanel extends JFrame {
         rightSlots.add(trashWidget.component());
 
         // --8<-- [start:status]
-        // Slot 13: Status (network, sound, battery, Bluetooth and software updates), outermost on the right. The
-        // battery cell shows only on computers with a battery, the Bluetooth cell only with an adapter, the
-        // updates cell only while updates are waiting; more than four open a second slot.
+        // Slot 13: Status (network, sound, battery, Bluetooth, the notifications' bell and software updates),
+        // outermost on the right. The battery cell shows only on computers with a battery, the Bluetooth cell only
+        // with an adapter, the updates cell only while updates are waiting; more than four open a second slot.
         networkCell = new NetworkCell(new NmcliNetworkService(), () -> launchProcess("amadeos-settings", "network"));
         soundCell = new SoundCell(new PactlSoundService());
         batteryCell = new BatteryCell(new PowerSupplies());
         bluetoothCell = new BluetoothCell(new BluezBluetoothService(),
                 () -> launchProcess("amadeos-settings", "bluetooth"));
         updatesCell = new UpdatesCell(new AptPackageService(), updateWindow("--updates"), updateWindow("--settings"));
+        NotificationClient notifications = new NotificationClient();
+        notificationCell = new NotificationCell(notifications, () -> launchProcess("amadeos-notifications"),
+                () -> launchProcess("amadeos-settings", "notifications"));
+        // The battery running low and new updates become notifications; sent off the event dispatch thread.
+        DesktopNotices notices = new DesktopNotices(new DesktopNotices.Sink() {
+            @Override
+            public long send(eu.amadeos.system.base.notify.DesktopNotification n) {
+                return notifications.send(n);
+            }
+
+            @Override
+            public void close(long id) {
+                notifications.close(id);
+            }
+        }, updateWindow("--updates"));
+        ExecutorService noticeSender = Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "desktop-notices");
+            t.setDaemon(true);
+            return t;
+        });
+        batteryCell.onReading(reading -> noticeSender.execute(() -> notices.battery(reading)));
+        updatesCell.onUpdates(pending -> noticeSender.execute(() -> notices.updates(pending)));
         // The camera light comes last, so the other cells keep their places when it shows up; it cannot be hidden.
         cameraCell = new CameraCell(new CameraUsers());
         statusWidget = new StatusDockWidget(
-                List.of(networkCell, soundCell, batteryCell, bluetoothCell, updatesCell, cameraCell));
+                List.of(networkCell, soundCell, batteryCell, bluetoothCell, notificationCell, updatesCell, cameraCell));
         widgets.add(statusWidget);
         rightSlots.add(statusWidget.component());
         // --8<-- [end:status]
@@ -616,6 +644,7 @@ public final class AmadeDesktopPanel extends JFrame {
         statusWidget.setShown(batteryCell, settings.batteryCell());
         statusWidget.setShown(bluetoothCell, settings.bluetoothCell());
         statusWidget.setShown(updatesCell, settings.updatesCell());
+        statusWidget.setShown(notificationCell, settings.notificationsCell());
         switcher.activityLight().setMeterShown(settings.activityMeter());
     }
 

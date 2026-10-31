@@ -127,6 +127,7 @@ public final class UpdatesCell implements StatusCell {
     private final Supplier<ProgressView> progressViews;
     private ProgressView progressView;
     private Runnable relayout = () -> {};
+    private java.util.function.Consumer<List<Change>> readings = pending -> { };
     private AutoCloseable watch;
     JPopupMenu menu;
 
@@ -215,6 +216,12 @@ public final class UpdatesCell implements StatusCell {
         updates = List.copyOf(pending);
         refreshLook();
         if (available() != wasAvailable) relayout.run();
+        readings.accept(updates);
+    }
+
+    /** Hears the pending updates after each read, e.g. {@link DesktopNotices#updates} to announce new ones. */
+    public void onUpdates(java.util.function.Consumer<List<Change>> listener) {
+        this.readings = listener;
     }
 
     private void setBusy(Busy state) {

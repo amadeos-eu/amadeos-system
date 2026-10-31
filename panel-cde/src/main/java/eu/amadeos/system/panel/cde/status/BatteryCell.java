@@ -39,6 +39,7 @@ public final class BatteryCell implements StatusCell {
     private DesktopTheme theme = ThemeManager.currentTheme();
     private Optional<BatteryStatus> status;
     private Runnable relayout = () -> {};
+    private java.util.function.Consumer<Optional<BatteryStatus>> readings = s -> { };
 
     public BatteryCell(PowerSupplies supplies) {
         this(supplies::battery, Messages.load(BatteryCell.class, NetworkCell.DESKTOP_TEXTS,
@@ -86,6 +87,12 @@ public final class BatteryCell implements StatusCell {
         poller.shutdownNow();
     }
 
+    /** Hears every changed reading, e.g. {@link DesktopNotices#battery} for the low battery warnings. */
+    public void onReading(java.util.function.Consumer<Optional<BatteryStatus>> listener) {
+        this.readings = listener;
+        if (status != null) listener.accept(status);
+    }
+
     Optional<BatteryStatus> status() {
         return status;
     }
@@ -99,6 +106,7 @@ public final class BatteryCell implements StatusCell {
         view.setToolTipText(s.map(this::describe).orElse(null));
         view.repaint();
         if (wasAvailable != s.isPresent()) relayout.run();
+        readings.accept(s);
     }
     // --8<-- [end:show]
 

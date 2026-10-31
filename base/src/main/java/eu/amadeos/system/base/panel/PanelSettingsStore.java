@@ -49,7 +49,8 @@ public final class PanelSettingsStore {
                 bool(p, "cell.battery", d.batteryCell()),
                 bool(p, "cell.bluetooth", d.bluetoothCell()),
                 bool(p, "cell.updates", d.updatesCell()),
-                bool(p, "activity.meter", d.activityMeter()));
+                bool(p, "activity.meter", d.activityMeter()),
+                bool(p, "cell.notifications", d.notificationsCell()));
     }
 
     public void save(PanelSettings s) {
@@ -61,6 +62,7 @@ public final class PanelSettingsStore {
         p.setProperty("cell.bluetooth", Boolean.toString(s.bluetoothCell()));
         p.setProperty("cell.updates", Boolean.toString(s.updatesCell()));
         p.setProperty("activity.meter", Boolean.toString(s.activityMeter()));
+        p.setProperty("cell.notifications", Boolean.toString(s.notificationsCell()));
         PropertiesFile.store(file, p, "amadeOS Front Panel (Settings > Front Panel)");
     }
 

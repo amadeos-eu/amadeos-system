@@ -553,6 +553,77 @@ public class X11EwmhHelper implements AutoCloseable {
         x11.XFlush(display);
     }
 
+    // --8<-- [start:fullscreen]
+    /** Whether the window's _NET_WM_STATE has _NET_WM_STATE_FULLSCREEN (a game, a video, a presentation). */
+    public boolean isFullscreen(long win) {
+        if (win == 0) return false;
+        NativeLong fullscreen = x11.XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", 0);
+        for (long atom : longs(win, netWmState, xaAtomAtom, 32)) {
+            if (atom == fullscreen.longValue()) return true;
+        }
+        return false;
+    }
+
+    /** Whether the active window is full screen. */
+    public boolean isActiveWindowFullscreen() {
+        return isFullscreen(getActiveWindow());
+    }
+    // --8<-- [end:fullscreen]
+
+    /**
+     * The space the docks reserve at the edges of the screen (the Front Panel at the bottom), the largest
+     * _NET_WM_STRUT_PARTIAL or _NET_WM_STRUT of the top-level windows: left, right, top, bottom.
+     */
+    public int[] reservedEdges() {
+        int[] edges = new int[4];
+        java.util.Set<Long> windows = new java.util.LinkedHashSet<>(getClientList());
+        PointerByReference rootRet = new PointerByReference();
+        PointerByReference parentRet = new PointerByReference();
+        PointerByReference childrenRet = new PointerByReference();
+        IntByReference countRet = new IntByReference();
+        if (x11.XQueryTree(display, new NativeLong(rootWindow), rootRet, parentRet, childrenRet, countRet) != 0
+                && childrenRet.getValue() != null) {
+            Pointer children = childrenRet.getValue();
+            try {
+                for (int i = 0; i < countRet.getValue(); i++) {
+                    windows.add(children.getNativeLong((long) i * NativeLong.SIZE).longValue());
+                }
+            } finally {
+                x11.XFree(children);
+            }
+        }
+        for (long win : windows) {
+            long[] strut = longs(win, netWmStrutPartial, xaCardinalAtom, 12);
+            if (strut.length < 4) strut = longs(win, netWmStrut, xaCardinalAtom, 4);
+            for (int i = 0; i < 4 && i < strut.length; i++) {
+                edges[i] = (int) Math.max(edges[i], Math.min(strut[i], 4096));
+            }
+        }
+        return edges;
+    }
+
+    /** A 32-bit list property of a window (atoms, cardinals), or an empty array. */
+    private long[] longs(long win, NativeLong property, NativeLong type, int max) {
+        PointerByReference actualTypeRet = new PointerByReference();
+        IntByReference actualFormatRet = new IntByReference();
+        NativeLongByReference nitemsRet = new NativeLongByReference();
+        NativeLongByReference bytesAfterRet = new NativeLongByReference();
+        PointerByReference propRet = new PointerByReference();
+        int status = x11.XGetWindowProperty(display, new NativeLong(win), property, new NativeLong(0),
+                new NativeLong(max), 0, type, actualTypeRet, actualFormatRet, nitemsRet, bytesAfterRet, propRet);
+        if (status != 0 || propRet.getValue() == null) return new long[0];
+        Pointer ptr = propRet.getValue();
+        try {
+            if (actualFormatRet.getValue() != 32 || nitemsRet.getValue() == null) return new long[0];
+            int count = (int) Math.min(max, nitemsRet.getValue().longValue());
+            long[] out = new long[count];
+            for (int i = 0; i < count; i++) out[i] = ptr.getNativeLong((long) i * NativeLong.SIZE).longValue();
+            return out;
+        } finally {
+            x11.XFree(ptr);
+        }
+    }
+
     @Override
     public void close() {
         if (ownsDisplay && display != null) {

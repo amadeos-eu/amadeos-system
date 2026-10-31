@@ -1,7 +1,8 @@
 // The session: the amadeos-session script (window manager under supervision, autostart scripts, then the
 // panel), the screen lock (`amadeos-session lock`, wrapped by amadeos-lock), the screen saver with idle
 // lock (`amadeos-session screen`), the polkit authentication agent (`amadeos-session polkit-agent`) and the
-// clipboard manager (`amadeos-session clipboard`, its history shown by `amadeos-clipboard`), the user's
+// clipboard manager (`amadeos-session clipboard`, its history shown by `amadeos-clipboard`), the
+// notification service (`amadeos-session notifications`, history `amadeos-notifications`), the user's
 // programs of ~/.config/autostart (`amadeos-session autostart`) and the login keyring client of the Settings.
 application {
     mainClass = 'eu.amadeos.system.session.SessionLauncher'
@@ -20,7 +21,7 @@ debian = [
     recommends : ['xterm', 'xinit', 'amadeos-settings'],
     conflicts  : ['amade-desktop', 'amade-session'],
     replaces   : ['amade-desktop', 'amade-session'],
-    summary    : 'Desktop session, screen lock, screen saver, polkit agent and clipboard manager of amadeOS',
+    summary    : 'Desktop session, screen lock, screen saver, polkit agent, clipboard manager and notifications of amadeOS',
     description: '''The X session of the amadeOS desktop: amadeos-session starts the window manager under
 supervision, the autostart scripts of /etc/amadeos/autostart.d (those switched
 off in Settings > Startup are skipped), the user's programs of
@@ -30,7 +31,10 @@ idle lock in the style of CDE's dtscreen, the polkit authentication agent
 that asks for the administrator's password when a program needs it, and the
 clipboard manager: a history of what was copied, kept in memory only and shown
 with Ctrl+Alt+V or amadeos-clipboard, and copies that stay on the clipboard
-after the program that made them has closed.'''
+after the program that made them has closed. And the notification service
+(org.freedesktop.Notifications): pop-ups in a corner above the front panel for
+Firefox, notify-send and the amade programs, a history (amadeos-notifications)
+and Do not disturb, set in Settings > Notifications.'''
 ]
 
 dependencies {
