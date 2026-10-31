@@ -87,6 +87,23 @@ class PowerManagerTest {
     }
 
     @Test
+    void warningIsACriticalNotificationOrTheFallback() {
+        var texts = eu.amadeos.commons.i18n.Messages.load(PowerManager.class, PowerManager.TEXTS, java.util.Locale.ENGLISH);
+        List<eu.amadeos.system.base.notify.DesktopNotification> sent = new ArrayList<>();
+        Consumer<Integer> warning = PowerManager.notificationWarning(texts, n -> {
+            sent.add(n);
+            return sent.size() == 1 ? 7 : 0; // the second time no daemon answers
+        }, () -> calls.add("settings"), percent -> calls.add("dialog " + percent));
+        warning.accept(9);
+        assertEquals(eu.amadeos.system.base.notify.DesktopNotification.Urgency.CRITICAL, sent.getFirst().urgency());
+        assertEquals("amadeos-settings", sent.getFirst().desktopEntry());
+        assertEquals("The battery is down to 9 %. Plug in the computer soon.", sent.getFirst().body());
+        sent.getFirst().onAction().accept("default");
+        warning.accept(8);
+        assertEquals(List.of("settings", "dialog 8"), calls);
+    }
+
+    @Test
     void translations() {
         assertEquals(Map.of(), TranslationCheck.problems(PowerManager.class, PowerManager.TEXTS));
     }
