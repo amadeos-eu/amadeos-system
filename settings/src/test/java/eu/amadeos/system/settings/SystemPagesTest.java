@@ -56,7 +56,7 @@ class SystemPagesTest {
                 command -> { }, List::of, new FakeDisplays(),
                 (settings, password) -> new ProxyCheck.Result(ProxyCheck.Outcome.OK, "", "200"),
                 new FakeDevices.Network(), new FakeDevices.Sound(), new FakeDevices.Check(), new FakeDevices.Bluetooth(),
-                new FakeDevices.Printers(), new FakeUsers());
+                new FakeDevices.Printers(), new FakeUsers(), new FakePower(), FakePower::laptopBattery);
     }
 
     /** An apt whose automatic security updates are off and which records the calls that change them. */

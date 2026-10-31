@@ -55,6 +55,7 @@ import eu.amadeos.commons.config.ConfigWatcher;
 import java.util.Set;
 import eu.amadeos.system.base.x11.X11EwmhHelper;
 import eu.amadeos.system.base.ui.SessionDialogHelper;
+import eu.amadeos.system.wm.power.PowerButton;
 
 public final class X11WindowManagerService implements AutoCloseable {
     private static final Logger LOGGER = Logger.getLogger(X11WindowManagerService.class.getName());
@@ -186,6 +187,8 @@ public final class X11WindowManagerService implements AutoCloseable {
     private final Map<Long, DesktopIconTile> clientToTile = new HashMap<>();
 
     private int lockKeycode = 0;
+    private int powerKeycode = 0;
+    private PowerButton powerButton;
 
     // Alt+Tab: the windows in the order they were last active, their previews and icons, and the open round
     // (null while the switcher is closed).
@@ -382,6 +385,22 @@ public final class X11WindowManagerService implements AutoCloseable {
             }
         } catch (Exception e) {
             LOGGER.warning(() -> "Failed to bind Super+L screen lock shortcut: " + e.getMessage());
+        }
+
+        // The power button: the window manager does what Settings > Power says instead of logind.
+        try {
+            this.powerKeycode = keycode(PowerButton.XF86_POWER_OFF);
+            if (powerKeycode != 0) {
+                for (long lock : new long[]{0, LibX11.Mod2Mask, LibX11.LockMask, LibX11.Mod2Mask | LibX11.LockMask}) {
+                    x11.XGrabKey(display, powerKeycode, new NativeLong(lock), new NativeLong(rootWindow), 1,
+                            LibX11.GrabModeAsync, LibX11.GrabModeAsync);
+                }
+                this.powerButton = PowerButton.desktop();
+                powerButton.takeOver();
+                LOGGER.fine(() -> "Registered the power button (keycode=" + powerKeycode + ")");
+            }
+        } catch (Exception e) {
+            LOGGER.warning(() -> "Failed to bind the power button: " + e.getMessage());
         }
 
         // --8<-- [start:alt-tab-keys]
@@ -1693,6 +1712,10 @@ public final class X11WindowManagerService implements AutoCloseable {
         switch (event.type) {
             case LibX11.KeyPress -> {
                 LibX11.XKeyEvent keyEvent = new LibX11.XKeyEvent(event.getPointer());
+                if (powerButton != null && keyEvent.keycode == powerKeycode) {
+                    powerButton.pressed(LockSelection.isLocked(x11, display));
+                    return;
+                }
                 if (LockSelection.isLocked(x11, display)) {
                     LOGGER.fine("Screen is locked; ignoring window manager key press");
                     if (switcher != null) cancelSwitcher();

@@ -233,6 +233,28 @@ final class SettingsIcons {
                 g.fillRect(25, 9, 1, 1);
                 g.fillRect(22, 18, 1, 1);
             }
+            case POWER -> {
+                // A battery on its side with a lightning bolt: power and sleeping.
+                g.setColor(enabled ? new Color(0x5C, 0xA8, 0x4A) : t.shadow());
+                g.fillRect(4, 10, 26, 16);
+                g.setColor(ink);
+                g.setStroke(new BasicStroke(1.5f));
+                g.drawRect(4, 10, 26, 16);
+                g.fillRect(30, 14, 3, 8);
+                g.setColor(enabled ? new Color(0xF8, 0xE0, 0x40) : paper);
+                Path2D bolt = new Path2D.Double();
+                bolt.moveTo(19, 11);
+                bolt.lineTo(12, 19);
+                bolt.lineTo(17, 19);
+                bolt.lineTo(15, 25);
+                bolt.lineTo(22, 17);
+                bolt.lineTo(17, 17);
+                bolt.closePath();
+                g.fill(bolt);
+                g.setColor(ink);
+                g.setStroke(new BasicStroke(1f));
+                g.draw(bolt);
+            }
             case WINDOW -> {
                 g.setColor(paper);
                 g.fillRect(4, 6, 28, 24);
