@@ -417,7 +417,6 @@ public final class AmadeDesktopPanel extends JFrame {
             t.setDaemon(true);
             return t;
         });
-        batteryCell.onReading(reading -> noticeSender.execute(() -> notices.battery(reading)));
         updatesCell.onUpdates(pending -> noticeSender.execute(() -> notices.updates(pending)));
         // The camera light comes last, so the other cells keep their places when it shows up; it cannot be hidden.
         cameraCell = new CameraCell(new CameraUsers());
