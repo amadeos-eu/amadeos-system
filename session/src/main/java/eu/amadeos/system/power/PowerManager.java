@@ -1,6 +1,7 @@
 package eu.amadeos.system.power;
 
 import eu.amadeos.commons.i18n.Messages;
+import eu.amadeos.system.base.notify.DesktopNotification;
 import eu.amadeos.system.base.power.BatteryStatus;
 import eu.amadeos.system.base.power.Inhibitor;
 import eu.amadeos.system.base.power.PowerAction;
@@ -16,6 +17,7 @@ import java.util.Optional;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.function.ToLongFunction;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -152,7 +154,30 @@ public final class PowerManager implements AutoCloseable {
         screenTimeout = -1;
     }
 
-    /** The battery warning as a small message window. */
+    // --8<-- [start:warning]
+    /**
+     * The battery warning as a critical notification, which stays until closed and shows through Do not disturb;
+     * clicking it opens Settings > Power. Without a notification daemon (0 from {@code send}) the fallback shows.
+     *
+     * @param send     sends a notification and returns its id, e.g. {@code NotificationClient::send}
+     * @param settings opens Settings > Power
+     */
+    public static Consumer<Integer> notificationWarning(Messages texts, ToLongFunction<DesktopNotification> send,
+                                                        Runnable settings, Consumer<Integer> fallback) {
+        return percent -> {
+            DesktopNotification n = DesktopNotification.of(texts.get("battery.app"), "battery-caution",
+                            texts.get("battery.low.title"), texts.format("battery.low.message", percent))
+                    .withUrgency(DesktopNotification.Urgency.CRITICAL)
+                    .withCategory("device.error")
+                    .withDesktopEntry("amadeos-settings")
+                    .withAction("default", texts.get("battery.settings"))
+                    .onAction(key -> settings.run());
+            if (send.applyAsLong(n) == 0) fallback.accept(percent);
+        };
+    }
+    // --8<-- [end:warning]
+
+    /** The battery warning as a small message window, where no notification daemon runs. */
     public static Consumer<Integer> dialogWarning(Messages texts) {
         return percent -> SwingUtilities.invokeLater(() -> {
             JOptionPane pane = new JOptionPane(texts.format("battery.low.message", percent), JOptionPane.WARNING_MESSAGE);

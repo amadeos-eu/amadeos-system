@@ -4,7 +4,9 @@ import eu.amadeos.commons.swing.AmadeUI;
 import eu.amadeos.commons.i18n.LocaleResolution;
 import eu.amadeos.commons.i18n.LocaleStore;
 import eu.amadeos.commons.i18n.Messages;
+import eu.amadeos.system.base.notify.NotificationClient;
 import eu.amadeos.system.base.power.LogindPowerControl;
+import eu.amadeos.system.base.process.ProcessLauncher;
 import eu.amadeos.system.base.power.PowerSettingsStore;
 import eu.amadeos.system.base.power.PowerSupplies;
 import eu.amadeos.system.base.process.LockLauncher;
@@ -72,8 +74,17 @@ public final class ScreenSaverDaemon {
                 .language().locale();
         Messages texts = Messages.load(PowerManager.class, PowerManager.TEXTS, locale);
         PowerSupplies supplies = new PowerSupplies();
+        NotificationClient notifications = new NotificationClient();
+        Runnable powerSettings = () -> {
+            try {
+                ProcessLauncher.start(java.util.List.of("amadeos-settings", "power"));
+            } catch (java.io.IOException e) {
+                LOGGER.warning(() -> "Cannot open Settings > Power: " + e.getMessage());
+            }
+        };
         PowerManager power = new PowerManager(PowerSettingsStore.user(), new LogindPowerControl(), ScreenPower.xset(),
-                supplies::battery, LockLauncher::lockScreen, monitor::locked, PowerManager.dialogWarning(texts));
+                supplies::battery, LockLauncher::lockScreen, monitor::locked,
+                PowerManager.notificationWarning(texts, notifications::send, powerSettings, PowerManager.dialogWarning(texts)));
         power.start();
         ScreenSaverDaemon daemon = new ScreenSaverDaemon(monitor, ScreenSettingsStore.user(), LockLauncher::lockScreen, power);
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
