@@ -8,7 +8,7 @@ import java.util.Locale;
  * The controls of the Settings: CDE's dtstyle controls in their order, grouped for the sidebar, with amadeOS's
  * own controls added: Workspaces and Front Panel after Backdrop, Sound after Mouse, Display before Screen,
  * Clipboard after Window, the Network and Devices group (Network, Bluetooth, Printers) and the System group
- * (Passwords, Updates, Language) at the end.
+ * (Users and Groups, Passwords, Updates, Language) at the end.
  */
 public enum SettingsCategory {
     COLOR(Group.APPEARANCE, true),
@@ -28,6 +28,7 @@ public enum SettingsCategory {
     NETWORK(Group.DEVICES, true),
     BLUETOOTH(Group.DEVICES, true),
     PRINTERS(Group.DEVICES, true),
+    USERS(Group.SYSTEM, true),
     PASSWORDS(Group.SYSTEM, true),
     UPDATES(Group.SYSTEM, true),
     LANGUAGE(Group.SYSTEM, true);
@@ -88,7 +89,7 @@ public enum SettingsCategory {
      * in the compact view only Close.
      */
     public boolean immediate() {
-        return this == SOUND || this == BLUETOOTH || this == PRINTERS;
+        return this == SOUND || this == BLUETOOTH || this == PRINTERS || this == USERS;
     }
 
     /** False for controls that exist in CDE but are not implemented in amadeOS yet. */

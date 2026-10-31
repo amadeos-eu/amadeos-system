@@ -1,0 +1,268 @@
+#!/bin/bash
+# amadeos-users: the one place where the amadeOS desktop changes accounts and groups. Settings > Users and
+# Groups runs it through pkexec (polkit action eu.amadeos.users.manage: an administrator's password, kept
+# for a few minutes); root runs this script and the shadow tools (useradd, usermod, gpasswd, chpasswd).
+#
+# --8<-- [start:commands]
+#   add LOGIN admin|standard FULL-NAME  new account with home folder; password on standard input
+#   remove LOGIN keep-home|delete-home  remove an account that is not logged in
+#   name LOGIN FULL-NAME                set the full name
+#   admin LOGIN yes|no                  put into or take out of the group sudo
+#   password LOGIN                      set the password from standard input
+#   disable LOGIN | enable LOGIN        lock the account (password locked, shell nologin) or unlock it
+#   join LOGIN GROUP | leave LOGIN GROUP  add to or remove from a permission group or an own group
+#   group-add GROUP | group-remove GROUP  make or remove a group of the computer (group ID from 1000 on)
+# --8<-- [end:commands]
+#
+# Only people's accounts (user ID 1000 to 59999) are touched, and only the permission groups listed below
+# and the groups made on the computer. The helper refuses to remove or disable the account that called it
+# (PKEXEC_UID), to take the last administrator away, and to remove an account that is logged in.
+#
+# Output: "@@done" on standard output when the change is made, "@@error ID MESSAGE" when not (ID: usage,
+# root, unknown, exists, invalid, self, last-admin, logged-in, group, primary, password, failed); the
+# messages of the shadow tools go to standard error.
+#
+# Exit codes: 0 done, 1 wrong usage, 2 refused (the rules above), 4 a system command failed.
+set -euo pipefail
+
+VERSION="0.1.0"
+# For tests only. pkexec gives the script a clean environment, so these cannot be set from a desktop session.
+PASSWD_FILE="${AMADEOS_USERS_PASSWD:-/etc/passwd}"
+GROUP_FILE="${AMADEOS_USERS_GROUP:-/etc/group}"
+RUN="${AMADEOS_USERS_RUN:-}"
+
+ADMIN_GROUP="sudo"
+# The groups the Groups tab offers (eu.amadeos.system.users.PermissionGroups.ALL).
+PERMISSION_GROUPS="sudo lpadmin netdev bluetooth audio video plugdev scanner cdrom dialout systemd-journal kvm libvirt docker"
+# The groups of a new account, like the installer's first user without sudo (PermissionGroups.NEW_ACCOUNT).
+NEW_ACCOUNT_GROUPS="audio cdrom dip floppy video plugdev netdev powerdev scanner bluetooth lpadmin"
+FIRST_UID=1000
+LAST_UID=59999
+NAME_REGEX='^[a-z][-a-z0-9_]{0,31}$'
+NOLOGIN="/usr/sbin/nologin"
+SHELL_DEFAULT="/bin/bash"
+
+export LC_ALL=C.UTF-8
+
+usage() {
+    cat <<EOF
+Usage: amadeos-users add LOGIN admin|standard FULL-NAME   < password
+       amadeos-users remove LOGIN keep-home|delete-home
+       amadeos-users name LOGIN FULL-NAME
+       amadeos-users admin LOGIN yes|no
+       amadeos-users password LOGIN                       < password
+       amadeos-users disable LOGIN | enable LOGIN
+       amadeos-users join LOGIN GROUP | leave LOGIN GROUP
+       amadeos-users group-add GROUP | group-remove GROUP
+       amadeos-users --version
+
+Changes people's accounts and groups for Settings > Users and Groups. The desktop runs it through pkexec;
+from a terminal: pkexec /usr/libexec/amadeos-users admin anna yes.
+EOF
+}
+
+fail() {
+    local id="$1" code="$2"
+    shift 2
+    echo "@@error $id $*"
+    exit "$code"
+}
+
+# Runs a system command; its messages go to standard error. AMADEOS_USERS_RUN=echo only shows it (tests).
+run() {
+    if [[ -n "$RUN" ]]; then
+        "$RUN" "$@" >&2
+    elif ! "$@" >&2; then
+        fail failed 4 "$1 failed"
+    fi
+}
+
+passwd_field() { # LOGIN FIELD
+    awk -F: -v u="$1" -v f="$2" '$1 == u { print $f; exit }' "$PASSWD_FILE"
+}
+
+group_line() { # GROUP
+    awk -F: -v g="$1" '$1 == g { print; exit }' "$GROUP_FILE"
+}
+
+group_members() { # GROUP: one member per line
+    group_line "$1" | cut -d: -f4 | tr ',' '\n' | sed '/^$/d'
+}
+
+is_person() { # LOGIN
+    local uid
+    uid="$(passwd_field "$1" 3)"
+    [[ -n "$uid" && "$uid" -ge "$FIRST_UID" && "$uid" -le "$LAST_UID" && "$1" != "nobody" ]]
+}
+
+need_person() {
+    [[ "$1" =~ $NAME_REGEX ]] || fail invalid 2 "not a login name: $1"
+    is_person "$1" || fail unknown 2 "no such account: $1"
+}
+
+caller() {
+    if [[ -n "${PKEXEC_UID:-}" ]]; then
+        awk -F: -v id="$PKEXEC_UID" '$3 == id { print $1; exit }' "$PASSWD_FILE"
+    fi
+}
+
+not_self() { # LOGIN WHAT
+    [[ "$1" != "$(caller)" ]] || fail self 2 "you cannot $2 your own account"
+}
+
+is_disabled() {
+    case "$(passwd_field "$1" 7)" in
+        /usr/sbin/nologin|/sbin/nologin|/bin/false|/usr/bin/false) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# The administrators who can still log in, apart from LOGIN.
+other_admins() { # LOGIN
+    local m
+    for m in $(group_members "$ADMIN_GROUP"); do
+        [[ "$m" != "$1" ]] && is_person "$m" && ! is_disabled "$m" && echo "$m"
+    done
+    return 0
+}
+
+not_last_admin() { # LOGIN
+    if group_members "$ADMIN_GROUP" | grep -qx "$1" && [[ -z "$(other_admins "$1")" ]]; then
+        fail last-admin 2 "$1 is the last administrator"
+    fi
+}
+
+logged_in() {
+    command -v loginctl >/dev/null && loginctl list-users --no-legend 2>/dev/null | awk '{ print $2 }' | grep -qx "$1"
+}
+
+valid_full_name() {
+    [[ ${#1} -le 64 && "$1" != *[:,=]* && "$1" != *$'\n'* ]] || fail invalid 2 "not a full name: $1"
+}
+
+# Reads the password from standard input into $password (not in a subshell, so that fail ends the script).
+read_password() {
+    password=""
+    IFS= read -r password || true
+    [[ -n "$password" ]] || fail password 2 "empty password"
+}
+
+managed_group() { # GROUP: a permission group or one made on the computer, not someone's personal group
+    local line gid
+    [[ "$1" =~ $NAME_REGEX ]] || fail invalid 2 "not a group name: $1"
+    line="$(group_line "$1")"
+    [[ -n "$line" ]] || fail unknown 2 "no such group: $1"
+    [[ " $PERMISSION_GROUPS " == *" $1 "* ]] && return 0
+    gid="$(cut -d: -f3 <<<"$line")"
+    [[ "$gid" -ge "$FIRST_UID" && "$gid" -le "$LAST_UID" ]] || fail group 2 "$1 is a group of the system"
+    if awk -F: -v g="$gid" -v n="$1" '$4 == g && $1 == n { found = 1 } END { exit !found }' "$PASSWD_FILE"; then
+        fail primary 2 "$1 is the personal group of an account"
+    fi
+}
+
+cmd="${1:-}"
+[[ "$cmd" == "--version" ]] && { echo "amadeos-users $VERSION"; exit 0; }
+[[ "$cmd" == "--help" || -z "$cmd" ]] && { usage; [[ -n "$cmd" ]]; exit $?; }
+[[ $EUID -eq 0 || -n "$RUN" ]] || fail root 1 "must run as root (pkexec $0 …)"
+shift
+
+case "$cmd" in
+    add)
+        [[ $# -eq 3 ]] || { usage >&2; fail usage 1 "add LOGIN admin|standard FULL-NAME"; }
+        login="$1" type="$2" full="$3"
+        [[ "$login" =~ $NAME_REGEX ]] || fail invalid 2 "not a login name: $login"
+        [[ "$type" == admin || "$type" == standard ]] || fail usage 1 "admin or standard, not $type"
+        valid_full_name "$full"
+        [[ -z "$(passwd_field "$login" 1)" ]] || fail exists 2 "the account $login exists"
+        [[ -z "$(group_line "$login")" ]] || fail exists 2 "a group $login exists"
+        read_password
+        groups=""
+        for g in $NEW_ACCOUNT_GROUPS $([[ "$type" == admin ]] && echo "$ADMIN_GROUP"); do
+            [[ -n "$(group_line "$g")" ]] && groups="${groups:+$groups,}$g"
+        done
+        run useradd --create-home --user-group --shell "$SHELL_DEFAULT" --comment "$full" \
+            ${groups:+--groups "$groups"} "$login"
+        if [[ -z "$RUN" ]]; then
+            printf '%s:%s\n' "$login" "$password" | chpasswd >&2 || fail failed 4 "chpasswd failed"
+        fi
+        ;;
+    remove)
+        [[ $# -eq 2 ]] || fail usage 1 "remove LOGIN keep-home|delete-home"
+        need_person "$1"
+        not_self "$1" remove
+        not_last_admin "$1"
+        ! logged_in "$1" || fail logged-in 2 "$1 is logged in"
+        case "$2" in
+            delete-home) run userdel --remove "$1" ;;
+            keep-home) run userdel "$1" ;;
+            *) fail usage 1 "keep-home or delete-home, not $2" ;;
+        esac
+        ;;
+    name)
+        [[ $# -eq 2 ]] || fail usage 1 "name LOGIN FULL-NAME"
+        need_person "$1"
+        valid_full_name "$2"
+        run usermod --comment "$2" "$1"
+        ;;
+    admin)
+        [[ $# -eq 2 ]] || fail usage 1 "admin LOGIN yes|no"
+        need_person "$1"
+        case "$2" in
+            yes) run gpasswd --add "$1" "$ADMIN_GROUP" ;;
+            no)
+                not_last_admin "$1"
+                if group_members "$ADMIN_GROUP" | grep -qx "$1"; then run gpasswd --delete "$1" "$ADMIN_GROUP"; fi
+                ;;
+            *) fail usage 1 "yes or no, not $2" ;;
+        esac
+        ;;
+    password)
+        [[ $# -eq 1 ]] || fail usage 1 "password LOGIN"
+        need_person "$1"
+        read_password
+        if [[ -z "$RUN" ]]; then
+            printf '%s:%s\n' "$1" "$password" | chpasswd >&2 || fail failed 4 "chpasswd failed"
+        fi
+        ;;
+    disable)
+        [[ $# -eq 1 ]] || fail usage 1 "disable LOGIN"
+        need_person "$1"
+        not_self "$1" disable
+        not_last_admin "$1"
+        run usermod --lock --expiredate 1 --shell "$NOLOGIN" "$1"
+        ;;
+    enable)
+        [[ $# -eq 1 ]] || fail usage 1 "enable LOGIN"
+        need_person "$1"
+        run usermod --unlock --expiredate "" --shell "$SHELL_DEFAULT" "$1"
+        ;;
+    join|leave)
+        [[ $# -eq 2 ]] || fail usage 1 "$cmd LOGIN GROUP"
+        need_person "$1"
+        managed_group "$2"
+        if [[ "$cmd" == join ]]; then
+            run gpasswd --add "$1" "$2"
+        else
+            [[ "$2" != "$ADMIN_GROUP" ]] || not_last_admin "$1"
+            run gpasswd --delete "$1" "$2"
+        fi
+        ;;
+    group-add)
+        [[ $# -eq 1 ]] || fail usage 1 "group-add GROUP"
+        [[ "$1" =~ $NAME_REGEX ]] || fail invalid 2 "not a group name: $1"
+        [[ -z "$(group_line "$1")" ]] || fail exists 2 "the group $1 exists"
+        [[ -z "$(passwd_field "$1" 1)" ]] || fail exists 2 "an account $1 exists"
+        run groupadd "$1"
+        ;;
+    group-remove)
+        [[ $# -eq 1 ]] || fail usage 1 "group-remove GROUP"
+        managed_group "$1"
+        [[ " $PERMISSION_GROUPS " != *" $1 "* ]] || fail group 2 "$1 is a group of the system"
+        run groupdel "$1"
+        ;;
+    *)
+        usage >&2
+        fail usage 1 "unknown command: $cmd"
+        ;;
+esac
+echo "@@done"

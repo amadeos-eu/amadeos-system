@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<!-- amadeOS: Settings > Users and Groups runs /usr/libexec/amadeos-users through pkexec. Every change to
+     accounts and groups needs an administrator's password, kept for a few minutes so that several changes
+     ask once. Changing the own password does not come here: the page runs passwd, which asks for the
+     current password. -->
+<policyconfig>
+  <vendor>amadeOS</vendor>
+  <vendor_url>https://github.com/amadeos-eu/amadeos</vendor_url>
+  <action id="eu.amadeos.users.manage">
+    <description>Manage user accounts and groups</description>
+    <description xml:lang="de">Benutzerkonten und Gruppen verwalten</description>
+    <description xml:lang="fr">Gérer les comptes d'utilisateur et les groupes</description>
+    <description xml:lang="es">Administrar cuentas de usuario y grupos</description>
+    <description xml:lang="it">Gestire account utente e gruppi</description>
+    <message>Authentication is required to change user accounts and groups</message>
+    <message xml:lang="de">Zum Ändern von Benutzerkonten und Gruppen ist eine Authentifizierung erforderlich</message>
+    <message xml:lang="fr">Une authentification est requise pour modifier les comptes d'utilisateur et les groupes</message>
+    <message xml:lang="es">Se requiere autenticación para modificar cuentas de usuario y grupos</message>
+    <message xml:lang="it">È richiesta l'autenticazione per modificare account utente e gruppi</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/amadeos-users</annotate>
+  </action>
+</policyconfig>

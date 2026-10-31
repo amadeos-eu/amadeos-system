@@ -254,6 +254,7 @@ public final class SettingsWindow extends JFrame {
                     system.proxyCheck(), System.getenv(), system.network());
             case BLUETOOTH -> new BluetoothPage(this::setStatus, system.bluetooth());
             case PRINTERS -> new PrintersPage(this::setStatus, system.printers(), system.launcher());
+            case USERS -> new UsersPage(this::setStatus, system.users());
             case PASSWORDS -> new PasswordsPage(this::setStatus, system.keyring());
             case UPDATES -> new UpdatesPage(this::setStatus, system.packages(), system.launcher());
             case LANGUAGE -> new LanguagePage(this::setStatus, stores.locales(), system.timeZones());
@@ -445,6 +446,12 @@ public final class SettingsWindow extends JFrame {
         cards.show(cardPanel, category.name());
         crumb.setText(SettingsTexts.format("crumb", category.group().label(), category.label()));
         cardPanel.revalidate();
+        // The System group is below the fold of a small window: show the chosen entry, also when opened by name.
+        SidebarEntry entry = entries.get(category);
+        if (entry != null) {
+            javax.swing.SwingUtilities.invokeLater(() -> entry.scrollRectToVisible(
+                    new java.awt.Rectangle(0, 0, entry.getWidth(), entry.getHeight())));
+        }
     }
 
     /** The control shown in the sidebar view. */
