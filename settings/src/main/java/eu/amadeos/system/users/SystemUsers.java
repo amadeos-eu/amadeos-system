@@ -154,6 +154,7 @@ public final class SystemUsers implements UserService {
         return "root".equals(System.getProperty("user.name")) ? List.of(HELPER) : List.of("pkexec", HELPER);
     }
 
+    // --8<-- [start:helper]
     private static void helper(char[] stdin, String... arguments) throws UserException {
         List<String> command = new ArrayList<>(helperCommand());
         command.addAll(List.of(arguments));
@@ -183,6 +184,7 @@ public final class SystemUsers implements UserService {
                 : code.equals("password") ? UserException.Reason.WRONG_PASSWORD : UserException.Reason.FAILED,
                 code, message);
     }
+    // --8<-- [end:helper]
 
     private record Run(int exit, String output) {
     }
