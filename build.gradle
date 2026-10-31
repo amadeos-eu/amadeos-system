@@ -8,7 +8,7 @@
 // --8<-- [start:desktop-modules]
 // The modules of the desktop: they build on base, log through java.util.logging and talk to X11 through
 // JNA, so they run with native access enabled.
-def desktopModules = ['wm', 'panel-cde', 'dm', 'session', 'style', 'logviewer']
+def desktopModules = ['wm', 'panel-cde', 'dm', 'session', 'style', 'logviewer', 'taskmanager']
 // Libraries: no main class and no program of their own.
 def libraryModules = ['base', 'packages']
 // --8<-- [end:desktop-modules]

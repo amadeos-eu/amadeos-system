@@ -56,4 +56,17 @@ class FrameWindowTest {
         assertEquals(600, frame.buffer().getWidth());
         assertEquals(500, frame.buffer().getHeight());
     }
+
+    @Test
+    void theSuffixFollowsTheTitle() {
+        FrameWindow frame = FrameWindow.createForClient(new NativeLong(1), new NativeLong(2), 0, 0, 200, 100,
+                new MotifDecorationTheme());
+        frame.setTitle("Web Browser");
+        assertEquals("Web Browser", frame.displayedTitle());
+        frame.setTitleSuffix("(Not Responding)");
+        assertEquals("Web Browser (Not Responding)", frame.displayedTitle());
+        assertEquals("Web Browser", frame.title());
+        frame.setTitleSuffix(null);
+        assertEquals("Web Browser", frame.displayedTitle());
+    }
 }

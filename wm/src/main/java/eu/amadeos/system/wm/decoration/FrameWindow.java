@@ -25,6 +25,8 @@ public final class FrameWindow {
     private int frameHeight;
 
     private String title = "";
+    /** Shown after the title, e.g. "(Not Responding)"; empty for none. */
+    private String titleSuffix = "";
     private boolean active = false;
     private boolean maximized = false;
     private boolean minimized = false;
@@ -145,6 +147,20 @@ public final class FrameWindow {
         this.title = title != null ? title : "";
     }
 
+    public String titleSuffix() {
+        return titleSuffix;
+    }
+
+    /** Text shown after the title, such as the window manager's "(Not Responding)"; null or empty for none. */
+    public void setTitleSuffix(String suffix) {
+        this.titleSuffix = suffix != null ? suffix : "";
+    }
+
+    /** The title as the title bar shows it: the window's title and the suffix, if any. */
+    public String displayedTitle() {
+        return titleSuffix.isEmpty() ? title : title + " " + titleSuffix;
+    }
+
     public boolean isActive() {
         return active;
     }
@@ -236,7 +252,7 @@ public final class FrameWindow {
         }
         Graphics2D g = buffer.createGraphics();
         try {
-            theme.paintFrame(g, frameWidth, frameHeight, title, active, hoveredButton, pressedButton);
+            theme.paintFrame(g, frameWidth, frameHeight, displayedTitle(), active, hoveredButton, pressedButton);
         } finally {
             g.dispose();
         }

@@ -1,0 +1,22 @@
+// The Task Manager: the program windows, the processes and how busy processor, memory, network and disks are;
+// ends programs that hang. `amadeos-taskmanager`; the Tools drawer, Ctrl+Shift+Esc, Ctrl+Alt+Delete and the
+// window manager's "not responding" question start it.
+application {
+    mainClass = 'eu.amadeos.system.taskmanager.TaskManager'
+}
+
+debian = [
+    section    : 'utils',
+    javaOptions: '--enable-native-access=ALL-UNNAMED',
+    // kill and renice (procps, util-linux) end processes and change their priority; pkexec does it for
+    // processes of other users; xdg-open opens a program's folder and the handbook.
+    depends    : ['procps'],
+    recommends : ['pkexec', 'xdg-utils'],
+    summary    : 'Task manager of amadeOS',
+    description: '''Shows the program windows and all processes of the computer with their processor,
+memory and disk use, and graphs of the processor, memory, network and disks for
+the last minute. Ends programs that hang (first asking them to quit, then by
+force), pauses and continues processes and changes their priority. The window
+manager asks through it when a window stops responding. Started from the Tools
+drawer, with Ctrl+Shift+Esc or with Ctrl+Alt+Delete. Part of the amadeOS desktop.'''
+]

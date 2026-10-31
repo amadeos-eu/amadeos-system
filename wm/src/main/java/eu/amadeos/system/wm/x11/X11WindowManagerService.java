@@ -35,6 +35,8 @@ import eu.amadeos.system.wm.decoration.WindowButton;
 import eu.amadeos.system.base.process.LockLauncher;
 import eu.amadeos.system.base.x11.LockSelection;
 import eu.amadeos.system.base.sound.BellPlayer;
+import eu.amadeos.system.wm.hang.HangTexts;
+import eu.amadeos.system.wm.hang.PingTracker;
 import eu.amadeos.system.wm.menu.DesktopMenuActions;
 import eu.amadeos.system.wm.menu.DesktopRootMenu;
 import eu.amadeos.system.wm.menu.WindowMenu;
@@ -161,6 +163,12 @@ public final class X11WindowManagerService implements AutoCloseable {
     private final NativeLong netCurrentDesktop;
     private final NativeLong netDesktopNames;
     private final NativeLong netWmDesktop;
+    // _NET_WM_PING (in WM_PROTOCOLS) and the mark of a window that does not answer it.
+    private final NativeLong wmProtocols;
+    private final NativeLong netWmPing;
+    private final NativeLong amadeosNotResponding;
+    private final PingTracker pings = new PingTracker();
+    private eu.amadeos.commons.i18n.Messages hangTexts;
     private final NativeLong xaWindowAtom;
     private final NativeLong xaAtomAtom;
     private final NativeLong xaCardinalAtom;
@@ -175,6 +183,12 @@ public final class X11WindowManagerService implements AutoCloseable {
     private long lastMenuButtonWin;
     private long lastMenuButtonTime;
     private static final long MENU_DOUBLE_CLICK_MS = 400;
+    /** Set (CARDINAL 1) on a client window while it does not answer _NET_WM_PING. */
+    public static final String NOT_RESPONDING_ATOM = "_AMADEOS_NOT_RESPONDING";
+    /** How often the active window is pinged and the waiting pings are checked. */
+    private static final long PING_PERIOD_MILLIS = 2000;
+    private static final String TASK_MANAGER = "amadeos-taskmanager";
+    private static final long XK_DELETE = 0xFFFF;
 
     private final java.util.Set<Long> dockWindows = new java.util.HashSet<>();
     /** The rendered backdrops of the workspaces, so a switch only swaps the root window's pixmap. */
@@ -195,6 +209,9 @@ public final class X11WindowManagerService implements AutoCloseable {
     private int tabKeycode = 0;
     private final Set<Integer> altKeycodes = new java.util.HashSet<>();
     private int escapeKeycode = 0;
+    // Ctrl+Shift+Esc and Ctrl+Alt+Delete start the Task Manager.
+    private int taskManagerEscapeKeycode = 0;
+    private int deleteKeycode = 0;
     private int returnKeycode = 0;
     private int leftKeycode = 0;
     private int rightKeycode = 0;
@@ -348,6 +365,9 @@ public final class X11WindowManagerService implements AutoCloseable {
         this.netCurrentDesktop = x11.XInternAtom(display, "_NET_CURRENT_DESKTOP", 0);
         this.netDesktopNames = x11.XInternAtom(display, "_NET_DESKTOP_NAMES", 0);
         this.netWmDesktop = x11.XInternAtom(display, "_NET_WM_DESKTOP", 0);
+        this.wmProtocols = x11.XInternAtom(display, "WM_PROTOCOLS", 0);
+        this.netWmPing = x11.XInternAtom(display, "_NET_WM_PING", 0);
+        this.amadeosNotResponding = x11.XInternAtom(display, NOT_RESPONDING_ATOM, 0);
         this.xaWindowAtom = new NativeLong(LibX11.XA_WINDOW);
         this.xaAtomAtom = new NativeLong(LibX11.XA_ATOM);
         this.xaCardinalAtom = new NativeLong(LibX11.XA_CARDINAL);
@@ -402,6 +422,29 @@ public final class X11WindowManagerService implements AutoCloseable {
         } catch (Exception e) {
             LOGGER.warning(() -> "Failed to bind the power button: " + e.getMessage());
         }
+
+        // --8<-- [start:task-manager-keys]
+        // Ctrl+Shift+Esc and Ctrl+Alt+Delete open the Task Manager. Under X, Ctrl+Alt+Delete is an ordinary
+        // key: the X server owns the keyboard, so systemd's reboot on the text console never sees it.
+        try {
+            this.taskManagerEscapeKeycode = keycode(LibX11.XK_Escape);
+            this.deleteKeycode = keycode(XK_DELETE);
+            for (long lock : new long[]{0, LibX11.Mod2Mask, LibX11.LockMask, LibX11.Mod2Mask | LibX11.LockMask}) {
+                if (taskManagerEscapeKeycode != 0) {
+                    x11.XGrabKey(display, taskManagerEscapeKeycode,
+                            new NativeLong(LibX11.ControlMask | LibX11.ShiftMask | lock),
+                            new NativeLong(rootWindow), 1, LibX11.GrabModeAsync, LibX11.GrabModeAsync);
+                }
+                if (deleteKeycode != 0) {
+                    x11.XGrabKey(display, deleteKeycode, new NativeLong(LibX11.ControlMask | LibX11.Mod1Mask | lock),
+                            new NativeLong(rootWindow), 1, LibX11.GrabModeAsync, LibX11.GrabModeAsync);
+                }
+            }
+            LOGGER.fine("Registered Ctrl+Shift+Esc and Ctrl+Alt+Delete for the Task Manager");
+        } catch (Exception e) {
+            LOGGER.warning(() -> "Failed to bind the Task Manager keys: " + e.getMessage());
+        }
+        // --8<-- [end:task-manager-keys]
 
         // --8<-- [start:alt-tab-keys]
         // Alt+Tab and Alt+Shift+Tab open the window switcher; once it is open the keyboard is grabbed, so
@@ -538,7 +581,7 @@ public final class X11WindowManagerService implements AutoCloseable {
 
             @Override
             public void close(long clientWin) {
-                runOnEventThread(() -> core.close(clientWin));
+                runOnEventThread(() -> requestClose(clientWin));
             }
         });
 
@@ -1128,7 +1171,7 @@ public final class X11WindowManagerService implements AutoCloseable {
         NativeLong[] supportedAtoms = new NativeLong[]{
             netSupportingWmCheck, netWmName, netSupported, netClientList, netActiveWindow, netCloseWindow,
             netWmWindowType, netWmWindowTypeDock, netWmState, netWmStateHidden, netWmStateFullscreen, netWmStrut, netWmStrutPartial,
-            netNumberOfDesktops, netCurrentDesktop, netDesktopNames, netWmDesktop
+            netNumberOfDesktops, netCurrentDesktop, netDesktopNames, netWmDesktop, netWmPing
         };
         Memory supMem = new Memory((long) supportedAtoms.length * NativeLong.SIZE);
         for (int i = 0; i < supportedAtoms.length; i++) {
@@ -1615,6 +1658,12 @@ public final class X11WindowManagerService implements AutoCloseable {
         scanExistingWindows();
         enableSoundCardBell();
         LOGGER.info(() -> "amadeOS Window Manager started event loop on screen " + screenWidth + "x" + screenHeight);
+        busyTimer.scheduleAtFixedRate(new java.util.TimerTask() {
+            @Override
+            public void run() {
+                runOnEventThread(X11WindowManagerService.this::pingTick);
+            }
+        }, PING_PERIOD_MILLIS, PING_PERIOD_MILLIS);
         while (running.get()) {
             try {
                 runPendingActions();
@@ -1726,6 +1775,13 @@ public final class X11WindowManagerService implements AutoCloseable {
                     return;
                 }
                 boolean isAlt = (keyEvent.state & (int) LibX11.Mod1Mask) != 0;
+                boolean isCtrl = (keyEvent.state & (int) LibX11.ControlMask) != 0;
+                boolean isShift = (keyEvent.state & (int) LibX11.ShiftMask) != 0;
+                if (isCtrl && ((isShift && !isAlt && keyEvent.keycode == taskManagerEscapeKeycode)
+                        || (isAlt && deleteKeycode != 0 && keyEvent.keycode == deleteKeycode))) {
+                    startTaskManager(List.of());
+                    return;
+                }
                 if (isAlt && tabKeycode != 0 && keyEvent.keycode == tabKeycode) {
                     openSwitcher((keyEvent.state & (int) LibX11.ShiftMask) != 0);
                     return;
@@ -1990,10 +2046,16 @@ public final class X11WindowManagerService implements AutoCloseable {
                     return; // only wakes the loop; queued actions run before the next XNextEvent
                 }
                 long win = cmsg.window.longValue();
+                if (wmProtocols.equals(cmsg.message_type) && cmsg.format == 32
+                        && cmsg.data[0] != null && cmsg.data[0].longValue() == netWmPing.longValue()) {
+                    // The answer to _NET_WM_PING comes to the root window; data[2] names the client window.
+                    pingAnswered(cmsg.data[2] == null ? 0 : cmsg.data[2].longValue());
+                    return;
+                }
                 if (launchAtom.equals(cmsg.message_type)) {
                     startBusy();
                 } else if (cmsg.message_type != null && cmsg.message_type.equals(netCloseWindow)) {
-                    core.close(win);
+                    requestClose(win);
                     LOGGER.info(() -> "ClientMessage _NET_CLOSE_WINDOW handled for " + win);
                 } else if (cmsg.message_type != null && cmsg.message_type.equals(netActiveWindow)) {
                     focusClient(win);
@@ -2426,12 +2488,117 @@ public final class X11WindowManagerService implements AutoCloseable {
         }
     }
 
+    // --8<-- [start:ping]
+    /** Asks the window to close (WM_DELETE_WINDOW) and checks with a ping that its program still answers. */
+    private void requestClose(long clientWin) {
+        core.close(clientWin);
+        ping(clientWin);
+    }
+
+    /** Sends _NET_WM_PING to a window that supports it, unless an earlier ping is still unanswered. */
+    private void ping(long clientWin) {
+        if (clientWin == 0 || !clientToFrame.containsKey(clientWin) || !pings.shouldPing(clientWin)
+                || !supportsProtocol(clientWin, netWmPing)) {
+            return;
+        }
+        LibX11.XEvent buffer = new LibX11.XEvent();
+        buffer.write();
+        LibX11.XClientMessageEvent message = new LibX11.XClientMessageEvent(buffer.getPointer());
+        message.type = LibX11.ClientMessage;
+        message.send_event = 1;
+        message.display = display;
+        message.window = new NativeLong(clientWin);
+        message.message_type = wmProtocols;
+        message.format = 32;
+        message.data[0] = netWmPing;
+        message.data[1] = new NativeLong(LibX11.CurrentTime);
+        message.data[2] = new NativeLong(clientWin);
+        message.data[3] = new NativeLong(0);
+        message.data[4] = new NativeLong(0);
+        message.write();
+        x11.XSendEvent(display, new NativeLong(clientWin), 0, new NativeLong(0), buffer.getPointer());
+        x11.XFlush(display);
+        pings.sent(clientWin, System.currentTimeMillis());
+    }
+
+    /** Every {@link #PING_PERIOD_MILLIS}: pings the active window and marks those that have not answered. */
+    private void pingTick() {
+        long now = System.currentTimeMillis();
+        for (long win : pings.newlyNotResponding(now)) {
+            markNotResponding(win, true);
+        }
+        if (activeWindow != 0) ping(activeWindow);
+    }
+
+    private void pingAnswered(long clientWin) {
+        if (pings.answered(clientWin)) {
+            markNotResponding(clientWin, false);
+        }
+    }
+
+    /**
+     * Marks a window as not responding, or takes the mark away: the title bar says so, the client window
+     * gets {@code _AMADEOS_NOT_RESPONDING} (which the Task Manager and its dialog read), and a newly hanging
+     * window brings up the Task Manager's "not responding" dialog.
+     */
+    private void markNotResponding(long clientWin, boolean notResponding) {
+        FrameWindow frame = clientToFrame.get(clientWin);
+        if (frame == null) return;
+        NativeLong client = new NativeLong(clientWin);
+        if (notResponding) {
+            LOGGER.info(() -> "Window " + clientWin + " does not answer _NET_WM_PING");
+            if (hangTexts == null) hangTexts = HangTexts.load();
+            frame.setTitleSuffix(hangTexts.get("title.not-responding"));
+            Memory one = new Memory(NativeLong.SIZE);
+            one.setNativeLong(0, new NativeLong(1));
+            x11.XChangeProperty(display, client, amadeosNotResponding, xaCardinalAtom, 32,
+                    LibX11.PropModeReplace, one, 1);
+            startTaskManager(List.of("--not-responding", Long.toString(clientWin)));
+        } else {
+            LOGGER.info(() -> "Window " + clientWin + " answers again");
+            frame.setTitleSuffix(null);
+            x11.XDeleteProperty(display, client, amadeosNotResponding);
+        }
+        frame.render();
+        frame.blit(display, gc, screen);
+        x11.XFlush(display);
+    }
+
+    private boolean supportsProtocol(long clientWin, NativeLong protocol) {
+        com.sun.jna.ptr.PointerByReference protocols = new com.sun.jna.ptr.PointerByReference();
+        com.sun.jna.ptr.IntByReference count = new com.sun.jna.ptr.IntByReference();
+        if (x11.XGetWMProtocols(display, new NativeLong(clientWin), protocols, count) == 0) return false;
+        Pointer list = protocols.getValue();
+        if (list == null) return false;
+        try {
+            for (int i = 0; i < count.getValue(); i++) {
+                if (list.getNativeLong((long) i * NativeLong.SIZE).longValue() == protocol.longValue()) return true;
+            }
+            return false;
+        } finally {
+            x11.XFree(list);
+        }
+    }
+    // --8<-- [end:ping]
+
+    /** Starts the Task Manager (package amadeos-taskmanager), which shows its running window if there is one. */
+    private static void startTaskManager(List<String> arguments) {
+        List<String> command = new java.util.ArrayList<>();
+        command.add(TASK_MANAGER);
+        command.addAll(arguments);
+        try {
+            eu.amadeos.system.base.process.ProcessLauncher.start(command);
+        } catch (java.io.IOException e) {
+            LOGGER.warning(() -> "Could not start the Task Manager (" + TASK_MANAGER + "): " + e.getMessage());
+        }
+    }
+
     private void handleButtonClick(FrameWindow frame, WindowButton button) {
         long clientWin = frame.clientWindow().longValue();
         switch (button) {
             case CLOSE -> {
                 LOGGER.info(() -> "Close button clicked for window " + clientWin);
-                core.close(clientWin);
+                requestClose(clientWin);
             }
             case MAXIMIZE -> {
                 LOGGER.info(() -> "Maximize button clicked for window " + clientWin);
@@ -2448,7 +2615,7 @@ public final class X11WindowManagerService implements AutoCloseable {
                     LOGGER.info(() -> "Menu button double-clicked, closing window " + clientWin);
                     lastMenuButtonWin = 0;
                     windowMenu.hide();
-                    core.close(clientWin);
+                    requestClose(clientWin);
                 } else {
                     LOGGER.info(() -> "Menu button clicked, window menu for window " + clientWin);
                     lastMenuButtonWin = clientWin;
@@ -2841,6 +3008,7 @@ public final class X11WindowManagerService implements AutoCloseable {
 
         dockWindows.remove(win);
         clientToDesktop.remove(win);
+        pings.forget(win);
         recentWindows.remove(win);
         if (previews != null) previews.forget(win);
         if (switcher != null && switcher.entries().stream().anyMatch(e -> e.clientWin() == win)) {
