@@ -254,6 +254,7 @@ public final class SettingsWindow extends JFrame {
                     system.proxyCheck(), System.getenv(), system.network());
             case BLUETOOTH -> new BluetoothPage(this::setStatus, system.bluetooth());
             case PRINTERS -> new PrintersPage(this::setStatus, system.printers(), system.launcher());
+            case USERS -> new UsersPage(this::setStatus, system.users());
             case PASSWORDS -> new PasswordsPage(this::setStatus, system.keyring());
             case UPDATES -> new UpdatesPage(this::setStatus, system.packages(), system.launcher());
             case LANGUAGE -> new LanguagePage(this::setStatus, stores.locales(), system.timeZones());

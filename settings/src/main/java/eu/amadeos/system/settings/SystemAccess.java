@@ -18,6 +18,8 @@ import eu.amadeos.system.packages.AptPackageService;
 import eu.amadeos.system.packages.PackageService;
 import eu.amadeos.system.printers.CupsPrinterService;
 import eu.amadeos.system.printers.PrinterService;
+import eu.amadeos.system.users.SystemUsers;
+import eu.amadeos.system.users.UserService;
 
 import java.io.IOException;
 import java.util.List;
@@ -30,7 +32,7 @@ import java.util.logging.Logger;
 /**
  * What the System pages of the Settings reach beyond files of the user: the login keyring, the package
  * manager, the computer's time zone, the monitors (through xrandr), starting other programs, trying a proxy,
- * NetworkManager, the sound server, BlueZ and CUPS. Tests give the window stand-ins.
+ * NetworkManager, the sound server, BlueZ, CUPS and the accounts of the computer. Tests give the window stand-ins.
  *
  * @param launcher     starts a program of the desktop, e.g. {@code amadeos-software --updates}
  * @param applications the installed programs, as the Front Panel's drawers list them
@@ -38,7 +40,8 @@ import java.util.logging.Logger;
 record SystemAccess(Keyring keyring, PackageService packages, TimeZones timeZones, Consumer<List<String>> launcher,
                     Supplier<List<XdgDesktopEntry>> applications, DisplayApplier displays,
                     BiFunction<ProxySettings, String, ProxyCheck.Result> proxyCheck, NetworkService network,
-                    SoundService sound, SoundCheck soundTest, BluetoothService bluetooth, PrinterService printers) {
+                    SoundService sound, SoundCheck soundTest, BluetoothService bluetooth, PrinterService printers,
+                    UserService users) {
     private static final Logger LOGGER = Logger.getLogger(SystemAccess.class.getName());
 
     static SystemAccess system() {
@@ -52,6 +55,6 @@ record SystemAccess(Keyring keyring, PackageService packages, TimeZones timeZone
                 (settings, password) -> new ProxyCheck().check(settings, password), new NmcliNetworkService(),
                 new PactlSoundService(), new PulseSoundCheck(), new BluezBluetoothService(),
                 new CupsPrinterService(System.getProperty("user.name", ""), Locale.getDefault(),
-                        SettingsTexts.get("printers.testpage.title")));
+                        SettingsTexts.get("printers.testpage.title")), new SystemUsers());
     }
 }

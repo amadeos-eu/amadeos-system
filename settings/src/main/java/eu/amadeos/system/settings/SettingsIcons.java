@@ -284,6 +284,21 @@ final class SettingsIcons {
                 g.drawOval(21, 3, 12, 12);
                 g.drawLine(21, 9, 33, 9);
             }
+            case USERS -> {
+                // Two people, one behind the other: head and shoulders.
+                g.setColor(t.shadow());
+                g.fillOval(18, 5, 11, 11);
+                g.fill(new Arc2D.Double(13, 16, 21, 20, 0, 180, Arc2D.CHORD));
+                g.setColor(ink);
+                g.drawOval(18, 5, 11, 11);
+                Color person = enabled ? new Color(0x3F, 0x6E, 0xA8) : t.shadow();
+                g.setColor(person);
+                g.fillOval(6, 10, 13, 13);
+                g.fill(new Arc2D.Double(1, 23, 23, 22, 0, 180, Arc2D.CHORD));
+                g.setColor(ink);
+                g.drawOval(6, 10, 13, 13);
+                g.draw(new Arc2D.Double(1, 23, 23, 22, 0, 180, Arc2D.CHORD));
+            }
             case PASSWORDS -> {
                 // A key: a round bow with a hole, the shaft and two bits.
                 g.setColor(enabled ? new Color(0xD8, 0xB0, 0x40) : t.shadow());
