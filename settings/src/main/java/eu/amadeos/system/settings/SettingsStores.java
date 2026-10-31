@@ -3,6 +3,7 @@ package eu.amadeos.system.settings;
 import eu.amadeos.commons.config.PropertiesFile;
 import eu.amadeos.commons.desktop.SessionPasswordStore;
 import eu.amadeos.commons.i18n.LocaleStore;
+import eu.amadeos.commons.i18n.RegionalFormats;
 import eu.amadeos.commons.net.ProxyStore;
 import eu.amadeos.system.base.panel.PanelSettingsStore;
 import eu.amadeos.system.base.power.PowerSettingsStore;
@@ -32,7 +33,7 @@ record SettingsStores(ScreenSettingsStore screen, ClipboardSettingsStore clipboa
                       WindowSettingsStore window, PanelSettingsStore panel, WorkspaceNames workspaces,
                       StartupSettings startup, UserAutostart autostart, Path servicesDir, LocaleStore locales,
                       DisplaySettingsStore display, ProxyStore proxy, NotificationSettingsStore notifications,
-                      Path viewFile, PowerSettingsStore power) {
+                      Path viewFile, PowerSettingsStore power, RegionalFormats formats) {
     static final String VIEW_FILE = "settings.conf";
 
     /** The sidebar with one page per control, or CDE's row of buttons that open a dialog each. */
@@ -43,7 +44,8 @@ record SettingsStores(ScreenSettingsStore screen, ClipboardSettingsStore clipboa
                 WindowSettingsStore.user(), PanelSettingsStore.user(), WorkspaceNames.user(), StartupSettings.user(),
                 UserAutostart.user(), DesktopServices.SYSTEM_DIR, new LocaleStore(XdgDirectories.amadeosConfigDir()),
                 DisplaySettingsStore.user(), ProxyStore.system(), NotificationSettingsStore.user(),
-                XdgDirectories.amadeosConfigDir().resolve(VIEW_FILE), PowerSettingsStore.user());
+                XdgDirectories.amadeosConfigDir().resolve(VIEW_FILE), PowerSettingsStore.user(),
+                new RegionalFormats(XdgDirectories.amadeosConfigDir()));
     }
 
     /** The stores of one directory, for tests. */
@@ -57,7 +59,7 @@ record SettingsStores(ScreenSettingsStore screen, ClipboardSettingsStore clipboa
                 new DisplaySettingsStore(dir.resolve(DisplaySettingsStore.FILE_NAME)),
                 new ProxyStore(dir, new SessionPasswordStore()),
                 new NotificationSettingsStore(dir.resolve(NotificationSettingsStore.FILE_NAME)), dir.resolve(VIEW_FILE),
-                new PowerSettingsStore(dir.resolve(PowerSettingsStore.FILE_NAME)));
+                new PowerSettingsStore(dir.resolve(PowerSettingsStore.FILE_NAME)), new RegionalFormats(dir));
     }
 
     View view() {

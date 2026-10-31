@@ -32,10 +32,10 @@ final class PowerDemo {
         Path home = Files.createTempDirectory("settings-demo");
         boolean laptop = scene.equals("laptop");
         SystemAccess fake = SystemPagesTest.fakeSystem();
-        SystemAccess system = new SystemAccess(fake.keyring(), fake.packages(), fake.timeZones(), fake.launcher(),
+        SystemAccess system = new SystemAccess(fake.keyring(), fake.packages(), fake.clock(), fake.launcher(),
                 fake.applications(), fake.displays(), fake.proxyCheck(), fake.network(), fake.sound(), fake.soundTest(),
                 fake.bluetooth(), fake.printers(), fake.users(), new FakePower(false),
-                laptop ? FakePower::laptopBattery : Optional::<BatteryStatus>empty);
+                laptop ? FakePower::laptopBattery : Optional::<BatteryStatus>empty, fake.mimeApps(), fake.regions());
         SwingUtilities.invokeLater(() -> {
             SettingsWindow window = new SettingsWindow(SettingsStores.in(home), new InputApplier(), system);
             window.openControl(SettingsCategory.POWER);

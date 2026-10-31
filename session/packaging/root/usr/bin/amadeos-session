@@ -56,6 +56,19 @@ if [ -x /usr/libexec/amadeos-proxy-env ]; then
     eval "$(/usr/libexec/amadeos-proxy-env 2>/dev/null)"
 fi
 
+# The formats of Settings > Date and Time (~/.config/amadeos/formats.conf, e.g. de_AT.UTF-8) as LC_TIME and
+# friends, for everything the session starts; LANG keeps the language. Only a locale the system has generated,
+# otherwise glibc would fall back to plain C formats. Java applications read the file themselves (amade-commons
+# RegionalFormats), programs started later from the desktop get it as it is then (ProcessLauncher).
+FORMATS_CONF="${XDG_CONFIG_HOME:-$HOME/.config}/amadeos/formats.conf"
+if [ -f "$FORMATS_CONF" ]; then
+    region="$(head -n 1 "$FORMATS_CONF" | tr -d '[:space:]')"
+    wanted="$(printf '%s' "${region%%.*}" | tr 'A-Z' 'a-z').utf8"
+    if [ -n "$region" ] && locale -a 2>/dev/null | tr 'A-Z' 'a-z' | grep -qx "$wanted"; then
+        export LC_TIME="$region" LC_NUMERIC="$region" LC_MONETARY="$region" LC_PAPER="$region" LC_MEASUREMENT="$region"
+    fi
+fi
+
 # Ensure log files are writable by current user; fallback to /tmp if necessary
 mkdir -p "$(dirname "$SESSION_LOG_FILE")" "$(dirname "$WM_LOG_FILE")" 2>/dev/null || true
 if ! touch "$SESSION_LOG_FILE" 2>/dev/null; then
