@@ -30,8 +30,8 @@ import java.util.List;
 /** The Task Manager's window: the tabs Programs, Processes and Performance, and a status line. */
 public final class MainWindow extends JFrame {
     /** The chapter of the User's Handbook, in the package amadeos-handbook and on the web. */
-    private static final String HELP = "/usr/share/doc/amadeos-handbook/html/chapters/59-task-manager.html";
-    private static final String HELP_ONLINE = "https://docs.amadeos.eu/amadeos/chapters/59-task-manager/";
+    private static final String HELP = "/usr/share/doc/amadeos-handbook/html/59-task-manager.html";
+    private static final String HELP_ONLINE = "https://docs.amadeos.eu/amadeos/59-task-manager/";
 
     private final Context context;
     private final Messages t;
