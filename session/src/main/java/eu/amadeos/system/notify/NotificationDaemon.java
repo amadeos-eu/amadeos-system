@@ -157,6 +157,7 @@ public final class NotificationDaemon {
                     work(() -> core.dismiss(id));
                 }
             }, id -> work(() -> core.expired(id)), () -> settings, clock::instant, this::area));
+            // --8<-- [start:export]
             bus.exportObject(Notifications.PATH, server.specObject());
             bus.exportObject(NotificationCenter.PATH, server.centerObject());
             bus.addSigHandler(DBus.NameOwnerChanged.class, signal -> {
@@ -165,6 +166,7 @@ public final class NotificationDaemon {
                 }
             });
             bus.requestBusName(Notifications.BUS_NAME);
+            // --8<-- [end:export]
         } catch (DBusException e) {
             LOGGER.info("Notification daemon not started: " + e.getMessage());
             closeBus();
@@ -288,6 +290,7 @@ public final class NotificationDaemon {
         window.showWindow();
     }
 
+    // --8<-- [start:area]
     /** The screen without the docks: the pop-ups at the bottom stay above the Front Panel. */
     private Rectangle area() {
         Rectangle screen = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice()
@@ -299,6 +302,7 @@ public final class NotificationDaemon {
         return new Rectangle(screen.x + edges[0], screen.y + edges[2], screen.width - edges[0] - edges[1],
                 screen.height - edges[2] - edges[3]);
     }
+    // --8<-- [end:area]
 
     private static Optional<XdgDesktopEntry> desktopEntry(String id) {
         XdgApplicationManager apps = XdgApplicationManager.getInstance();

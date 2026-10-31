@@ -142,6 +142,7 @@ final class PopupStack {
         }
     }
 
+    // --8<-- [start:popup-window]
     private Shown open(Notification n, long timeoutMs) {
         PopupCard card = new PopupCard(n, texts, actions, now);
         JWindow w = new JWindow();
@@ -158,6 +159,7 @@ final class PopupStack {
         if (!GraphicsEnvironment.isHeadless()) w.setVisible(true);
         return s;
     }
+    // --8<-- [end:popup-window]
 
     private void fill() {
         while (shown.size() < MAX_SHOWN && !waiting.isEmpty()) {

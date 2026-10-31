@@ -88,6 +88,7 @@ final class NotificationCore {
         this.lastId = history.highestId();
     }
 
+    // --8<-- [start:notify]
     /** {@code Notify}: returns the id. */
     synchronized long notify(Notification incoming, long replacesId) {
         long id = replacesId != 0 && (history.contains(replacesId) || transients.containsKey(replacesId))
@@ -125,6 +126,7 @@ final class NotificationCore {
         state();
         return id;
     }
+    // --8<-- [end:notify]
 
     /** How long the pop-up stays: critical ones and {@code expire_timeout} 0 until closed. */
     static long timeout(Notification n, NotificationSettings s) {
@@ -165,6 +167,7 @@ final class NotificationCore {
         state();
     }
 
+    // --8<-- [start:invoke]
     /** A button of a pop-up, or a click on its body ({@code default}). */
     synchronized void invoke(long id, String key) {
         Notification n = transients.containsKey(id) ? transients.get(id)
@@ -192,6 +195,7 @@ final class NotificationCore {
         historyChanged();
         state();
     }
+    // --8<-- [end:invoke]
 
     /** A click on an entry of the history window: its default action, or start its program. */
     synchronized void open(long id) {

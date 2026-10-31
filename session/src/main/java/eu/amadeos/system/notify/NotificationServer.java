@@ -57,6 +57,7 @@ final class NotificationServer {
         return new Center();
     }
 
+    // --8<-- [start:hints]
     /** {@code Notify} without the bus: the arguments as the specification has them. */
     long notify(String appName, long replacesId, String appIcon, String summary, String body, List<String> actions,
                 Map<String, Variant<?>> hints, int expireTimeout, String sender) {
@@ -81,6 +82,7 @@ final class NotificationServer {
                 sender);
         return core.notify(n, replacesId);
     }
+    // --8<-- [end:hints]
 
     private static String sender() {
         DBusCallInfo info = AbstractConnection.getCallInfo();

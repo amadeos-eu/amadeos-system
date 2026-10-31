@@ -56,6 +56,7 @@ public final class DesktopNotices {
         return s.percent() <= LOW ? Level.LOW : Level.NONE;
     }
 
+    // --8<-- [start:battery]
     /** A new battery reading; warns once per level as the charge falls. */
     public synchronized void battery(Optional<BatteryStatus> reading) {
         Level now = reading.map(DesktopNotices::level).orElse(Level.NONE);
@@ -77,6 +78,7 @@ public final class DesktopNotices {
         }
         batteryLevel = now;
     }
+    // --8<-- [end:battery]
 
     /** The pending updates as read; announces the ones that were not announced before. */
     public synchronized void updates(List<Change> pending) {
