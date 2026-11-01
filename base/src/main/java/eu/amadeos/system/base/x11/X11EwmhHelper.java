@@ -553,6 +553,94 @@ public class X11EwmhHelper implements AutoCloseable {
         x11.XFlush(display);
     }
 
+    // --8<-- [start:window-process]
+    /** The process id the window's program gave in {@code _NET_WM_PID}, or 0 if it gave none. */
+    public long getWindowPid(long win) {
+        return cardinal(win, x11.XInternAtom(display, "_NET_WM_PID", 0), 0);
+    }
+
+    /**
+     * Whether the window manager marked the window as not responding: it did not answer
+     * {@code _NET_WM_PING} within five seconds ({@code _AMADEOS_NOT_RESPONDING}).
+     */
+    public boolean isNotResponding(long win) {
+        return cardinal(win, x11.XInternAtom(display, "_AMADEOS_NOT_RESPONDING", 0), 0) != 0;
+    }
+
+    /** The class of the window's program ({@code WM_CLASS}, second part), or "" if it has none. */
+    public String getWindowClass(long win) {
+        PointerByReference typeRet = new PointerByReference();
+        IntByReference formatRet = new IntByReference();
+        NativeLongByReference itemsRet = new NativeLongByReference();
+        NativeLongByReference afterRet = new NativeLongByReference();
+        PointerByReference propRet = new PointerByReference();
+        NativeLong wmClass = x11.XInternAtom(display, "WM_CLASS", 0);
+        int status = x11.XGetWindowProperty(display, new NativeLong(win), wmClass, new NativeLong(0),
+                new NativeLong(256), 0, new NativeLong(0), typeRet, formatRet, itemsRet, afterRet, propRet);
+        Pointer ptr = propRet.getValue();
+        if (status != 0 || ptr == null) return "";
+        try {
+            long n = itemsRet.getValue() == null ? 0 : itemsRet.getValue().longValue();
+            byte[] bytes = ptr.getByteArray(0, (int) n);
+            String[] parts = new String(bytes, java.nio.charset.StandardCharsets.ISO_8859_1).split("\0");
+            return parts.length > 1 ? parts[1] : parts.length == 1 ? parts[0] : "";
+        } finally {
+            x11.XFree(ptr);
+        }
+    }
+
+    /**
+     * Whether the window is a dialog: it names a main window ({@code WM_TRANSIENT_FOR}) or has the type
+     * {@code _NET_WM_WINDOW_TYPE_DIALOG}.
+     */
+    public boolean isDialog(long win) {
+        com.sun.jna.Memory owner = new com.sun.jna.Memory(NativeLong.SIZE);
+        owner.setNativeLong(0, new NativeLong(0));
+        if (x11.XGetTransientForHint(display, new NativeLong(win), owner) != 0
+                && owner.getNativeLong(0).longValue() != 0) {
+            return true;
+        }
+        PointerByReference typeRet = new PointerByReference();
+        IntByReference formatRet = new IntByReference();
+        NativeLongByReference itemsRet = new NativeLongByReference();
+        NativeLongByReference afterRet = new NativeLongByReference();
+        PointerByReference propRet = new PointerByReference();
+        int status = x11.XGetWindowProperty(display, new NativeLong(win), netWmWindowType, new NativeLong(0),
+                new NativeLong(16), 0, xaAtomAtom, typeRet, formatRet, itemsRet, afterRet, propRet);
+        Pointer ptr = propRet.getValue();
+        if (status != 0 || ptr == null) return false;
+        try {
+            long dialog = x11.XInternAtom(display, "_NET_WM_WINDOW_TYPE_DIALOG", 0).longValue();
+            long n = itemsRet.getValue() == null ? 0 : itemsRet.getValue().longValue();
+            for (int i = 0; i < n; i++) {
+                if (ptr.getNativeLong((long) i * NativeLong.SIZE).longValue() == dialog) return true;
+            }
+            return false;
+        } finally {
+            x11.XFree(ptr);
+        }
+    }
+
+    private long cardinal(long win, NativeLong property, long fallback) {
+        if (win == 0) return fallback;
+        PointerByReference typeRet = new PointerByReference();
+        IntByReference formatRet = new IntByReference();
+        NativeLongByReference itemsRet = new NativeLongByReference();
+        NativeLongByReference afterRet = new NativeLongByReference();
+        PointerByReference propRet = new PointerByReference();
+        int status = x11.XGetWindowProperty(display, new NativeLong(win), property, new NativeLong(0),
+                new NativeLong(1), 0, xaCardinalAtom, typeRet, formatRet, itemsRet, afterRet, propRet);
+        Pointer ptr = propRet.getValue();
+        if (status != 0 || ptr == null) return fallback;
+        try {
+            if (itemsRet.getValue() == null || itemsRet.getValue().longValue() < 1) return fallback;
+            return ptr.getNativeLong(0).longValue() & 0xFFFFFFFFL;
+        } finally {
+            x11.XFree(ptr);
+        }
+    }
+    // --8<-- [end:window-process]
+
     // --8<-- [start:fullscreen]
     /** Whether the window's _NET_WM_STATE has _NET_WM_STATE_FULLSCREEN (a game, a video, a presentation). */
     public boolean isFullscreen(long win) {

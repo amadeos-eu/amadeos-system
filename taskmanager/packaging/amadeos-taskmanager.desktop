@@ -1,0 +1,24 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=amadeOS Task Manager
+Name[de]=amadeOS Task-Manager
+Name[fr]=amadeOS Gestionnaire des tâches
+Name[es]=amadeOS Administrador de tareas
+Name[it]=amadeOS Gestione attività
+GenericName=Task Manager
+GenericName[de]=Task-Manager
+GenericName[fr]=Gestionnaire des tâches
+GenericName[es]=Administrador de tareas
+GenericName[it]=Gestione attività
+Comment=See running programs and processes, how busy the computer is, and end programs that hang
+Comment[de]=Laufende Programme und Prozesse und die Auslastung des Computers sehen, hängende Programme beenden
+Comment[fr]=Voir les programmes et processus en cours et la charge de l'ordinateur, terminer les programmes bloqués
+Comment[es]=Ver los programas y procesos en ejecución y la carga del equipo, terminar programas que no responden
+Comment[it]=Vedere i programmi e i processi in esecuzione e il carico del computer, terminare i programmi bloccati
+Icon=utilities-system-monitor
+Exec=/usr/bin/amadeos-taskmanager
+Terminal=false
+Categories=System;Monitor;
+Keywords=task;process;kill;cpu;memory;monitor;hang;end;
+StartupNotify=true
