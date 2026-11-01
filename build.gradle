@@ -3,14 +3,15 @@
 // ../amadeos/config/packages.chroot). Each application module sets mainClass and the `debian` block in its
 // own build.gradle; `base` is the library the desktop modules share and has no package of its own.
 // `packages` is a library too (bundled into the modules that use it), but has a package: amadeos-packages
-// with the root helper and polkit action and no jar.
+// with the root helper and polkit action and no jar. `icons-horizon` draws the Horizon icon theme at build time;
+// its package amadeos-icons-horizon holds only the PNG files.
 
 // --8<-- [start:desktop-modules]
 // The modules of the desktop: they build on base, log through java.util.logging and talk to X11 through
 // JNA, so they run with native access enabled.
 def desktopModules = ['wm', 'panel-cde', 'panel-horizon', 'dm', 'session', 'style', 'logviewer', 'taskmanager', 'widgets']
 // Libraries: no main class and no program of their own.
-def libraryModules = ['base', 'packages']
+def libraryModules = ['base', 'packages', 'icons-horizon']
 // --8<-- [end:desktop-modules]
 
 subprojects {
@@ -38,7 +39,7 @@ subprojects {
     dependencies {
         // Theme, Motif look, start-up and XDG helpers shared by all amadeOS applications.
         // With ../amade-commons checked out, settings.gradle builds that checkout instead (composite build).
-        implementation 'com.github.amadeos-eu:amade-commons:ae78a6b45d'
+        implementation 'com.github.amadeos-eu:amade-commons:c5ef60d135'
         testImplementation platform('org.junit:junit-bom:5.10.2')
         testImplementation 'org.junit.jupiter:junit-jupiter'
         testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
@@ -186,6 +187,13 @@ exec /usr/bin/java ${javaOptions}-jar /opt/${packageName}/${packageName}.jar "\$
                     fileTree(new File(rootTree, 'etc')).visit { details ->
                         if (!details.isDirectory()) conffiles << "/etc/${details.relativePath.pathString}"
                     }
+                }
+                // Files a task of the module makes (amadeos-icons-horizon: the rendered icon theme)
+                if (deb.generatedRoot) {
+                    // cp -a, not Gradle's copy, which would turn symbolic links (icon aliases) into copies
+                    def cp = new ProcessBuilder('cp', '-a', "${deb.generatedRoot}/.", stagingDir.absolutePath)
+                            .inheritIO().start()
+                    if (cp.waitFor() != 0) throw new GradleException("cannot copy ${deb.generatedRoot}")
                 }
                 if (conffiles) new File(debianDir, 'conffiles').text = conffiles.sort().join('\n') + '\n'
                 // Debian permissions whatever the umask of the checkout: directories 0755, files 0644 or 0755.
