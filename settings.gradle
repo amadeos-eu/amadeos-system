@@ -16,6 +16,7 @@ include 'sysinfo'
 include 'packages'
 include 'software'
 include 'taskmanager'
+include 'disks'
 include 'widgets'
 include 'icons-horizon'
 

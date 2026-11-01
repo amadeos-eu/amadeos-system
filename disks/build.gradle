@@ -1,0 +1,50 @@
+// Disks: the drives of the computer, their partitions and health; formats USB sticks and cards, creates,
+// deletes, resizes and checks partitions, writes disk images to sticks. `amadeos-disks`; the Tools drawer and
+// the drive menu of Files start it. Everything goes through udisks2 on the system bus, which asks polkit (and so
+// the amadeOS password dialog) where a step needs the administrator.
+application {
+    mainClass = 'eu.amadeos.system.disks.Disks'
+}
+
+dependencies {
+    // Writing .img.xz images and reading them back.
+    implementation 'org.tukaani:xz:1.10'
+    implementation 'com.github.hypfvieh:dbus-java-core:5.1.1'
+    // The junixsocket transport receives file descriptors (see below). Its junixsocket-core is only a POM that
+    // pulls in the two jars, which the fat jar cannot unpack, so the jars are named directly.
+    implementation('com.github.hypfvieh:dbus-java-transport-junixsocket:5.1.1') {
+        exclude group: 'com.kohlschutter.junixsocket', module: 'junixsocket-core'
+    }
+    implementation 'com.kohlschutter.junixsocket:junixsocket-common:2.10.0'
+    implementation 'com.kohlschutter.junixsocket:junixsocket-native-common:2.10.0'
+}
+
+// udisks hands over a drive as a file descriptor (OpenForRestore, OpenForBackup) for writing and saving disk
+// images. The JDK's own Unix socket transport cannot receive file descriptors, junixsocket can; dbus-java
+// accepts only one transport, so base's is left out of this program.
+configurations.configureEach {
+    if (name.toLowerCase().contains('runtimeclasspath')) {
+        exclude group: 'com.github.hypfvieh', module: 'dbus-java-transport-native-unixsocket'
+    }
+}
+
+debian = [
+    section    : 'admin',
+    javaOptions: '--enable-native-access=ALL-UNNAMED',
+    // udisks2 does all the work as root and asks polkit (the amadeOS agent shows the password dialog);
+    // udisks2 pulls in the libblockdev plugins (crypto, NVMe) and libatasmart for the health values. Recommended:
+    // the mkfs tools of the file systems Disks offers, cryptsetup for "Protected with a password", and
+    // xdg-utils, which opens the handbook.
+    depends    : ['udisks2'],
+    recommends : ['dosfstools', 'exfatprogs', 'e2fsprogs', 'ntfs-3g', 'cryptsetup', 'xdg-utils'],
+    summary    : 'Disk tool of amadeOS',
+    description: '''Shows the drives of the computer (disks, USB sticks, memory cards, disc
+drives) with their partitions as a map. Formats a whole stick or card in plain
+words (all computers, big files, amadeOS only, Windows, protected with a
+password), creates, deletes, renames, grows and shrinks partitions, checks and
+repairs file systems, mounts and unlocks them, shows the health of NVMe and
+SATA drives with self-tests, and writes an .iso or .img (also .img.xz) to a
+stick with checksum and read-back compare, or saves a drive as an image. The
+running system is protected. Works through udisks; started from the Tools
+drawer and from Files. Part of the amadeOS desktop.'''
+]
