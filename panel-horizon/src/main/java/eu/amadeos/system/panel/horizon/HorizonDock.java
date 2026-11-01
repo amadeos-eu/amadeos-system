@@ -141,6 +141,16 @@ public final class HorizonDock extends JFrame {
         row.setOpaque(false);
         root.add(row);
         setContentPane(root);
+        // The right mouse button on the dock itself, between and around the icons
+        root.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                if (SwingUtilities.isRightMouseButton(e)) {
+                    JPopupMenu menu = dockMenu();
+                    menu.show(root, e.getX(), -menu.getPreferredSize().height - 4);
+                }
+            }
+        });
 
         rebuild();
         ConfigWatcher watch = new ConfigWatcher(eu.amadeos.system.base.xdg.XdgDirectories.amadeosConfigDir(),
@@ -156,6 +166,25 @@ public final class HorizonDock extends JFrame {
         pollTimer = new Timer(700, e -> poll());
         pollTimer.start();
         // --8<-- [end:poll]
+    }
+
+    /** The menu of the dock itself: show the desktop, and the dock's settings. */
+    JPopupMenu dockMenu() {
+        JPopupMenu menu = new JPopupMenu();
+        boolean shown = helper.isShowingDesktop();
+        JMenuItem desktop = new JMenuItem(TopBarTexts.get(shown ? "desktop.back" : "desktop.show"));
+        desktop.addActionListener(e -> helper.setShowingDesktop(!shown));
+        menu.add(desktop);
+        if (new java.io.File(HorizonTopBar.WIDGETS).canExecute()) {
+            JMenuItem widgets = new JMenuItem(TopBarTexts.get("system.widgets"));
+            widgets.addActionListener(e -> launch(HorizonTopBar.WIDGETS, "--gallery"));
+            menu.add(widgets);
+        }
+        menu.addSeparator();
+        JMenuItem settingsItem = new JMenuItem(TopBarTexts.get("dock.settings"));
+        settingsItem.addActionListener(e -> launch("amadeos-settings", "look"));
+        menu.add(settingsItem);
+        return menu;
     }
 
     private static BarColors colors() {

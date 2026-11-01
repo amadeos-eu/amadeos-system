@@ -156,6 +156,8 @@ public final class DesktopRootMenu {
         winControlsMenu.add(createStyledMenuItem("Shuffle Up (Cycle Top)", "window", e -> actions.shuffleUp(), theme));
         winControlsMenu.add(createStyledMenuItem("Shuffle Down (Cycle Bottom)", "window", e -> actions.shuffleDown(), theme));
         winControlsMenu.add(createSeparator(theme));
+        winControlsMenu.add(createStyledMenuItem(actions.showingDesktop() ? "Bring Windows Back (Super+D)"
+                : "Show Desktop (Super+D)", "user-desktop", e -> actions.toggleShowDesktop(), theme));
         winControlsMenu.add(createStyledMenuItem("Minimize All Windows", "window", e -> actions.minimizeAll(), theme));
         winControlsMenu.add(createStyledMenuItem("Restore All Windows", "window", e -> actions.restoreAll(), theme));
         menu.add(winControlsMenu);

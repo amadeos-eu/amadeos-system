@@ -76,6 +76,8 @@ public final class HorizonTopBar extends JFrame {
     private static final Logger LOGGER = Logger.getLogger(HorizonTopBar.class.getName());
     public static final int BAR_HEIGHT = 30;
     public static final String WINDOW_TITLE = "amadeOS Horizon Top Bar";
+    /** The widget host, package amadeos-widgets. */
+    static final String WIDGETS = "/usr/bin/amadeos-widgets";
     private static java.nio.channels.FileLock panelLock;
 
     private final X11EwmhHelper helper;
@@ -83,6 +85,7 @@ public final class HorizonTopBar extends JFrame {
     private final BarButton programButton;
     private final WorkspaceDots workspaces;
     private final BarButton searchButton;
+    private final BarButton desktopButton;
     private final BarButton clockButton;
     private HorizonSearch search;
     private final Map<String, StatusCell> cells = new LinkedHashMap<>();
@@ -91,6 +94,7 @@ public final class HorizonTopBar extends JFrame {
     private final Timer pollTimer;
     private Dimension screenSize;
     private long activeWindow;
+    private boolean desktopShown;
 
     // --8<-- [start:main]
     public static void main(String[] args) {
@@ -122,6 +126,8 @@ public final class HorizonTopBar extends JFrame {
                 // The search: the magnifier and Super+Space
                 bar.search = HorizonSearch.create(helper, Path.of(System.getProperty("user.home")));
                 HorizonSearch.listen(bar.search);
+                // The desktop widgets: their host keeps one per user and ends when the look changes
+                if (new File(WIDGETS).canExecute()) bar.launch(WIDGETS);
                 // Settings > Appearance back to classic: the session starts the Front Panel instead.
                 PanelSwitch.watch(DesktopLook.HORIZON);
             } catch (Exception ex) {
@@ -194,6 +200,36 @@ public final class HorizonTopBar extends JFrame {
 
         JPanel right = transparent(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         right.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 6));
+        // Show the desktop: a screen with the horizon line, filled in the accent colour while shown
+        BarButton desktopButton = new BarButton("") {
+            @Override
+            int markWidth() {
+                return 16;
+            }
+
+            @Override
+            void paintMark(Graphics2D g, BarColors c) {
+                int x = getInsets().left;
+                int y = getHeight() / 2 - 6;
+                boolean shown = helper.isShowingDesktop();
+                g.setStroke(new BasicStroke(1.5f));
+                if (shown) {
+                    g.setColor(c.accent());
+                    g.fillRoundRect(x, y, 16, 12, 4, 4);
+                }
+                g.setColor(shown ? java.awt.Color.WHITE : c.text());
+                g.drawRoundRect(x, y, 16, 12, 4, 4);
+                g.drawArc(x + 2, y + 6, 12, 8, 20, 140);
+            }
+        };
+        desktopButton.setBorder(BorderFactory.createEmptyBorder(0, 7, 0, 7));
+        desktopButton.setToolTipText(TopBarTexts.get("desktop.tooltip"));
+        desktopButton.addActionListener(e -> {
+            helper.setShowingDesktop(!helper.isShowingDesktop());
+            desktopButton.repaint();
+        });
+        this.desktopButton = desktopButton;
+        right.add(desktopButton);
         workspaces = new WorkspaceDots(helper::setCurrentDesktop);
         workspaces.setActive(Math.max(0, helper.getCurrentDesktop()));
         right.add(workspaces);
@@ -258,6 +294,11 @@ public final class HorizonTopBar extends JFrame {
         }
         int desktop = helper.getCurrentDesktop();
         if (desktop >= 0) workspaces.setActive(desktop);
+        boolean shown = helper.isShowingDesktop();
+        if (shown != desktopShown) {
+            desktopShown = shown;
+            desktopButton.repaint();
+        }
         String clock = clockText();
         if (!clock.equals(clockButton.getText())) {
             clockButton.setText(clock);
@@ -352,6 +393,7 @@ public final class HorizonTopBar extends JFrame {
             menu.add(item(TopBarTexts.get("system.software"), "amadeos-software"));
         }
         menu.add(item(TopBarTexts.get("system.taskmanager"), "amadeos-taskmanager"));
+        if (new File(WIDGETS).canExecute()) menu.add(item(TopBarTexts.get("system.widgets"), WIDGETS, "--gallery"));
         menu.addSeparator();
         JMenuItem lock = new JMenuItem(TopBarTexts.get("system.lock"));
         lock.addActionListener(e -> SessionDialogHelper.lockScreen(this));
