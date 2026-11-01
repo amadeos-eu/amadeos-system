@@ -80,6 +80,16 @@ final class SettingsIcons {
     private static void paint(SettingsCategory category, Graphics2D g, DesktopTheme t, Color ink, boolean enabled) {
         Color paper = t.fieldBackground();
         switch (category) {
+            case LOOK -> {
+                // Two little desktops: a classic one with a panel below, a Horizon one with a bar on top
+                monitor(g, t, ink);
+                g.setColor(enabled ? t.activeTitleBg() : t.shadow());
+                g.fillRect(6, 6, 24, 3);
+                g.setColor(enabled ? new Color(0x3A, 0x3C, 0x50) : t.sunkenBg());
+                g.fillRect(6, 9, 24, 13);
+                g.setColor(enabled ? new Color(0xE8, 0xE9, 0xF1) : t.shadow());
+                g.fillRoundRect(10, 12, 12, 8, 3, 3);
+            }
             case COLOR -> {
                 Color[] chips = enabled
                         ? new Color[]{t.activeTitleBg(), new Color(0xC8, 0x50, 0x40), new Color(0xD8, 0xB0, 0x40), new Color(0x50, 0x90, 0x60)}

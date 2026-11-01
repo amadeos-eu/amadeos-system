@@ -38,6 +38,10 @@ public final class FrameWindow {
     private WindowButton pressedButton;
 
     private BufferedImage buffer;
+    /** The program's icon (_NET_WM_ICON), or null. */
+    private BufferedImage icon;
+    /** Width, height and corner radius of the shape last given to the frame window; null for none. */
+    private int[] appliedShape;
 
     public FrameWindow(
         NativeLong clientWindow,
@@ -239,6 +243,34 @@ public final class FrameWindow {
         return theme.metrics().hitTestBorder(frameWidth, frameHeight, x, y);
     }
 
+    /** The program's icon from _NET_WM_ICON, shown by frame styles with an icon; null if it has none. */
+    public BufferedImage icon() {
+        return icon;
+    }
+
+    public void setIcon(BufferedImage icon) {
+        this.icon = icon;
+    }
+
+    /** The corner radius the frame should have now: the style's, or 0 when maximised or full screen. */
+    public int cornerRadius() {
+        return maximized || fullScreen ? 0 : theme.cornerRadius();
+    }
+
+    /**
+     * Gives the frame window rounded corners with the X Shape extension, or square ones again; only when the
+     * size or the radius changed since the last call. Without the extension the corners stay square.
+     */
+    public void applyShape(Pointer display) {
+        int radius = cornerRadius();
+        int[] wanted = {frameWidth, frameHeight, radius};
+        if (appliedShape == null && radius == 0) return;
+        if (java.util.Arrays.equals(appliedShape, wanted)) return;
+        if (FrameShape.apply(display, frameWindow, frameWidth, frameHeight, radius)) {
+            appliedShape = radius == 0 ? null : wanted;
+        }
+    }
+
     public BufferedImage buffer() {
         return buffer;
     }
@@ -252,7 +284,7 @@ public final class FrameWindow {
         }
         Graphics2D g = buffer.createGraphics();
         try {
-            theme.paintFrame(g, frameWidth, frameHeight, displayedTitle(), active, hoveredButton, pressedButton);
+            theme.paintFrame(g, this);
         } finally {
             g.dispose();
         }
@@ -271,6 +303,7 @@ public final class FrameWindow {
             return;
         }
 
+        applyShape(display);
         int[] pixels = ((DataBufferInt) buffer.getRaster().getDataBuffer()).getData();
         Pointer visual = LibX11.INSTANCE.XDefaultVisual(display, screen);
         int depth = LibX11.INSTANCE.XDefaultDepth(display, screen);

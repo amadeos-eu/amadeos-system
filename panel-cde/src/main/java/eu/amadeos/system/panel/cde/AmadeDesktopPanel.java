@@ -159,6 +159,8 @@ public final class AmadeDesktopPanel extends JFrame {
                 // the window; the window manager takes the strut as the dock's sign meanwhile, and the
                 // type is put right here for everyone else who reads it.
                 panel.registerAsDock();
+                // Settings > Appearance switched to Horizon: the session starts its top bar instead.
+                eu.amadeos.system.base.panel.PanelSwitch.watch(eu.amadeos.commons.theme.DesktopLook.CLASSIC);
             } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE, "Error initializing desktop panel: " + ex.getMessage(), ex);
                 System.exit(1);

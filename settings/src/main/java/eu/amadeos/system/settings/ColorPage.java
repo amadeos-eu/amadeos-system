@@ -91,6 +91,10 @@ final class ColorPage extends SettingsPage {
         updateIconPreview();
 
         JPanel content = new JPanel(new BorderLayout(0, 10));
+        if (ThemeManager.currentLook() == eu.amadeos.commons.theme.DesktopLook.HORIZON) {
+            // The palettes are the classic look's; Horizon's colours are on the Desktop look page
+            content.add(note(SettingsTexts.get("color.horizon.note")), BorderLayout.NORTH);
+        }
         content.add(paletteBox, BorderLayout.CENTER);
         content.add(iconBox, BorderLayout.SOUTH);
         layoutPage(content);

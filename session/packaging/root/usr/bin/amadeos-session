@@ -197,12 +197,28 @@ if [ "$AUTOSTART_APP" = "panel" ] || [ "$AUTOSTART_APP" = "cde-panel" ] || [ "$A
     if [ ! -x "$PANEL_COMMAND" ]; then
         report_error_and_fallback "Panel not found at $PANEL_COMMAND (package amadeos-panel-cde or another provider of amadeos-panel)."
     fi
-    "$PANEL_COMMAND" "$@"
+    # The panel of the desktop look (Settings > Appearance, ~/.config/amadeos/look.conf): Horizon's top bar
+    # if the look is horizon and amadeos-panel-horizon is installed, else the Front Panel. When the user
+    # switches the look, the running panel exits with 75 and the loop starts the other one; any other exit
+    # (Log Out in the Exit dialog) ends the session as before.
+    LOOK_CONF="${XDG_CONFIG_HOME:-$HOME/.config}/amadeos/look.conf"
+    HORIZON_PANEL="${HORIZON_PANEL:-/usr/bin/amadeos-panel-horizon}"
+    while :; do
+        panel="$PANEL_COMMAND"
+        if grep -qs '^look=horizon' "$LOOK_CONF" && [ -x "$HORIZON_PANEL" ]; then
+            panel="$HORIZON_PANEL"
+        fi
+        echo "[amadeos-session] Starting panel $panel"
+        "$panel" "$@"
+        APP_EXIT_CODE=$?
+        [ "$APP_EXIT_CODE" -eq 75 ] || break
+        echo "[amadeos-session] The desktop look changed: starting the other panel"
+    done
 else
     # Execute configured custom command
     eval "$AUTOSTART_APP" "$@"
+    APP_EXIT_CODE=$?
 fi
-APP_EXIT_CODE=$?
 echo "[amadeos-session] Primary application exited with code $APP_EXIT_CODE"
 
 exit "$APP_EXIT_CODE"

@@ -310,7 +310,8 @@ public final class WallpaperManager {
         return "workspace." + (workspace + 1) + ".";
     }
 
-    private static String initialWallpaper() {
+    /** The backdrop of a new user: amadeOS's picture, or the one in the jar without it. */
+    public static String initialWallpaper() {
         return new File(SYSTEM_WALLPAPER).isFile() ? SYSTEM_WALLPAPER : CLASSPATH_WALLPAPER;
     }
 

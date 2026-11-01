@@ -335,6 +335,52 @@ public class X11EwmhHelper implements AutoCloseable {
     }
     // --8<-- [end:dock]
 
+    /**
+     * Marks the window as a dock along the top edge of the screen (Horizon's top bar): the dock type and a top
+     * strut of {@code barH} pixels, so that the window manager keeps windows below it.
+     */
+    public void setTopDockProperties(long win, int screenW, int barH) {
+        Memory typeMem = new Memory(NativeLong.SIZE);
+        typeMem.setNativeLong(0, netWmWindowTypeDock);
+        x11.XChangeProperty(display, new NativeLong(win), netWmWindowType, xaAtomAtom, 32, LibX11.PropModeReplace, typeMem, 1);
+
+        Memory strutMem = new Memory(NativeLong.SIZE * 4);
+        for (int i = 0; i < 4; i++) strutMem.setNativeLong((long) i * NativeLong.SIZE, new NativeLong(0));
+        strutMem.setNativeLong(NativeLong.SIZE * 2, new NativeLong(barH)); // top
+        x11.XChangeProperty(display, new NativeLong(win), netWmStrut, xaCardinalAtom, 32, LibX11.PropModeReplace, strutMem, 4);
+
+        // _NET_WM_STRUT_PARTIAL: left, right, top, bottom, then start and end of each; top_start_x 0, top_end_x screenW
+        Memory partialMem = new Memory(NativeLong.SIZE * 12);
+        for (int i = 0; i < 12; i++) partialMem.setNativeLong((long) i * NativeLong.SIZE, new NativeLong(0));
+        partialMem.setNativeLong(NativeLong.SIZE * 2, new NativeLong(barH));
+        partialMem.setNativeLong(NativeLong.SIZE * 8, new NativeLong(0));
+        partialMem.setNativeLong(NativeLong.SIZE * 9, new NativeLong(screenW));
+        x11.XChangeProperty(display, new NativeLong(win), netWmStrutPartial, xaCardinalAtom, 32, LibX11.PropModeReplace, partialMem, 12);
+        x11.XFlush(display);
+    }
+
+    /** Asks the window manager to close the window, as its close button would (_NET_CLOSE_WINDOW). */
+    public void closeWindow(long win) {
+        LibX11.XClientMessageEvent cmsg = new LibX11.XClientMessageEvent();
+        cmsg.type = LibX11.ClientMessage;
+        cmsg.serial = new NativeLong(0);
+        cmsg.send_event = 1;
+        cmsg.display = display;
+        cmsg.window = new NativeLong(win);
+        cmsg.message_type = x11.XInternAtom(display, "_NET_CLOSE_WINDOW", 0);
+        cmsg.format = 32;
+        cmsg.data = new NativeLong[5];
+        cmsg.data[0] = new NativeLong(0);
+        cmsg.data[1] = new NativeLong(2); // source: pager
+        cmsg.data[2] = new NativeLong(0);
+        cmsg.data[3] = new NativeLong(0);
+        cmsg.data[4] = new NativeLong(0);
+        cmsg.write();
+        long mask = LibX11.SubstructureRedirectMask | LibX11.SubstructureNotifyMask;
+        x11.XSendEvent(display, new NativeLong(rootWindow), 0, new NativeLong(mask), cmsg.getPointer());
+        x11.XFlush(display);
+    }
+
     public NativeLong amadeosThemeAtom() {
         return amadeosThemeAtom;
     }
