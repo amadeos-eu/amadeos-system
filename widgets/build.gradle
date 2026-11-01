@@ -1,0 +1,19 @@
+// The desktop widgets of the Horizon look. `amadeos-widgets` is the widget host: it finds the widgets
+// (its own clock, photo and to-do note, and those that applications announce in /usr/share/amadeos/widgets),
+// puts the placed ones on the desktop below the windows and keeps their places in ~/.config/amadeos/widgets.conf.
+// Horizon's top bar starts it; `amadeos-widgets --gallery` opens the gallery of widgets to add.
+application {
+    mainClass = 'eu.amadeos.system.widgets.WidgetHost'
+}
+
+debian = [
+    section    : 'x11',
+    javaOptions: '--enable-native-access=ALL-UNNAMED',
+    recommends : ['amadeos-wm', 'amadeos-panel-horizon'],
+    summary    : 'Desktop widgets of amadeOS',
+    description: '''Small live views on the desktop of the Horizon look: a clock, a photo frame
+and a to-do note, and the widgets that applications bring, such as the month
+of the Calendar. Widgets are added from a gallery, moved and resized with the
+mouse, and stay where they were put. They sit below the windows; Super+D shows
+the desktop with them.'''
+]

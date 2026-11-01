@@ -21,6 +21,15 @@ public interface DesktopMenuActions {
 
     void restoreAll();
 
+    /** Shows the desktop, or brings the windows back when it is shown (Super+D). */
+    default void toggleShowDesktop() {
+    }
+
+    /** True while the desktop is shown. */
+    default boolean showingDesktop() {
+        return false;
+    }
+
     void refreshDesktop();
 
     void openSettings();

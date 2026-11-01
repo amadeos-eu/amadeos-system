@@ -90,6 +90,7 @@ public final class X11WindowManagerService implements AutoCloseable {
     /** Set by a dock (Horizon's) that shows minimised windows itself, so the desktop gets no icon tiles. */
     private final NativeLong dockTakesMinimizedAtom;
     private final NativeLong framelessAtom;
+    private final NativeLong desktopWidgetAtom;
     private final DesktopMenuActions menuActions;
 
     private final long checkWindow;
@@ -157,6 +158,7 @@ public final class X11WindowManagerService implements AutoCloseable {
     private final NativeLong netWmWindowTypeNormal;
     private final NativeLong netWmState;
     private final NativeLong netWmStateHidden;
+    private final NativeLong netShowingDesktop;
     private final NativeLong netWmStateFullscreen;
     private final NativeLong netWmStrut;
     private final NativeLong netWmStrutPartial;
@@ -228,6 +230,13 @@ public final class X11WindowManagerService implements AutoCloseable {
     // Super+Space opens Horizon's search.
     private static final long XK_SPACE = 0x0020;
     private int searchKeycode = 0;
+    // Super+D shows the desktop: the windows of the workspace step aside until it is pressed again or a
+    // window is activated (_NET_SHOWING_DESKTOP).
+    private static final long XK_D = 0x0064;
+    private int showDesktopKeycode = 0;
+    private boolean showingDesktop;
+    private final java.util.List<Long> desktopHidden = new java.util.ArrayList<>();
+    private long activeBeforeDesktop;
     private int returnKeycode = 0;
     private int leftKeycode = 0;
     private int rightKeycode = 0;
@@ -337,6 +346,7 @@ public final class X11WindowManagerService implements AutoCloseable {
         this.wakeAtom = x11.XInternAtom(display, "_AMADEOS_WM_WAKE", 0);
         this.dockTakesMinimizedAtom = x11.XInternAtom(display, "_AMADEOS_DOCK_TAKES_MINIMIZED", 0);
         this.framelessAtom = x11.XInternAtom(display, "_AMADEOS_FRAMELESS", 0);
+        this.desktopWidgetAtom = x11.XInternAtom(display, "_AMADEOS_DESKTOP_WIDGET", 0);
         this.screen = screen;
         this.rootWindow = rootWindow;
         this.screenWidth = screenWidth;
@@ -372,6 +382,7 @@ public final class X11WindowManagerService implements AutoCloseable {
         this.netWmWindowTypeNormal = x11.XInternAtom(display, "_NET_WM_WINDOW_TYPE_NORMAL", 0);
         this.netWmState = x11.XInternAtom(display, "_NET_WM_STATE", 0);
         this.netWmStateHidden = x11.XInternAtom(display, "_NET_WM_STATE_HIDDEN", 0);
+        this.netShowingDesktop = x11.XInternAtom(display, "_NET_SHOWING_DESKTOP", 0);
         this.netWmStateFullscreen = x11.XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", 0);
         this.netWmStrut = x11.XInternAtom(display, "_NET_WM_STRUT", 0);
         this.netWmStrutPartial = x11.XInternAtom(display, "_NET_WM_STRUT_PARTIAL", 0);
@@ -492,6 +503,18 @@ public final class X11WindowManagerService implements AutoCloseable {
         }
         // --8<-- [end:search-key]
 
+        try {
+            this.showDesktopKeycode = keycode(XK_D);
+            for (long lock : new long[]{0, LibX11.Mod2Mask, LibX11.LockMask, LibX11.Mod2Mask | LibX11.LockMask}) {
+                if (showDesktopKeycode != 0) {
+                    x11.XGrabKey(display, showDesktopKeycode, new NativeLong(LibX11.Mod4Mask | lock),
+                            new NativeLong(rootWindow), 1, LibX11.GrabModeAsync, LibX11.GrabModeAsync);
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.warning(() -> "Failed to bind Super+D: " + e.getMessage());
+        }
+
         // --8<-- [start:alt-tab-keys]
         // Alt+Tab and Alt+Shift+Tab open the window switcher; once it is open the keyboard is grabbed, so
         // the further Tabs, the arrows, Esc and the release of Alt come here too.
@@ -573,6 +596,16 @@ public final class X11WindowManagerService implements AutoCloseable {
             @Override
             public void restoreAll() {
                 runOnEventThread(X11WindowManagerService.this::restoreAllCurrentWorkspace);
+            }
+
+            @Override
+            public void toggleShowDesktop() {
+                runOnEventThread(() -> setShowingDesktop(!showingDesktop));
+            }
+
+            @Override
+            public boolean showingDesktop() {
+                return showingDesktop;
             }
 
             @Override
@@ -921,6 +954,7 @@ public final class X11WindowManagerService implements AutoCloseable {
         if (targetDesktop < 0 || targetDesktop >= NUMBER_OF_DESKTOPS || targetDesktop == currentDesktop) {
             return;
         }
+        if (showingDesktop) setShowingDesktop(false, false);
         int prevDesktop = currentDesktop;
         currentDesktop = targetDesktop;
 
@@ -1311,7 +1345,7 @@ public final class X11WindowManagerService implements AutoCloseable {
         NativeLong[] supportedAtoms = new NativeLong[]{
             netSupportingWmCheck, netWmName, netSupported, netClientList, netActiveWindow, netCloseWindow,
             netWmWindowType, netWmWindowTypeDock, netWmState, netWmStateHidden, netWmStateFullscreen, netWmStrut, netWmStrutPartial,
-            netNumberOfDesktops, netCurrentDesktop, netDesktopNames, netWmDesktop, netWmPing
+            netNumberOfDesktops, netCurrentDesktop, netDesktopNames, netWmDesktop, netWmPing, netShowingDesktop
         };
         Memory supMem = new Memory((long) supportedAtoms.length * NativeLong.SIZE);
         for (int i = 0; i < supportedAtoms.length; i++) {
@@ -1372,6 +1406,8 @@ public final class X11WindowManagerService implements AutoCloseable {
         if (win == 0 || core.registry().find(win).isEmpty()) {
             return;
         }
+        // Activating a window, from the dock, Alt+Tab or a new window, ends showing the desktop.
+        if (showingDesktop) setShowingDesktop(false, false);
         // The window losing the focus is in full view until the new one comes up: keep its picture for
         // Alt+Tab. During a switcher round the popup is on screen, so nothing is read then.
         if (switcher == null && activeWindow != 0 && activeWindow != win) {
@@ -1969,6 +2005,11 @@ public final class X11WindowManagerService implements AutoCloseable {
                     startSearch();
                     return;
                 }
+                if ((keyEvent.state & (int) LibX11.Mod4Mask) != 0 && showDesktopKeycode != 0
+                        && keyEvent.keycode == showDesktopKeycode) {
+                    setShowingDesktop(!showingDesktop);
+                    return;
+                }
                 if (isAlt && tabKeycode != 0 && keyEvent.keycode == tabKeycode) {
                     openSwitcher((keyEvent.state & (int) LibX11.ShiftMask) != 0);
                     return;
@@ -2024,6 +2065,17 @@ public final class X11WindowManagerService implements AutoCloseable {
                     return;
                 }
                 // --8<-- [end:frameless]
+
+                // --8<-- [start:desktop-widget]
+                // A desktop widget (amadeos-widgets): mapped where it asks to be, without a frame, below every
+                // window, outside the client list, so the dock, Alt+Tab and show desktop leave it alone.
+                if (hasProperty(win, desktopWidgetAtom)) {
+                    x11.XMapWindow(display, new NativeLong(win));
+                    x11.XLowerWindow(display, new NativeLong(win));
+                    x11.XFlush(display);
+                    return;
+                }
+                // --8<-- [end:desktop-widget]
 
                 if (isSpecialUnmanagedWindow(win)) {
                     LOGGER.info(() -> "Mapping unmanaged fullscreen special window: " + win + " (" + fetchWindowTitle(win) + ")");
@@ -2304,6 +2356,11 @@ public final class X11WindowManagerService implements AutoCloseable {
                             }
                         }
                     }
+                } else if (cmsg.message_type != null && cmsg.message_type.equals(netShowingDesktop)) {
+                    boolean on = cmsg.data != null && cmsg.data.length > 0 && cmsg.data[0] != null
+                            && cmsg.data[0].longValue() != 0;
+                    setShowingDesktop(on);
+                    LOGGER.info(() -> "ClientMessage _NET_SHOWING_DESKTOP " + on);
                 } else if (cmsg.message_type != null && cmsg.message_type.equals(netCurrentDesktop)) {
                     long targetDesktop = (cmsg.data != null && cmsg.data.length > 0 && cmsg.data[0] != null) ? cmsg.data[0].longValue() : 0L;
                     switchDesktop((int) targetDesktop);
@@ -3156,6 +3213,62 @@ public final class X11WindowManagerService implements AutoCloseable {
         }
         x11.XFlush(display);
     }
+
+    // --8<-- [start:show-desktop]
+    /**
+     * Shows the desktop: the windows of the current workspace are taken off the screen, not minimised, so the
+     * dock shows no minimised marks and the classic look gets no desktop icons; the desktop widgets stay. Off
+     * again, they come back in their order and the window that was active gets the keyboard again.
+     */
+    public void setShowingDesktop(boolean on) {
+        setShowingDesktop(on, true);
+    }
+
+    private void setShowingDesktop(boolean on, boolean refocus) {
+        if (on == showingDesktop) return;
+        showingDesktop = on;
+        if (on) {
+            desktopHidden.clear();
+            for (var managed : core.registry().snapshot()) {
+                long win = managed.id();
+                FrameWindow frame = clientToFrame.get(win);
+                int desk = getClientDesktop(win);
+                if (frame == null || frame.isMinimized() || (desk != currentDesktop && !isSticky(desk))) continue;
+                if (switcher == null) capturePreview(win);
+                x11.XUnmapWindow(display, frame.frameWindow());
+                desktopHidden.add(win);
+            }
+            activeBeforeDesktop = activeWindow;
+            if (activeWindow != 0) grabWindowButtons(activeWindow);
+            activeWindow = 0;
+            setActiveWindow(0);
+            x11.XSetInputFocus(display, new NativeLong(rootWindow), LibX11.RevertToPointerRoot, new NativeLong(LibX11.CurrentTime));
+        } else {
+            for (long win : desktopHidden) {
+                FrameWindow frame = clientToFrame.get(win);
+                if (frame == null || frame.isMinimized()) continue;
+                x11.XMapWindow(display, frame.frameWindow());
+                frame.render();
+                frame.blit(display, gc, screen);
+                sendSyntheticConfigureNotify(frame);
+            }
+            desktopHidden.clear();
+            if (refocus && activeBeforeDesktop != 0 && clientToFrame.containsKey(activeBeforeDesktop)) {
+                focusClient(activeBeforeDesktop);
+            }
+        }
+        Memory mem = new Memory(NativeLong.SIZE);
+        mem.setNativeLong(0, new NativeLong(on ? 1 : 0));
+        x11.XChangeProperty(display, new NativeLong(rootWindow), netShowingDesktop, xaCardinalAtom, 32,
+                LibX11.PropModeReplace, mem, 1);
+        x11.XFlush(display);
+        LOGGER.info(() -> on ? "Showing the desktop" : "Windows back from showing the desktop");
+    }
+
+    public boolean isShowingDesktop() {
+        return showingDesktop;
+    }
+    // --8<-- [end:show-desktop]
 
     public void restoreWindow(FrameWindow frame) {
         if (frame == null) {

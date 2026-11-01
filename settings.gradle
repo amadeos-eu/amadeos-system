@@ -16,6 +16,7 @@ include 'sysinfo'
 include 'packages'
 include 'software'
 include 'taskmanager'
+include 'widgets'
 
 // Develop against a local amade-commons checkout next to this one; without it, the version from
 // JitPack given in build.gradle is used.

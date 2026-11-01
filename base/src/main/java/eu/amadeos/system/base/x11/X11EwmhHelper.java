@@ -387,6 +387,18 @@ public class X11EwmhHelper implements AutoCloseable {
     }
     // --8<-- [end:frameless]
 
+    /**
+     * Marks a desktop widget's window: the window manager maps it without a frame below all windows and keeps
+     * it out of the client list. Set after {@code addNotify()} and before the window is first shown.
+     */
+    public void setDesktopWidget(long win) {
+        Memory one = new Memory(NativeLong.SIZE);
+        one.setNativeLong(0, new NativeLong(1));
+        x11.XChangeProperty(display, new NativeLong(win), x11.XInternAtom(display, "_AMADEOS_DESKTOP_WIDGET", 0),
+                xaCardinalAtom, 32, LibX11.PropModeReplace, one, 1);
+        x11.XFlush(display);
+    }
+
     /** The window's own icon (_NET_WM_ICON) at {@code size} pixels, or null if it has none. */
     public java.awt.image.BufferedImage getWindowIcon(long win, int size) {
         NativeLong atom = x11.XInternAtom(display, "_NET_WM_ICON", 0);
@@ -616,6 +628,47 @@ public class X11EwmhHelper implements AutoCloseable {
         }
         return 0;
     }
+
+    // --8<-- [start:show-desktop]
+    /** True while the window manager shows the desktop (_NET_SHOWING_DESKTOP on the root window). */
+    public boolean isShowingDesktop() {
+        NativeLong atom = x11.XInternAtom(display, "_NET_SHOWING_DESKTOP", 0);
+        PointerByReference actualTypeRet = new PointerByReference();
+        IntByReference actualFormatRet = new IntByReference();
+        NativeLongByReference nitemsRet = new NativeLongByReference();
+        NativeLongByReference bytesAfterRet = new NativeLongByReference();
+        PointerByReference propRet = new PointerByReference();
+        int status = x11.XGetWindowProperty(display, new NativeLong(rootWindow), atom, new NativeLong(0),
+                new NativeLong(1), 0, xaCardinalAtom, actualTypeRet, actualFormatRet, nitemsRet, bytesAfterRet, propRet);
+        if (status == 0 && propRet.getValue() != null && nitemsRet.getValue() != null && nitemsRet.getValue().longValue() > 0) {
+            Pointer ptr = propRet.getValue();
+            try {
+                return ptr.getNativeLong(0).longValue() != 0;
+            } finally {
+                x11.XFree(ptr);
+            }
+        }
+        return false;
+    }
+
+    /** Asks the window manager to show the desktop, or to bring the windows back. */
+    public void setShowingDesktop(boolean on) {
+        LibX11.XClientMessageEvent cmsg = new LibX11.XClientMessageEvent();
+        cmsg.type = LibX11.ClientMessage;
+        cmsg.serial = new NativeLong(0);
+        cmsg.send_event = 1;
+        cmsg.display = display;
+        cmsg.window = new NativeLong(rootWindow);
+        cmsg.message_type = x11.XInternAtom(display, "_NET_SHOWING_DESKTOP", 0);
+        cmsg.format = 32;
+        cmsg.data = new NativeLong[]{new NativeLong(on ? 1 : 0), new NativeLong(0), new NativeLong(0),
+                new NativeLong(0), new NativeLong(0)};
+        cmsg.write();
+        long mask = LibX11.SubstructureRedirectMask | LibX11.SubstructureNotifyMask;
+        x11.XSendEvent(display, new NativeLong(rootWindow), 0, new NativeLong(mask), cmsg.getPointer());
+        x11.XFlush(display);
+    }
+    // --8<-- [end:show-desktop]
 
     public void setCurrentDesktop(int desktopIndex) {
         LibX11.XClientMessageEvent cmsg = new LibX11.XClientMessageEvent();
