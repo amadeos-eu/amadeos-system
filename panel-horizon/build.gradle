@@ -1,4 +1,4 @@
-// Horizon's top bar: the system menu with the programs, the name and menu of the active program, the
+// Horizon's top bar and dock. The top bar: the system menu with the programs, the name and menu of the active program, the
 // workspaces, the status cells of the Front Panel (network, sound, battery, Bluetooth, notifications, updates,
 // camera) and the clock. `amadeos-panel-horizon`; amadeos-session starts it instead of the Front Panel while
 // the desktop look is Horizon (Settings > Appearance).
@@ -17,11 +17,13 @@ debian = [
     javaOptions: '--enable-native-access=ALL-UNNAMED',
     depends    : ['network-manager', 'polkitd', 'pulseaudio-utils'],
     recommends : ['amadeos-wm', 'amadeos-settings', 'amadeos-sysinfo', 'amadeos-packages'],
-    summary    : 'Horizon top bar of amadeOS',
+    summary    : 'Horizon top bar and dock of amadeOS',
     description: '''The top bar of the Horizon desktop look of amadeOS: a system menu with the
 installed programs, Settings, Software, lock and log out; the name and window menu of
 the active program; the four workspaces; the status cells of the Front Panel (network,
 sound, battery, Bluetooth, notifications, updates, camera) and the clock with the date.
-amadeos-session starts it instead of the CDE Front Panel while Settings > Appearance
-has the Horizon look.'''
+At the bottom of the screen, the dock: the favourite and running programs, the
+program drawers, the Downloads and Documents folders and the Trash; minimised windows
+go into the dock. amadeos-session starts it instead of the CDE Front Panel while
+Settings > Appearance has the Horizon look.'''
 ]
