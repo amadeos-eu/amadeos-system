@@ -40,6 +40,9 @@ class TopBarTest {
         assertTrue(HorizonTopBar.clockText(t, Locale.GERMANY).endsWith("10:15"));
     }
 
+    /** Words that are the same as in English. */
+    private static final java.util.Set<String> SAME_WORD = java.util.Set.of("de:dock.downloads", "fr:dock.documents");
+
     @Test
     void everyLanguageHasEveryText() {
         ResourceBundle en = ResourceBundle.getBundle(TopBarTexts.BUNDLE, Locale.ROOT);
@@ -47,7 +50,7 @@ class TopBarTest {
             ResourceBundle other = ResourceBundle.getBundle(TopBarTexts.BUNDLE, Locale.of(lang));
             for (String key : en.keySet()) {
                 assertTrue(other.containsKey(key) && !other.getString(key).equals(en.getString(key))
-                        || key.equals("system.software"), lang + " " + key);
+                        || key.equals("system.software") || SAME_WORD.contains(lang + ":" + key), lang + " " + key);
             }
         }
     }

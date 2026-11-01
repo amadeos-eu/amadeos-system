@@ -3,6 +3,7 @@ package eu.amadeos.system.settings;
 import eu.amadeos.commons.theme.DesktopLook;
 import eu.amadeos.commons.theme.DesktopTheme;
 import eu.amadeos.commons.theme.HorizonThemes;
+import eu.amadeos.system.base.panel.DockSettings;
 import eu.amadeos.system.base.theme.ThemeManager;
 import eu.amadeos.system.base.theme.WallpaperManager;
 import eu.amadeos.system.base.x11.X11EwmhHelper;
@@ -47,6 +48,13 @@ final class LookPage extends SettingsPage {
     private final Map<HorizonThemes.Accent, AccentButton> accents = new EnumMap<>(HorizonThemes.Accent.class);
     private final JPanel horizonBox = new JPanel();
     private final JCheckBox backdrop = new JCheckBox(SettingsTexts.get("look.backdrop"), true);
+    private final JPanel dockBox = new JPanel();
+    private final JRadioButton[] dockSizes = {
+            new JRadioButton(SettingsTexts.get("look.dock.small")),
+            new JRadioButton(SettingsTexts.get("look.dock.medium")),
+            new JRadioButton(SettingsTexts.get("look.dock.large"))};
+    private final JCheckBox dockDrawers = new JCheckBox(SettingsTexts.get("look.dock.drawers"));
+    private final JCheckBox dockFolders = new JCheckBox(SettingsTexts.get("look.dock.folders"));
     /** Horizon's pictures, one per scheme (package amadeos-settings). */
     static final String HORIZON_BACKDROPS = "/usr/share/backgrounds/amadeos/horizon-";
     private DesktopLook look;
@@ -93,13 +101,27 @@ final class LookPage extends SettingsPage {
         horizonBox.add(line(new JLabel(SettingsTexts.get("look.accent")), accentRow));
         horizonBox.add(line(backdrop));
 
+        // --8<-- [start:dock]
+        ButtonGroup sizes = new ButtonGroup();
+        for (JRadioButton b : dockSizes) sizes.add(b);
+        dockBox.setLayout(new BoxLayout(dockBox, BoxLayout.Y_AXIS));
+        dockBox.setBorder(BorderFactory.createTitledBorder(SettingsTexts.get("look.dock")));
+        dockBox.add(line(new JLabel(SettingsTexts.get("look.dock.size")), dockSizes[0], dockSizes[1], dockSizes[2]));
+        dockBox.add(line(dockDrawers));
+        dockBox.add(line(dockFolders));
+        showDockSettings(DockSettings.load(DockSettings.userFile()));
+        // --8<-- [end:dock]
+
         JPanel content = new JPanel();
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
         lookBox.setAlignmentX(Component.LEFT_ALIGNMENT);
         horizonBox.setAlignmentX(Component.LEFT_ALIGNMENT);
+        dockBox.setAlignmentX(Component.LEFT_ALIGNMENT);
         content.add(lookBox);
         content.add(Box.createVerticalStrut(10));
         content.add(horizonBox);
+        content.add(Box.createVerticalStrut(10));
+        content.add(dockBox);
         JPanel holder = new JPanel(new BorderLayout());
         holder.add(content, BorderLayout.NORTH);
         layoutPage(holder);
@@ -119,6 +141,7 @@ final class LookPage extends SettingsPage {
         classic.setSelected(chosen == DesktopLook.CLASSIC);
         horizon.setSelected(chosen == DesktopLook.HORIZON);
         setEnabledDeep(horizonBox, chosen == DesktopLook.HORIZON);
+        setEnabledDeep(dockBox, chosen == DesktopLook.HORIZON);
         repaintCards();
     }
 
@@ -146,6 +169,7 @@ final class LookPage extends SettingsPage {
     // --8<-- [start:apply]
     @Override
     protected String apply() {
+        boolean dockChanged = saveDockSettings();
         DesktopTheme before = ThemeManager.currentTheme();
         if (look == DesktopLook.HORIZON) {
             ThemeManager.applyHorizonColors(scheme(), accent);
@@ -153,7 +177,9 @@ final class LookPage extends SettingsPage {
             ThemeManager.applyLook(DesktopLook.CLASSIC);
         }
         DesktopTheme after = ThemeManager.currentTheme();
-        if (after.id().equals(before.id())) return SettingsTexts.get("look.unchanged");
+        if (after.id().equals(before.id())) {
+            return SettingsTexts.get(dockChanged ? "look.dock.saved" : "look.unchanged");
+        }
         matchBackdrop(before, after);
         // The window manager and the panel follow the theme on the root window
         try (X11EwmhHelper helper = X11EwmhHelper.open(null)) {
@@ -196,8 +222,33 @@ final class LookPage extends SettingsPage {
         accent = HorizonThemes.accent(id);
         accents.values().forEach(x -> x.setSelected(x.accent == accent));
         (HorizonThemes.scheme(id) == HorizonThemes.Scheme.LIGHT ? light : dark).setSelected(true);
+        showDockSettings(DockSettings.load(DockSettings.userFile()));
         choose(current.look());
     }
+
+    private void showDockSettings(DockSettings d) {
+        for (int i = 0; i < dockSizes.length; i++) dockSizes[i].setSelected(DockSettings.SIZES[i] == d.iconSize());
+        dockDrawers.setSelected(d.drawers());
+        dockFolders.setSelected(d.folders());
+    }
+
+    // --8<-- [start:dock-save]
+    /** Writes dock.conf when the dock controls changed; the favourites stay as the dock keeps them. The dock follows at once. */
+    private boolean saveDockSettings() {
+        DockSettings stored = DockSettings.load(DockSettings.userFile());
+        int size = stored.iconSize();
+        for (int i = 0; i < dockSizes.length; i++) if (dockSizes[i].isSelected()) size = DockSettings.SIZES[i];
+        DockSettings chosen = new DockSettings(stored.favourites(), size, dockDrawers.isSelected(), dockFolders.isSelected());
+        if (chosen.equals(stored)) return false;
+        try {
+            chosen.save(DockSettings.userFile());
+        } catch (RuntimeException e) {
+            LOGGER.warning("Could not save the dock settings: " + e.getMessage());
+            return false;
+        }
+        return true;
+    }
+    // --8<-- [end:dock-save]
 
     /** A selectable picture of a look: a small desktop drawn in that look's style. */
     private final class LookCard extends JToggleButton {
@@ -271,6 +322,11 @@ final class LookPage extends SettingsPage {
             g.fillRect(w / 6 + 5, h / 5, w / 2 - 10, 2);
             g.setColor(t.textInactive());
             g.fillOval(w / 6 + w / 2 - 12, h / 5 + 4, 4, 4);
+            // the dock
+            g.setColor(t.panelFrameBg());
+            g.fillRoundRect(w / 4, h - 15, w / 2, 11, 6, 6);
+            g.setColor(t.activeTitleBg());
+            for (int i = 0; i < 6; i++) g.fillRoundRect(w / 4 + 6 + i * (w / 2 - 12) / 6, h - 13, 6, 6, 3, 3);
         }
     }
 

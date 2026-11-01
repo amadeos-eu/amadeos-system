@@ -359,6 +359,78 @@ public class X11EwmhHelper implements AutoCloseable {
         x11.XFlush(display);
     }
 
+    // --8<-- [start:dock-minimized]
+    /**
+     * Tells the window manager that this dock shows the minimised windows itself (Horizon's dock), so that
+     * minimised windows get no icon on the desktop. Set before the dock is mapped.
+     */
+    public void setDockTakesMinimized(long win) {
+        Memory one = new Memory(NativeLong.SIZE);
+        one.setNativeLong(0, new NativeLong(1));
+        x11.XChangeProperty(display, new NativeLong(win), x11.XInternAtom(display, "_AMADEOS_DOCK_TAKES_MINIMIZED", 0),
+                xaCardinalAtom, 32, LibX11.PropModeReplace, one, 1);
+        x11.XFlush(display);
+    }
+    // --8<-- [end:dock-minimized]
+
+    /** The window's own icon (_NET_WM_ICON) at {@code size} pixels, or null if it has none. */
+    public java.awt.image.BufferedImage getWindowIcon(long win, int size) {
+        NativeLong atom = x11.XInternAtom(display, "_NET_WM_ICON", 0);
+        PointerByReference type = new PointerByReference();
+        IntByReference format = new IntByReference();
+        NativeLongByReference items = new NativeLongByReference();
+        NativeLongByReference after = new NativeLongByReference();
+        PointerByReference prop = new PointerByReference();
+        int status = x11.XGetWindowProperty(display, new NativeLong(win), atom, new NativeLong(0),
+                new NativeLong(1L << 17), 0, new NativeLong(LibX11.XA_CARDINAL), type, format, items, after, prop);
+        Pointer data = prop.getValue();
+        if (status != 0 || data == null) return null;
+        try {
+            long count = items.getValue().longValue();
+            if (format.getValue() != 32 || count < 3) return null;
+            long[] values = new long[(int) count];
+            for (int i = 0; i < count; i++) values[i] = data.getNativeLong((long) i * NativeLong.SIZE).longValue();
+            return pickIcon(values, size);
+        } finally {
+            x11.XFree(data);
+        }
+    }
+
+    /**
+     * The icon closest to {@code size} from a _NET_WM_ICON value (width, height, ARGB pixels, repeated): the
+     * smallest one at least that large, else the largest, scaled to {@code size}.
+     */
+    public static java.awt.image.BufferedImage pickIcon(long[] values, int size) {
+        int best = -1;
+        int bestW = 0;
+        int bestH = 0;
+        int i = 0;
+        while (i + 2 <= values.length) {
+            int w = (int) values[i];
+            int h = (int) values[i + 1];
+            if (w <= 0 || h <= 0 || i + 2 + (long) w * h > values.length) break;
+            boolean better = best < 0 || (w >= size && (bestW < size || w < bestW)) || (bestW < size && w > bestW);
+            if (better) {
+                best = i;
+                bestW = w;
+                bestH = h;
+            }
+            i += 2 + w * h;
+        }
+        if (best < 0) return null;
+        java.awt.image.BufferedImage icon = new java.awt.image.BufferedImage(bestW, bestH, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        int[] pixels = new int[bestW * bestH];
+        for (int p = 0; p < pixels.length; p++) pixels[p] = (int) values[best + 2 + p];
+        icon.setRGB(0, 0, bestW, bestH, pixels, 0, bestW);
+        if (bestW == size && bestH == size) return icon;
+        java.awt.image.BufferedImage scaled = new java.awt.image.BufferedImage(size, size, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        java.awt.Graphics2D g = scaled.createGraphics();
+        g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g.drawImage(icon, 0, 0, size, size, null);
+        g.dispose();
+        return scaled;
+    }
+
     /** Asks the window manager to close the window, as its close button would (_NET_CLOSE_WINDOW). */
     public void closeWindow(long win) {
         LibX11.XClientMessageEvent cmsg = new LibX11.XClientMessageEvent();
