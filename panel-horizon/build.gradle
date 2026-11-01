@@ -18,7 +18,7 @@ debian = [
     section    : 'x11',
     javaOptions: '--enable-native-access=ALL-UNNAMED',
     depends    : ['network-manager', 'polkitd', 'pulseaudio-utils'],
-    recommends : ['amadeos-wm', 'amadeos-settings', 'amadeos-sysinfo', 'amadeos-packages'],
+    recommends : ['amadeos-wm', 'amadeos-settings', 'amadeos-sysinfo', 'amadeos-packages', 'amadeos-widgets'],
     summary    : 'Horizon top bar and dock of amadeOS',
     description: '''The top bar of the Horizon desktop look of amadeOS: a system menu with the
 installed programs, Settings, Software, lock and log out; the name and window menu of
