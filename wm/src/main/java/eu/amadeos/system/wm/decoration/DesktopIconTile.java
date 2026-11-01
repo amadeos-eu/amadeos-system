@@ -67,7 +67,14 @@ public final class DesktopIconTile {
     }
 
     public int y() {
-        return index * TILE_HEIGHT;
+        return top + index * TILE_HEIGHT;
+    }
+
+    /** Where the column of tiles starts: below a top bar (Horizon), else at the top of the screen. */
+    private static volatile int top;
+
+    public static void setTop(int y) {
+        top = Math.max(0, y);
     }
 
     public String title() {

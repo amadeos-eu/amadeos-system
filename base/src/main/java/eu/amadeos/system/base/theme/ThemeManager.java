@@ -1,7 +1,9 @@
 package eu.amadeos.system.base.theme;
 
 import eu.amadeos.commons.swing.AmadeUI;
+import eu.amadeos.commons.theme.DesktopLook;
 import eu.amadeos.commons.theme.DesktopTheme;
+import eu.amadeos.commons.theme.HorizonThemes;
 import eu.amadeos.commons.theme.ThemeRegistry;
 import eu.amadeos.commons.theme.ThemeStore;
 import eu.amadeos.system.base.xdg.XdgDirectories;
@@ -13,6 +15,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.Logger;
 
@@ -86,10 +89,64 @@ public final class ThemeManager {
         AmadeUI.install(theme);
         IconManager.clearCache();
         LOGGER.info(() -> "Applied desktop theme: " + theme.name() + " (" + theme.id() + ")");
-        persist(ThemeStore.THEME_FILE, theme.id());
+        persistLook(theme);
         notifyListeners(theme);
     }
     // --8<-- [end:apply]
+
+    /** The look of the current theme: classic or Horizon. */
+    public static DesktopLook currentLook() {
+        return currentTheme.look();
+    }
+
+    // --8<-- [start:look]
+    /**
+     * Switches the desktop look: Horizon with the scheme and accent last chosen for it, or classic with the
+     * classic palette last chosen. The window manager, the panels and the applications follow.
+     */
+    public static synchronized void applyLook(DesktopLook look) {
+        if (look == currentLook()) return;
+        Path dir = XdgDirectories.amadeosConfigDir();
+        if (look == DesktopLook.HORIZON) {
+            Properties p = ThemeStore.readLook(dir);
+            applyTheme(HorizonThemes.id(HorizonThemes.Scheme.of(p.getProperty("scheme")),
+                    HorizonThemes.Accent.of(p.getProperty("accent"))));
+        } else {
+            String classic = readLine(dir.resolve(ThemeStore.THEME_FILE));
+            applyTheme(REGISTRY.find(classic).filter(t -> t.look() == DesktopLook.CLASSIC)
+                    .orElse(DesktopTheme.WARM_MOTIF).id());
+        }
+    }
+    // --8<-- [end:look]
+
+    /** Horizon's colours: the scheme (dark or light) and the accent. */
+    public static void applyHorizonColors(HorizonThemes.Scheme scheme, HorizonThemes.Accent accent) {
+        applyTheme(HorizonThemes.id(scheme, accent));
+    }
+
+    /**
+     * Stores the theme: a classic palette in theme.conf, and the look (with Horizon's scheme and accent) in
+     * look.conf, so that switching the look back and forth keeps both choices.
+     */
+    private static void persistLook(DesktopTheme theme) {
+        Path dir = XdgDirectories.amadeosConfigDir();
+        if (theme.look() == DesktopLook.CLASSIC) {
+            persist(ThemeStore.THEME_FILE, theme.id());
+        }
+        Properties previous = ThemeStore.readLook(dir);
+        boolean hadLook = !previous.isEmpty();
+        if (hadLook || theme.look() != DesktopLook.CLASSIC) {
+            persist(ThemeStore.LOOK_FILE, ThemeStore.lookFile(theme, previous));
+        }
+    }
+
+    private static String readLine(Path file) {
+        try {
+            return Files.isRegularFile(file) ? Files.readString(file, StandardCharsets.UTF_8).strip() : null;
+        } catch (IOException e) {
+            return null;
+        }
+    }
 
     public static synchronized void applyTheme(DesktopTheme theme) {
         registerTheme(theme);

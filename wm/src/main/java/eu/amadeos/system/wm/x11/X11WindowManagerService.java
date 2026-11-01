@@ -30,6 +30,7 @@ import eu.amadeos.system.wm.decoration.DesktopIconTile;
 import eu.amadeos.system.wm.decoration.FrameMetrics;
 import eu.amadeos.system.wm.decoration.FrameWindow;
 import eu.amadeos.system.wm.decoration.MotifDecorationTheme;
+import eu.amadeos.system.wm.decoration.SwitchableDecorationTheme;
 import eu.amadeos.system.wm.decoration.ResizeDirection;
 import eu.amadeos.system.wm.decoration.WindowButton;
 import eu.amadeos.system.base.process.LockLauncher;
@@ -91,7 +92,8 @@ public final class X11WindowManagerService implements AutoCloseable {
     private final long checkWindow;
     private final Pointer gc;
     private final Pointer xorGc;
-    private final DecorationTheme theme = new MotifDecorationTheme();
+    /** Motif frames for the classic look, Horizon frames for Horizon; every frame holds this one object. */
+    private final SwitchableDecorationTheme theme = new SwitchableDecorationTheme(ThemeManager.currentTheme());
     private final Map<Long, FrameWindow> clientToFrame;
     /**
      * Where the frame of a withdrawn (hidden) client was, and where the client was put on the root: if it is
@@ -194,6 +196,10 @@ public final class X11WindowManagerService implements AutoCloseable {
     /** The rendered backdrops of the workspaces, so a switch only swaps the root window's pixmap. */
     private final Map<Backdrop, NativeLong> backdropPixmaps = new HashMap<>();
     private int dockMarginBottom = 0;
+    /** The space at the top of the screen the docks reserve (Horizon's top bar). */
+    private int dockMarginTop = 0;
+    /** The struts of the dock windows: top and bottom, each reserved from that screen edge. */
+    private final Map<Long, int[]> dockStruts = new HashMap<>();
 
     // CDE Desktop Minimized Icon Tiles (top-left, vertically stacked with 0px spacing)
     private final java.util.List<DesktopIconTile> iconTiles = new java.util.ArrayList<>();
@@ -665,18 +671,19 @@ public final class X11WindowManagerService implements AutoCloseable {
         } catch (RuntimeException e) {
             LOGGER.fine("Backdrop not redrawn: " + e.getMessage());
         }
-        int maxH = Math.max(100, screenHeight - dockMarginBottom);
+        int top = workTop();
+        int maxH = workBottom();
         for (FrameWindow frame : java.util.List.copyOf(clientToFrame.values())) {
             FrameMetrics m = frame.metrics();
             if (frame.isFullScreen()) {
                 frame.setBounds(-m.clientOffsetX(), -m.clientOffsetY(), m.frameWidth(screenWidth), m.frameHeight(screenHeight));
             } else if (frame.isMaximized()) {
-                frame.setBounds(0, 0, screenWidth, maxH);
+                frame.setBounds(0, top, screenWidth, maxH - top);
             } else {
                 int w = Math.min(frame.frameWidth(), screenWidth);
-                int h = Math.min(frame.frameHeight(), maxH);
+                int h = Math.min(frame.frameHeight(), maxH - top);
                 int x = Math.max(0, Math.min(frame.frameX(), screenWidth - w));
-                int y = Math.max(0, Math.min(frame.frameY(), maxH - h));
+                int y = Math.max(top, Math.min(frame.frameY(), maxH - h));
                 if (x == frame.frameX() && y == frame.frameY() && w == frame.frameWidth() && h == frame.frameHeight()) {
                     continue;
                 }
@@ -750,6 +757,64 @@ public final class X11WindowManagerService implements AutoCloseable {
 
     public void setDockMarginBottom(int margin) {
         this.dockMarginBottom = Math.max(0, margin);
+    }
+
+    /** The top of the area for windows: below a top bar, if a dock reserves the top edge. */
+    int workTop() {
+        return Math.max(0, Math.min(dockMarginTop, screenHeight - 100));
+    }
+
+    /** The bottom of the area for windows: above the Front Panel or a dock at the bottom. */
+    int workBottom() {
+        return Math.max(workTop() + 100, screenHeight - dockMarginBottom);
+    }
+
+    // --8<-- [start:struts]
+    /** Remembers the space a dock reserves at the top and bottom of the screen and fits the work area to all docks. */
+    private void rememberDockStruts(long win) {
+        dockStruts.put(win, readDockStruts(win));
+        recomputeDockMargins();
+    }
+
+    private void recomputeDockMargins() {
+        int top = 0;
+        int bottom = 0;
+        for (int[] strut : dockStruts.values()) {
+            top = Math.max(top, strut[0]);
+            bottom = Math.max(bottom, strut[1]);
+        }
+        boolean changed = top != dockMarginTop || bottom != dockMarginBottom;
+        dockMarginTop = top;
+        dockMarginBottom = bottom;
+        if (changed) {
+            LOGGER.info("Docks reserve " + top + " px at the top and " + bottom + " px at the bottom");
+            DesktopIconTile.setTop(workTop());
+            for (DesktopIconTile tile : iconTiles) x11.XMoveWindow(display, tile.tileWin(), 0, tile.y());
+            fitMaximizedWindows();
+        }
+    }
+
+    /** Maximised windows fill the work area again, after a dock came or went. */
+    private void fitMaximizedWindows() {
+        for (FrameWindow frame : java.util.List.copyOf(clientToFrame.values())) {
+            if (!frame.isMaximized() || frame.isFullScreen()) continue;
+            frame.setBounds(0, workTop(), screenWidth, workBottom() - workTop());
+            moveResize(frame);
+        }
+        x11.XFlush(display);
+    }
+    // --8<-- [end:struts]
+
+    /** Puts frame and client where the frame says, repaints the frame and tells the client and the registry. */
+    private void moveResize(FrameWindow frame) {
+        x11.XMoveResizeWindow(display, frame.frameWindow(), frame.frameX(), frame.frameY(), frame.frameWidth(), frame.frameHeight());
+        x11.XMoveResizeWindow(display, frame.clientWindow(),
+                frame.clientX(), frame.clientY(), frame.clientWidth(), frame.clientHeight());
+        frame.render();
+        frame.blit(display, gc, screen);
+        sendSyntheticConfigureNotify(frame);
+        core.registry().updateGeometry(frame.clientWindow().longValue(),
+                new WindowGeometry(frame.frameX(), frame.frameY(), frame.frameWidth(), frame.frameHeight()));
     }
 
     public int currentDesktop() {
@@ -1114,7 +1179,8 @@ public final class X11WindowManagerService implements AutoCloseable {
         return false;
     }
 
-    public int readDockStrutBottom(long win) {
+    /** The top and bottom struts of a dock (_NET_WM_STRUT_PARTIAL, else _NET_WM_STRUT); zeros without. */
+    public int[] readDockStruts(long win) {
         PointerByReference actualTypeRet = new PointerByReference();
         IntByReference actualFormatRet = new IntByReference();
         com.sun.jna.ptr.NativeLongByReference nitemsRet = new com.sun.jna.ptr.NativeLongByReference();
@@ -1131,16 +1197,17 @@ public final class X11WindowManagerService implements AutoCloseable {
             if (status == 0 && propRet.getValue() != null && nitemsRet.getValue() != null && nitemsRet.getValue().longValue() >= 4) {
                 Pointer ptr = propRet.getValue();
                 try {
-                    long bottomStrut = ptr.getNativeLong(3L * NativeLong.SIZE).longValue();
-                    if (bottomStrut > 0) {
-                        return (int) bottomStrut;
+                    long top = ptr.getNativeLong(2L * NativeLong.SIZE).longValue();
+                    long bottom = ptr.getNativeLong(3L * NativeLong.SIZE).longValue();
+                    if (top > 0 || bottom > 0) {
+                        return new int[]{(int) Math.min(top, 4096), (int) Math.min(bottom, 4096)};
                     }
                 } finally {
                     x11.XFree(ptr);
                 }
             }
         }
-        return 0;
+        return new int[]{0, 0};
     }
 
     private void initEwmh() {
@@ -1440,8 +1507,9 @@ public final class X11WindowManagerService implements AutoCloseable {
     }
 
     public void applyThemeGlobally(DesktopTheme newTheme) {
-        if (theme instanceof MotifDecorationTheme motifTheme) {
-            motifTheme.setTheme(newTheme);
+        FrameMetrics before = theme.metrics();
+        if (theme.setTheme(newTheme)) {
+            refitFrames(before, theme.metrics());
         }
         for (FrameWindow frame : clientToFrame.values()) {
             frame.render();
@@ -1463,6 +1531,44 @@ public final class X11WindowManagerService implements AutoCloseable {
         x11.XFlush(display);
         LOGGER.info(() -> "WM updated all window frames and desktop icon tiles to theme: " + newTheme.name());
     }
+
+    // --8<-- [start:refit]
+    /**
+     * The look changed and with it the frame style: every frame is fitted around its window again, so that the
+     * windows keep their place and size on screen while title bar and border change.
+     */
+    private void refitFrames(FrameMetrics before, FrameMetrics after) {
+        LOGGER.info(() -> "Frame style changed to " + theme.name() + ": fitting the frames again");
+        for (FrameWindow frame : java.util.List.copyOf(clientToFrame.values())) {
+            int clientX = frame.frameX() + before.clientOffsetX();
+            int clientY = frame.frameY() + before.clientOffsetY();
+            int clientW = before.clientWidth(frame.frameWidth());
+            int clientH = before.clientHeight(frame.frameHeight());
+            if (frame.unmaximizedBounds() != null) frame.setUnmaximizedBounds(convert(frame.unmaximizedBounds(), before, after));
+            if (frame.normalBounds() != null) frame.setNormalBounds(convert(frame.normalBounds(), before, after));
+            if (frame.isFullScreen()) {
+                frame.setBounds(-after.clientOffsetX(), -after.clientOffsetY(), after.frameWidth(screenWidth), after.frameHeight(screenHeight));
+            } else if (frame.isMaximized()) {
+                frame.setBounds(0, workTop(), screenWidth, workBottom() - workTop());
+            } else {
+                frame.setBounds(clientX - after.clientOffsetX(), Math.max(workTop(), clientY - after.clientOffsetY()),
+                        after.frameWidth(clientW), after.frameHeight(clientH));
+            }
+            moveResize(frame);
+        }
+        x11.XFlush(display);
+    }
+
+    /** Frame bounds for the same client area under other frame measures. */
+    static Rectangle convert(Rectangle frame, FrameMetrics before, FrameMetrics after) {
+        int clientX = frame.x + before.clientOffsetX();
+        int clientY = frame.y + before.clientOffsetY();
+        int clientW = before.clientWidth(frame.width);
+        int clientH = before.clientHeight(frame.height);
+        return new Rectangle(clientX - after.clientOffsetX(), clientY - after.clientOffsetY(),
+                after.frameWidth(clientW), after.frameHeight(clientH));
+    }
+    // --8<-- [end:refit]
 
     public FrameWindow decorateAndReparent(long clientWin, WindowGeometry geom) {
         if (isDockWindow(clientWin) || isSpecialUnmanagedWindow(clientWin)) {
@@ -1547,6 +1653,7 @@ public final class X11WindowManagerService implements AutoCloseable {
                 theme
         );
         frame.setTitle(title);
+        if (previews != null) frame.setIcon(previews.icon(clientWin));
         frame.render();
 
         // Determine client's desktop
@@ -1621,10 +1728,7 @@ public final class X11WindowManagerService implements AutoCloseable {
                         if (isDockWindow(child) || isSpecialUnmanagedWindow(child)) {
                             if (isDockWindow(child)) {
                                 dockWindows.add(child);
-                                int strut = readDockStrutBottom(child);
-                                if (strut > 0) {
-                                    dockMarginBottom = strut;
-                                }
+                                rememberDockStruts(child);
                             } else if (isSpecialUnmanagedWindow(child)) {
                                 x11.XMoveResizeWindow(display, new NativeLong(child), 0, 0, screenWidth, screenHeight);
                             }
@@ -1837,13 +1941,10 @@ public final class X11WindowManagerService implements AutoCloseable {
 
                 if (isDockWindow(win)) {
                     dockWindows.add(win);
-                    int strut = readDockStrutBottom(win);
-                    if (strut > 0) {
-                        dockMarginBottom = strut;
-                    }
+                    rememberDockStruts(win);
                     x11.XMapWindow(display, new NativeLong(win));
                     x11.XRaiseWindow(display, new NativeLong(win));
-                    LOGGER.info(() -> "Mapped dock window without frame: " + win + " strutBottom=" + dockMarginBottom);
+                    LOGGER.info(() -> "Mapped dock window without frame: " + win + " struts top=" + dockMarginTop + " bottom=" + dockMarginBottom);
                     return;
                 }
 
@@ -1861,10 +1962,11 @@ public final class X11WindowManagerService implements AutoCloseable {
                 long transientFor = transientOwner(win);
 
                 FrameMetrics m = theme.metrics();
-                // A new window fits between the top of the screen and the top of the front panel
-                int maxUsableH = Math.max(100, screenHeight - dockMarginBottom);
+                // A new window fits between the top bar (if any) and the top of the front panel or dock
+                int top = workTop();
+                int maxUsableH = workBottom();
                 int clientW = Math.min(Math.max(100, w), m.clientWidth(screenWidth));
-                int clientH = Math.min(Math.max(60, h), m.clientHeight(maxUsableH));
+                int clientH = Math.min(Math.max(60, h), m.clientHeight(maxUsableH - top));
                 int frameW = m.frameWidth(clientW);
                 int frameH = m.frameHeight(clientH);
 
@@ -1875,15 +1977,15 @@ public final class X11WindowManagerService implements AutoCloseable {
                     frameX = parentGeom.x() + (parentGeom.width() - frameW) / 2;
                     frameY = parentGeom.y() + (parentGeom.height() - frameH) / 2;
                     frameX = Math.max(10, Math.min(frameX, screenWidth - frameW - 10));
-                    frameY = Math.max(10, Math.min(frameY, maxUsableH - frameH - 10));
+                    frameY = Math.max(top + 10, Math.min(frameY, maxUsableH - frameH - 10));
                 } else if (transientFor != 0) {
                     // Dialog of an unmanaged window (the front panel, or Swing's hidden owner frame):
                     // its owner-relative position is meaningless, so centre it on the usable screen
                     frameX = (screenWidth - frameW) / 2;
-                    frameY = (maxUsableH - frameH) / 2;
+                    frameY = top + (maxUsableH - top - frameH) / 2;
                 } else if (x > 0 || y > 0) {
                     frameX = Math.max(10, Math.min(x, screenWidth - frameW - 10));
-                    frameY = Math.max(10, Math.min(y, maxUsableH - frameH - 10));
+                    frameY = Math.max(top + 10, Math.min(y, maxUsableH - frameH - 10));
                 } else {
                     // Smart floating cascade offset from active window (or last managed window)
                     var activeRecord = (activeWindow != 0) ? core.registry().find(activeWindow) : Optional.<WindowRecord>empty();
@@ -1893,7 +1995,7 @@ public final class X11WindowManagerService implements AutoCloseable {
                         frameY = ag.y() + 30;
                         if (frameX + frameW > screenWidth - 20 || frameY + frameH > maxUsableH - 20) {
                             frameX = 40;
-                            frameY = 40;
+                            frameY = top + 40;
                         }
                     } else {
                         var all = new java.util.ArrayList<>(core.registry().snapshot());
@@ -1903,17 +2005,17 @@ public final class X11WindowManagerService implements AutoCloseable {
                             frameY = last.y() + 30;
                             if (frameX + frameW > screenWidth - 20 || frameY + frameH > maxUsableH - 20) {
                                 frameX = 40;
-                                frameY = 40;
+                                frameY = top + 40;
                             }
                         } else {
                             frameX = 50;
-                            frameY = 50;
+                            frameY = top + 50;
                         }
                     }
                 }
                 // Keep the whole frame on screen and above the front panel, whatever the branch above chose
                 frameX = Math.max(0, Math.min(frameX, screenWidth - frameW));
-                frameY = Math.max(0, Math.min(frameY, maxUsableH - frameH));
+                frameY = Math.max(top, Math.min(frameY, maxUsableH - frameH));
                 WindowGeometry initialGeom = new WindowGeometry(frameX, frameY, clientW, clientH);
 
                 // The new window will cover the active one: keep the active one's picture for Alt+Tab first.
@@ -2041,6 +2143,12 @@ public final class X11WindowManagerService implements AutoCloseable {
                 }
                 if (previews != null && previews.isIconProperty(prop.atom)) {
                     previews.iconChanged(win);
+                    FrameWindow iconFrame = clientToFrame.get(win);
+                    if (iconFrame != null) {
+                        iconFrame.setIcon(previews.icon(win));
+                        iconFrame.render();
+                        iconFrame.blit(display, gc, screen);
+                    }
                     break;
                 }
                 FrameWindow frame = clientToFrame.get(win);
@@ -2141,11 +2249,12 @@ public final class X11WindowManagerService implements AutoCloseable {
                 } else if (frame != null) {
                     FrameMetrics m = theme.metrics();
                     long mask = (cfg.value_mask != null) ? cfg.value_mask.longValue() : 0L;
-                    int maxUsableH = Math.max(100, screenHeight - dockMarginBottom);
+                    int top = workTop();
+                    int maxUsableH = workBottom();
                     int clientW = ((mask & LibX11.CWWidth) != 0) ? Math.max(100, cfg.width) : frame.clientWidth();
                     int clientH = ((mask & LibX11.CWHeight) != 0) ? Math.max(60, cfg.height) : frame.clientHeight();
                     clientW = Math.min(clientW, m.clientWidth(screenWidth));
-                    clientH = Math.min(clientH, m.clientHeight(maxUsableH));
+                    clientH = Math.min(clientH, m.clientHeight(maxUsableH - top));
                     int frameW = m.frameWidth(clientW);
                     int frameH = m.frameHeight(clientH);
 
@@ -2155,7 +2264,7 @@ public final class X11WindowManagerService implements AutoCloseable {
                     if (centred) {
                         // Swing moves a dialog right after mapping it; keep it centred (see MapRequest)
                         frameX = (screenWidth - frameW) / 2;
-                        frameY = (maxUsableH - frameH) / 2;
+                        frameY = top + (maxUsableH - top - frameH) / 2;
                     } else {
                         if ((mask & LibX11.CWX) != 0) {
                             frameX = cfg.x;
@@ -2166,7 +2275,7 @@ public final class X11WindowManagerService implements AutoCloseable {
                     }
                     // Like new windows, the frame stays on screen and above the front panel
                     frameX = Math.max(0, Math.min(frameX, screenWidth - frameW));
-                    frameY = Math.max(0, Math.min(frameY, maxUsableH - frameH));
+                    frameY = Math.max(top, Math.min(frameY, maxUsableH - frameH));
 
                     frame.setBounds(frameX, frameY, frameW, frameH);
                     x11.XMoveResizeWindow(display, frame.frameWindow(), frameX, frameY, frameW, frameH);
@@ -2424,7 +2533,8 @@ public final class X11WindowManagerService implements AutoCloseable {
             int dx = motion.x_root - dragStartRootX;
             int dy = motion.y_root - dragStartRootY;
             int newX = dragStartFrameX + dx;
-            int newY = dragStartFrameY + dy;
+            // The title bar never slides under a top bar, where it could not be grabbed again
+            int newY = Math.max(dragStartFrameY + dy, workTop() > 0 ? workTop() : Integer.MIN_VALUE);
 
             if (wireframeActive && (newX != wireframeX || newY != wireframeY)) {
                 // Erase previous wireframe
@@ -2774,8 +2884,9 @@ public final class X11WindowManagerService implements AutoCloseable {
                     above.add(new Rectangle(tile.x(), tile.y(), DesktopIconTile.TILE_WIDTH, DesktopIconTile.TILE_HEIGHT));
                 }
             }
-            int usableHeight = frame.isFullScreen() ? screenHeight : screenHeight - dockMarginBottom;
-            Rectangle area = PreviewArea.readable(bounds(frame), above, new Rectangle(0, 0, screenWidth, usableHeight));
+            Rectangle usable = frame.isFullScreen() ? new Rectangle(0, 0, screenWidth, screenHeight)
+                    : new Rectangle(0, workTop(), screenWidth, workBottom() - workTop());
+            Rectangle area = PreviewArea.readable(bounds(frame), above, usable);
             if (area != null) {
                 previews.capture(clientWin, area);
             }
@@ -2899,8 +3010,7 @@ public final class X11WindowManagerService implements AutoCloseable {
     private void toggleMaximize(FrameWindow frame) {
         if (!frame.isMaximized()) {
             frame.setUnmaximizedBounds(new Rectangle(frame.frameX(), frame.frameY(), frame.frameWidth(), frame.frameHeight()));
-            int maxH = Math.max(100, screenHeight - dockMarginBottom);
-            frame.setBounds(0, 0, screenWidth, maxH);
+            frame.setBounds(0, workTop(), screenWidth, workBottom() - workTop());
             frame.setMaximized(true);
         } else {
             Rectangle r = frame.unmaximizedBounds();
@@ -2971,7 +3081,7 @@ public final class X11WindowManagerService implements AutoCloseable {
         }
         int index = iconTiles.size();
         int tileX = 0;
-        int tileY = index * DesktopIconTile.TILE_HEIGHT;
+        int tileY = workTop() + index * DesktopIconTile.TILE_HEIGHT;
 
         long mask = LibX11.ExposureMask | LibX11.ButtonPressMask | LibX11.ButtonReleaseMask;
         NativeLong tileWin = x11.XCreateSimpleWindow(
@@ -3036,6 +3146,7 @@ public final class X11WindowManagerService implements AutoCloseable {
         }
 
         dockWindows.remove(win);
+        if (dockStruts.remove(win) != null) recomputeDockMargins();
         clientToDesktop.remove(win);
         pings.forget(win);
         recentWindows.remove(win);

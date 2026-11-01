@@ -3,7 +3,11 @@ package eu.amadeos.system.wm.decoration;
 import java.awt.Rectangle;
 import java.util.Optional;
 
-public final class FrameMetrics {
+/**
+ * The measures of a window frame: title bar, border and buttons. The layout of the title bar row is Motif's
+ * (menu button left, minimise, maximise and close right); another frame style overrides the layout methods.
+ */
+public class FrameMetrics {
     private final int titleBarHeight;
     private final int borderWidth;
     private final int cornerGrabLength;

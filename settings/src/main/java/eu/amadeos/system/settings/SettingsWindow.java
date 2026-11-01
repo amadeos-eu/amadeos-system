@@ -234,6 +234,7 @@ public final class SettingsWindow extends JFrame {
 
     private SettingsPage createPage(SettingsCategory category) {
         return switch (category) {
+            case LOOK -> new LookPage(this::setStatus);
             case COLOR -> new ColorPage(this::setStatus);
             case FONT -> new FontPage(this::setStatus);
             case BACKDROP -> new BackdropPage(this::setStatus);
