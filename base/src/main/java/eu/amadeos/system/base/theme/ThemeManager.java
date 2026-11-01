@@ -84,7 +84,9 @@ public final class ThemeManager {
         if (currentTheme.id().equals(found.id())) {
             return;
         }
-        DesktopTheme theme = found.withFontSize(currentTheme.fontSize());
+        // Each look keeps its own icon theme (ThemeStore.iconTheme)
+        DesktopTheme theme = found.withFontSize(currentTheme.fontSize())
+                .withIconTheme(ThemeStore.iconTheme(XdgDirectories.amadeosConfigDir(), found));
         currentTheme = theme;
         AmadeUI.install(theme);
         IconManager.clearCache();
@@ -157,7 +159,14 @@ public final class ThemeManager {
         if (iconThemeId == null || iconThemeId.isBlank()) return;
         currentTheme = currentTheme.withIconTheme(iconThemeId);
         IconManager.clearCache();
-        persist(ThemeStore.ICON_THEME_FILE, iconThemeId);
+        if (currentTheme.look() == DesktopLook.HORIZON) {
+            // Horizon keeps its icon theme in look.conf, so that the classic look keeps its own
+            Properties look = ThemeStore.readLook(XdgDirectories.amadeosConfigDir());
+            look.setProperty("icons", iconThemeId);
+            persist(ThemeStore.LOOK_FILE, ThemeStore.lookFile(currentTheme, look));
+        } else {
+            persist(ThemeStore.ICON_THEME_FILE, iconThemeId);
+        }
         LOGGER.info(() -> "Applied icon theme: " + iconThemeId);
         notifyListeners(currentTheme);
     }

@@ -1,0 +1,44 @@
+// The icon theme of the Horizon desktop look, `amadeos-icons-horizon`: original icons drawn in Java2D
+// (HorizonIcons) and written as PNG files when the package is built, into /usr/share/icons/amadeos-horizon.
+// The package holds no Java; NsCDE and hicolor fill in what the theme does not have.
+apply plugin: 'java-library'
+
+jar {
+    archiveBaseName = 'amadeos-icons-horizon-lib'
+}
+
+def themeRoot = layout.buildDirectory.dir('icon-theme')
+
+tasks.register('renderIcons', JavaExec) {
+    description = 'Draws the Horizon icon theme into build/icon-theme/usr/share/icons/amadeos-horizon'
+    group = 'build'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'eu.amadeos.system.icons.HorizonIcons'
+    jvmArgs '-Djava.awt.headless=true'
+    def out = themeRoot.get().dir('usr/share/icons/amadeos-horizon').asFile
+    args out.absolutePath
+    inputs.files(sourceSets.main.runtimeClasspath)
+    outputs.dir(themeRoot)
+    doFirst { delete(themeRoot) }
+}
+
+debian = [
+    section      : 'graphics',
+    depends      : ['hicolor-icon-theme'],
+    recommends   : ['nscde-icon-theme'],
+    generatedRoot: themeRoot.get().asFile,
+    summary      : 'Horizon icon theme of amadeOS',
+    description  : '''The icons of the Horizon desktop look of amadeOS: rounded tiles with a soft
+horizon for the programs and their groups, blue folders for the places, pages
+with a coloured band for the file types. Original artwork, drawn in Java2D and
+shipped as PNG files from 16 to 256 pixels. Icons it does not have come from
+the NsCDE theme and hicolor.'''
+]
+
+afterEvaluate {
+    tasks.named('deb') { dependsOn 'renderIcons' }
+}
+
+test {
+    systemProperty 'java.awt.headless', 'true'
+}
