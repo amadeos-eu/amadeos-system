@@ -28,7 +28,7 @@ import java.util.stream.Stream;
  *
  * <pre>
  * # The jar with the widget classes and META-INF/services/eu.amadeos.commons.widget.DesktopWidget
- * jar=/opt/amade-calendar/lib/amade-calendar.jar
+ * jar=/opt/amade-calendar/amade-calendar.jar
  * </pre>
  *
  * The host loads the jar with its own class loader as parent, so the widget uses the host's copy of the
@@ -64,6 +64,7 @@ public final class WidgetCatalog {
         }
     }
 
+    // --8<-- [start:load-jar]
     void addFile(Path file) {
         Properties p;
         try {
@@ -90,6 +91,7 @@ public final class WidgetCatalog {
             LOGGER.warning(() -> "Cannot load " + jarPath + ": " + e.getMessage());
         }
     }
+    // --8<-- [end:load-jar]
 
     private void addAll(ServiceLoader<DesktopWidget> loader) {
         var it = loader.iterator();

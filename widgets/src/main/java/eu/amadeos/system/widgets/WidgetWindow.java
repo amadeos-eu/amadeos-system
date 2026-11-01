@@ -157,6 +157,7 @@ final class WidgetWindow extends JFrame {
         return menu;
     }
 
+    // --8<-- [start:on-desktop]
     /** Shows the window as a desktop widget: below the windows, without a frame. */
     void showOnDesktop(X11EwmhHelper helper) {
         addNotify();
@@ -168,6 +169,7 @@ final class WidgetWindow extends JFrame {
         }
         setVisible(true);
     }
+    // --8<-- [end:on-desktop]
 
     void close() {
         context.close();
