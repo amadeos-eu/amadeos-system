@@ -128,9 +128,9 @@ public final class DesktopRootMenu {
 
         // 3. New Window Submenu
         JMenu newWindowMenu = createStyledMenu("New Window", theme);
-        newWindowMenu.add(createStyledMenuItem("Terminal Emulator", "terminal", e -> launchFirst(cmd("xterm")), theme));
+        newWindowMenu.add(createStyledMenuItem("Terminal Emulator", "terminal", e -> launchFirst(cmd("amade-terminal"), cmd("x-terminal-emulator"), cmd("xterm")), theme));
         newWindowMenu.add(createStyledMenuItem("Text Editor", "text-editor",
-                e -> launchFirst(cmd("amade-pad"), cmd("xed"), cmd("mousepad"), cmd("gedit"), cmd("xterm", "-e", "nano")), theme));
+                e -> launchFirst(cmd("amade-pad"), cmd("xed"), cmd("mousepad"), cmd("gedit"), cmd("amade-terminal", "-e", "nano"), cmd("xterm", "-e", "nano")), theme));
         newWindowMenu.add(createStyledMenuItem("File Manager", "file-manager", e -> launchFirst(cmd("xdg-open", userHome())), theme));
         menu.add(newWindowMenu);
 
@@ -225,7 +225,7 @@ public final class DesktopRootMenu {
         }
 
         if (!hasAny) {
-            parent.add(createStyledMenuItem("Terminal Emulator", "terminal", e -> launchFirst(cmd("xterm")), theme));
+            parent.add(createStyledMenuItem("Terminal Emulator", "terminal", e -> launchFirst(cmd("amade-terminal"), cmd("x-terminal-emulator"), cmd("xterm")), theme));
             parent.add(createStyledMenuItem("Text Editor", "text-editor", e -> launchFirst(cmd("amade-pad"), cmd("xed"), cmd("mousepad"), cmd("gedit")), theme));
             parent.add(createStyledMenuItem("File Manager", "file-manager", e -> launchFirst(cmd("xdg-open", userHome())), theme));
             parent.add(createStyledMenuItem("Calculator", "accessories-calculator", e -> launchFirst(cmd("gnome-calculator"), cmd("xcalc")), theme));

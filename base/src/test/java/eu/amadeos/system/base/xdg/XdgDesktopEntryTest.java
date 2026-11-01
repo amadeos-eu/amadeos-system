@@ -96,7 +96,7 @@ class XdgDesktopEntryTest {
 
         List<String> cmd = entry.buildCommandLine();
         assertTrue(cmd.size() >= 5);
-        assertEquals("xterm", cmd.get(0));
+        assertEquals(eu.amadeos.system.base.process.Terminals.program(), cmd.get(0));
         assertEquals("-title", cmd.get(1));
         assertEquals("Disk Usage Analyzer", cmd.get(2));
         assertEquals("-e", cmd.get(3));

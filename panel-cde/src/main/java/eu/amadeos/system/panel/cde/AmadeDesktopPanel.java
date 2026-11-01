@@ -1,6 +1,7 @@
 package eu.amadeos.system.panel.cde;
 
 import eu.amadeos.system.base.x11.X11EwmhHelper;
+import eu.amadeos.system.base.process.Terminals;
 
 import com.sun.jna.Native;
 import java.awt.BorderLayout;
@@ -342,14 +343,15 @@ public final class AmadeDesktopPanel extends JFrame {
             List<DrawerTool> tools = new ArrayList<>(List.of(
                     new DrawerTool(PanelTexts.get("panel.tool.style"), "style", e -> launchProcess("amadeos-settings")),
                     new DrawerTool(PanelTexts.get("panel.tool.apps"), "app-manager", e -> showApplicationManagerDialog(this)),
-                    new DrawerTool(PanelTexts.get("panel.tool.terminal"), "terminal", e -> launchProcess("xterm")),
-                    new DrawerTool(PanelTexts.get("panel.tool.root.console"), "terminal", e -> launchProcess("xterm", "-title", "Root Shell", "-e", "sudo", "sh")),
+                    new DrawerTool(PanelTexts.get("panel.tool.terminal"), "terminal", e -> launchProcess(Terminals.program())),
+                    new DrawerTool(PanelTexts.get("panel.tool.root.console"), "terminal", e -> launchProcess(Terminals.command("Root Shell", List.of("sudo", "sh")).toArray(String[]::new))),
                     new DrawerTool(PanelTexts.get("panel.tool.clipboard"), "clipboard", e -> launchProcess("amadeos-clipboard")),
                     new DrawerTool(PanelTexts.get("panel.tool.logs"), "diagnostics", e -> launchProcess("amadeos-logviewer")),
                     new DrawerTool(PanelTexts.get("panel.tool.sysinfo"), "diagnostics", e -> launchProcess("amadeos-sysinfo"))
             ));
             tools.addAll(xdgTools(List.of(XdgCategory.SETTINGS, XdgCategory.MONITOR),
-                    Set.of("amadeos-settings", "amadeos-style", "amadeos-logviewer", "amadeos-sysinfo", "xterm")));
+                    Set.of("amadeos-settings", "amadeos-style", "amadeos-logviewer", "amadeos-sysinfo", "xterm",
+                            Terminals.AMADE_TERMINAL)));
             return tools;
         };
         DrawerDockWidget toolsDrawer = fixedDrawer(
