@@ -52,6 +52,7 @@ import java.awt.FlowLayout;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.io.File;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
@@ -69,7 +70,7 @@ import java.util.logging.Logger;
  * The top bar of the Horizon look: along the top edge of the screen, the system menu (programs, Settings,
  * Software, lock, log out) and the name of the active program on the left; the workspaces, the status cells of
  * the Front Panel and the clock with the date on the right. It reserves its height at the top of the screen,
- * so windows stay below it, and hands over to the Front Panel when the look changes back to classic.
+ * so windows stay below it, opens the search (the magnifier, Super+Space) and hands over to the Front Panel when the look changes back to classic.
  */
 public final class HorizonTopBar extends JFrame {
     private static final Logger LOGGER = Logger.getLogger(HorizonTopBar.class.getName());
@@ -81,7 +82,9 @@ public final class HorizonTopBar extends JFrame {
     private final BarButton systemButton;
     private final BarButton programButton;
     private final WorkspaceDots workspaces;
+    private final BarButton searchButton;
     private final BarButton clockButton;
+    private HorizonSearch search;
     private final Map<String, StatusCell> cells = new LinkedHashMap<>();
     private final JPanel cellPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
     private final PanelSettingsStore panelSettings = PanelSettingsStore.user();
@@ -116,6 +119,9 @@ public final class HorizonTopBar extends JFrame {
                 dock.registerAsDock();
                 dock.setVisible(true);
                 dock.registerAsDock();
+                // The search: the magnifier and Super+Space
+                bar.search = HorizonSearch.create(helper, Path.of(System.getProperty("user.home")));
+                HorizonSearch.listen(bar.search);
                 // Settings > Appearance back to classic: the session starts the Front Panel instead.
                 PanelSwitch.watch(DesktopLook.HORIZON);
             } catch (Exception ex) {
@@ -193,6 +199,23 @@ public final class HorizonTopBar extends JFrame {
         right.add(workspaces);
         cellPanel.setOpaque(false);
         right.add(cellPanel);
+        searchButton = new BarButton("") {
+            @Override
+            int markWidth() {
+                return 14;
+            }
+
+            @Override
+            void paintMark(Graphics2D g, BarColors c) {
+                HorizonSearch.paintMagnifier(g, getInsets().left + 7, getHeight() / 2.0, 13, c.text());
+            }
+        };
+        searchButton.setBorder(BorderFactory.createEmptyBorder(0, 8, 0, 8));
+        searchButton.setToolTipText(TopBarTexts.get("search.tooltip"));
+        searchButton.addActionListener(e -> {
+            if (search != null) search.toggle();
+        });
+        right.add(searchButton);
         clockButton = new BarButton(clockText());
         clockButton.setToolTipText(TopBarTexts.get("clock.tooltip"));
         clockButton.addActionListener(e -> launch("amade-calendar"));

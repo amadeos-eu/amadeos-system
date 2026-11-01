@@ -4,6 +4,7 @@ import eu.amadeos.commons.i18n.LocaleResolution;
 import eu.amadeos.commons.i18n.LocaleStore;
 import eu.amadeos.commons.i18n.Messages;
 import eu.amadeos.commons.swing.AmadeUI;
+import eu.amadeos.system.base.process.InstanceChannel;
 import eu.amadeos.commons.theme.ThemeStore;
 import eu.amadeos.system.taskmanager.control.ProcessControl;
 import eu.amadeos.system.taskmanager.model.Sampler;
@@ -63,7 +64,7 @@ public final class TaskManager {
             System.out.println("Usage: amadeos-taskmanager [--processes | --performance | --not-responding WINDOW]");
             return;
         }
-        if (InstanceChannel.send(InstanceChannel.defaultPath(), arguments)) return;
+        if (InstanceChannel.send(InstanceChannel.defaultPath("amadeos-taskmanager"), arguments)) return;
         if (GraphicsEnvironment.isHeadless()) {
             System.err.println("amadeos-taskmanager: no X display");
             System.exit(5);
@@ -85,7 +86,7 @@ public final class TaskManager {
                 AmadeUI.install(theme.current());
                 AmadeUI.follow(theme);
             });
-            InstanceChannel.listen(InstanceChannel.defaultPath(),
+            InstanceChannel.listen(InstanceChannel.defaultPath("amadeos-taskmanager"),
                     a -> SwingUtilities.invokeLater(() -> app.handle(a)));
         } catch (IOException e) {
             LOGGER.log(Level.WARNING, "Another start cannot reach this Task Manager", e);
