@@ -89,6 +89,7 @@ public final class X11WindowManagerService implements AutoCloseable {
     private final NativeLong wakeAtom;
     /** Set by a dock (Horizon's) that shows minimised windows itself, so the desktop gets no icon tiles. */
     private final NativeLong dockTakesMinimizedAtom;
+    private final NativeLong framelessAtom;
     private final DesktopMenuActions menuActions;
 
     private final long checkWindow;
@@ -224,6 +225,9 @@ public final class X11WindowManagerService implements AutoCloseable {
     // Ctrl+Alt+T opens a terminal.
     private static final long XK_T = 0x0074;
     private int terminalKeycode = 0;
+    // Super+Space opens Horizon's search.
+    private static final long XK_SPACE = 0x0020;
+    private int searchKeycode = 0;
     private int returnKeycode = 0;
     private int leftKeycode = 0;
     private int rightKeycode = 0;
@@ -332,6 +336,7 @@ public final class X11WindowManagerService implements AutoCloseable {
         this.display = display;
         this.wakeAtom = x11.XInternAtom(display, "_AMADEOS_WM_WAKE", 0);
         this.dockTakesMinimizedAtom = x11.XInternAtom(display, "_AMADEOS_DOCK_TAKES_MINIMIZED", 0);
+        this.framelessAtom = x11.XInternAtom(display, "_AMADEOS_FRAMELESS", 0);
         this.screen = screen;
         this.rootWindow = rootWindow;
         this.screenWidth = screenWidth;
@@ -471,6 +476,21 @@ public final class X11WindowManagerService implements AutoCloseable {
         } catch (Exception e) {
             LOGGER.warning(() -> "Failed to bind Ctrl+Alt+T: " + e.getMessage());
         }
+
+        // --8<-- [start:search-key]
+        // Super+Space opens the search of Horizon's top bar, which listens on a socket (see startSearch).
+        try {
+            this.searchKeycode = keycode(XK_SPACE);
+            for (long lock : new long[]{0, LibX11.Mod2Mask, LibX11.LockMask, LibX11.Mod2Mask | LibX11.LockMask}) {
+                if (searchKeycode != 0) {
+                    x11.XGrabKey(display, searchKeycode, new NativeLong(LibX11.Mod4Mask | lock),
+                            new NativeLong(rootWindow), 1, LibX11.GrabModeAsync, LibX11.GrabModeAsync);
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.warning(() -> "Failed to bind Super+Space: " + e.getMessage());
+        }
+        // --8<-- [end:search-key]
 
         // --8<-- [start:alt-tab-keys]
         // Alt+Tab and Alt+Shift+Tab open the window switcher; once it is open the keyboard is grabbed, so
@@ -1944,6 +1964,11 @@ public final class X11WindowManagerService implements AutoCloseable {
                     startTerminal();
                     return;
                 }
+                if ((keyEvent.state & (int) LibX11.Mod4Mask) != 0 && searchKeycode != 0
+                        && keyEvent.keycode == searchKeycode) {
+                    startSearch();
+                    return;
+                }
                 if (isAlt && tabKeycode != 0 && keyEvent.keycode == tabKeycode) {
                     openSwitcher((keyEvent.state & (int) LibX11.ShiftMask) != 0);
                     return;
@@ -1987,6 +2012,18 @@ public final class X11WindowManagerService implements AutoCloseable {
                     LOGGER.info(() -> "Mapped dock window without frame: " + win + " struts top=" + dockMarginTop + " bottom=" + dockMarginBottom);
                     return;
                 }
+
+                // --8<-- [start:frameless]
+                // A window of the desktop that draws its own edge and wants the keyboard, such as Horizon's
+                // search: mapped where it asks to be, without a frame, above the others, with the focus.
+                if (hasProperty(win, framelessAtom)) {
+                    x11.XMapWindow(display, new NativeLong(win));
+                    x11.XRaiseWindow(display, new NativeLong(win));
+                    x11.XSetInputFocus(display, new NativeLong(win), LibX11.RevertToPointerRoot, new NativeLong(LibX11.CurrentTime));
+                    x11.XFlush(display);
+                    return;
+                }
+                // --8<-- [end:frameless]
 
                 if (isSpecialUnmanagedWindow(win)) {
                     LOGGER.info(() -> "Mapping unmanaged fullscreen special window: " + win + " (" + fetchWindowTitle(win) + ")");
@@ -2765,6 +2802,17 @@ public final class X11WindowManagerService implements AutoCloseable {
             eu.amadeos.system.base.process.ProcessLauncher.start(command);
         } catch (java.io.IOException e) {
             LOGGER.warning(() -> "Could not start the Task Manager (" + TASK_MANAGER + "): " + e.getMessage());
+        }
+    }
+
+    /**
+     * Hands Super+Space to the search of Horizon's top bar. With the classic look nothing listens, and the key
+     * does nothing.
+     */
+    private static void startSearch() {
+        java.nio.file.Path socket = eu.amadeos.system.base.process.InstanceChannel.defaultPath(eu.amadeos.system.base.process.InstanceChannel.SEARCH);
+        if (!eu.amadeos.system.base.process.InstanceChannel.send(socket, List.of("open"))) {
+            LOGGER.fine("Super+Space: no search listens (classic look)");
         }
     }
 

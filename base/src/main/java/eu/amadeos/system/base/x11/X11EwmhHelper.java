@@ -373,6 +373,20 @@ public class X11EwmhHelper implements AutoCloseable {
     }
     // --8<-- [end:dock-minimized]
 
+    // --8<-- [start:frameless]
+    /**
+     * Asks the window manager to map this window as it is, without a frame, above the others and with the
+     * keyboard focus: Horizon's search. Set after {@code addNotify()} and before the window is first shown.
+     */
+    public void setFrameless(long win) {
+        Memory one = new Memory(NativeLong.SIZE);
+        one.setNativeLong(0, new NativeLong(1));
+        x11.XChangeProperty(display, new NativeLong(win), x11.XInternAtom(display, "_AMADEOS_FRAMELESS", 0),
+                xaCardinalAtom, 32, LibX11.PropModeReplace, one, 1);
+        x11.XFlush(display);
+    }
+    // --8<-- [end:frameless]
+
     /** The window's own icon (_NET_WM_ICON) at {@code size} pixels, or null if it has none. */
     public java.awt.image.BufferedImage getWindowIcon(long win, int size) {
         NativeLong atom = x11.XInternAtom(display, "_NET_WM_ICON", 0);

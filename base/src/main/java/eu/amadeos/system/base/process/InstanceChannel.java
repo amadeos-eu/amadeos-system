@@ -1,4 +1,4 @@
-package eu.amadeos.system.taskmanager;
+package eu.amadeos.system.base.process;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -18,12 +18,15 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Keeps the Task Manager to one per user: the first one listens on a Unix socket, a second start hands its
+ * Keeps a program to one per user and display: the first one listens on a Unix socket, a second start hands its
  * arguments over (one line, separated by spaces) and ends. Ctrl+Shift+Esc pressed twice thus brings the open
- * window to the front instead of opening another.
+ * Task Manager to the front instead of opening another; Super+Space reaches Horizon's search in the top bar.
  */
 public final class InstanceChannel implements AutoCloseable {
     private static final Logger LOGGER = Logger.getLogger(InstanceChannel.class.getName());
+
+    /** The channel of Horizon's search in the top bar; the window manager sends {@code open} on Super+Space. */
+    public static final String SEARCH = "amadeos-search";
 
     private final Path path;
     private final ServerSocketChannel server;
@@ -33,11 +36,11 @@ public final class InstanceChannel implements AutoCloseable {
         this.server = server;
     }
 
-    /** {@code $XDG_RUNTIME_DIR/amadeos-taskmanager.socket}, or a file in the temporary folder. */
-    public static Path defaultPath() {
+    /** {@code $XDG_RUNTIME_DIR/<name>-<display>.socket}, or a file in the temporary folder. */
+    public static Path defaultPath(String program) {
         String runtime = System.getenv("XDG_RUNTIME_DIR");
         String display = System.getenv().getOrDefault("DISPLAY", "").replaceAll("[^A-Za-z0-9.]", "_");
-        String name = "amadeos-taskmanager" + (display.isEmpty() ? "" : "-" + display) + ".socket";
+        String name = program + (display.isEmpty() ? "" : "-" + display) + ".socket";
         // A Unix socket path may have at most 107 bytes.
         if (runtime != null && !runtime.isBlank() && Files.isDirectory(Path.of(runtime))
                 && runtime.length() + name.length() < 100) {
@@ -65,7 +68,7 @@ public final class InstanceChannel implements AutoCloseable {
         ServerSocketChannel server = ServerSocketChannel.open(StandardProtocolFamily.UNIX);
         server.bind(UnixDomainSocketAddress.of(path));
         InstanceChannel channel = new InstanceChannel(path, server);
-        Thread thread = new Thread(() -> channel.accept(handler), "taskmanager-instance");
+        Thread thread = new Thread(() -> channel.accept(handler), "instance-channel");
         thread.setDaemon(true);
         thread.start();
         return channel;

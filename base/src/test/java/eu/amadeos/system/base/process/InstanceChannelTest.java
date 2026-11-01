@@ -1,4 +1,4 @@
-package eu.amadeos.system.taskmanager;
+package eu.amadeos.system.base.process;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -26,5 +26,10 @@ class InstanceChannelTest {
             assertEquals(List.of("--not-responding", "0x400001"), received.get(5, TimeUnit.SECONDS));
         }
         assertFalse(InstanceChannel.send(socket, List.of()), "the socket is removed on close");
+    }
+
+    @Test
+    void thePathNamesTheProgram() {
+        assertTrue(InstanceChannel.defaultPath("amadeos-search").getFileName().toString().contains("amadeos-search"));
     }
 }
