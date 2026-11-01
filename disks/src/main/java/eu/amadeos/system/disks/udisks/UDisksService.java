@@ -78,6 +78,7 @@ public final class UDisksService implements DiskService {
 
     // ---- reading ------------------------------------------------------------------------------------------------
 
+    // --8<-- [start:objects]
     /** The whole object tree, variants unwrapped (see {@link UDisksObjects}). */
     Map<String, Map<String, Map<String, Object>>> objects() throws DiskException {
         try {
@@ -93,6 +94,7 @@ public final class UDisksService implements DiskService {
             throw failure(e);
         }
     }
+    // --8<-- [end:objects]
 
     @Override
     public List<Drive> drives() throws DiskException {
@@ -138,6 +140,7 @@ public final class UDisksService implements DiskService {
 
     // ---- formatting and partitions ------------------------------------------------------------------------------
 
+    // --8<-- [start:format-drive]
     @Override
     public void formatDrive(Drive drive, FsChoice choice, String label, boolean overwrite, char[] passphrase)
             throws DiskException {
@@ -153,6 +156,7 @@ public final class UDisksService implements DiskService {
                 choice.partitionType(table), "", options(), choice.fsType(), formatOptions(choice, label, false,
                         passphrase));
     }
+    // --8<-- [end:format-drive]
 
     @Override
     public void formatVolume(Volume volume, FsChoice choice, String label, boolean overwrite, char[] passphrase)

@@ -17,6 +17,7 @@ public final class Safety {
     private Safety() {
     }
 
+    // --8<-- [start:safety]
     /**
      * Whether a volume may not be formatted, deleted or shrunk: it holds the running system, or it is a member of a
      * volume group or RAID array.
@@ -33,6 +34,7 @@ public final class Safety {
         }
         return v.cleartext() != null && holdsSystem(v.cleartext());
     }
+    // --8<-- [end:safety]
 
     /** What may be done with a volume on a drive. */
     public static boolean canFormat(Volume v) {

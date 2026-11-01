@@ -9,6 +9,7 @@ import org.freedesktop.dbus.types.Variant;
 import java.util.Map;
 
 /** {@code org.freedesktop.UDisks2.Block}: a block device (whole disk, partition, unlocked LUKS volume). */
+// --8<-- [start:interface]
 @DBusInterfaceName("org.freedesktop.UDisks2.Block")
 @SuppressWarnings("checkstyle:MethodName")
 public interface Block extends DBusInterface {
@@ -24,3 +25,4 @@ public interface Block extends DBusInterface {
 
     void Rescan(Map<String, Variant<?>> options);
 }
+// --8<-- [end:interface]
