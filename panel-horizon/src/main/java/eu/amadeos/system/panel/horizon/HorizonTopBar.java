@@ -110,6 +110,12 @@ public final class HorizonTopBar extends JFrame {
                 bar.registerAsDock();
                 bar.setVisible(true);
                 bar.registerAsDock();
+                // The dock at the bottom, in the same program
+                HorizonDock dock = new HorizonDock(helper);
+                dock.addNotify();
+                dock.registerAsDock();
+                dock.setVisible(true);
+                dock.registerAsDock();
                 // Settings > Appearance back to classic: the session starts the Front Panel instead.
                 PanelSwitch.watch(DesktopLook.HORIZON);
             } catch (Exception ex) {

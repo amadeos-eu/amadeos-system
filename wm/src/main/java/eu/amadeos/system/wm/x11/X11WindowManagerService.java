@@ -87,6 +87,8 @@ public final class X11WindowManagerService implements AutoCloseable {
     private final Object wakeLock = new Object();
     private Pointer wakeDisplay;
     private final NativeLong wakeAtom;
+    /** Set by a dock (Horizon's) that shows minimised windows itself, so the desktop gets no icon tiles. */
+    private final NativeLong dockTakesMinimizedAtom;
     private final DesktopMenuActions menuActions;
 
     private final long checkWindow;
@@ -200,6 +202,7 @@ public final class X11WindowManagerService implements AutoCloseable {
     private int dockMarginTop = 0;
     /** The struts of the dock windows: top and bottom, each reserved from that screen edge. */
     private final Map<Long, int[]> dockStruts = new HashMap<>();
+    private final java.util.Set<Long> minimizingDocks = new java.util.HashSet<>();
 
     // CDE Desktop Minimized Icon Tiles (top-left, vertically stacked with 0px spacing)
     private final java.util.List<DesktopIconTile> iconTiles = new java.util.ArrayList<>();
@@ -328,6 +331,7 @@ public final class X11WindowManagerService implements AutoCloseable {
         this.displayName = displayName;
         this.display = display;
         this.wakeAtom = x11.XInternAtom(display, "_AMADEOS_WM_WAKE", 0);
+        this.dockTakesMinimizedAtom = x11.XInternAtom(display, "_AMADEOS_DOCK_TAKES_MINIMIZED", 0);
         this.screen = screen;
         this.rootWindow = rootWindow;
         this.screenWidth = screenWidth;
@@ -774,6 +778,39 @@ public final class X11WindowManagerService implements AutoCloseable {
     private void rememberDockStruts(long win) {
         dockStruts.put(win, readDockStruts(win));
         recomputeDockMargins();
+        boolean takes = hasProperty(win, dockTakesMinimizedAtom);
+        if (takes ? minimizingDocks.add(win) : minimizingDocks.remove(win)) updateIconTiles();
+    }
+
+    // --8<-- [start:minimize-into-dock]
+    /** True while a dock shows the minimised windows itself (Horizon's dock): then the desktop has no icon tiles. */
+    boolean minimizeIntoDock() {
+        return !minimizingDocks.isEmpty();
+    }
+
+    /** A dock that takes minimised windows came or went: drop the icon tiles, or give minimised windows theirs back. */
+    private void updateIconTiles() {
+        if (minimizeIntoDock()) {
+            for (long client : new java.util.ArrayList<>(clientToTile.keySet())) removeAndReflowIconTile(client);
+        } else {
+            for (FrameWindow frame : java.util.List.copyOf(clientToFrame.values())) {
+                if (frame.isMinimized()) createAndShowIconTile(frame.clientWindow().longValue(), frame.title());
+            }
+        }
+    }
+    // --8<-- [end:minimize-into-dock]
+
+    private boolean hasProperty(long win, NativeLong atom) {
+        PointerByReference type = new PointerByReference();
+        IntByReference format = new IntByReference();
+        com.sun.jna.ptr.NativeLongByReference items = new com.sun.jna.ptr.NativeLongByReference();
+        com.sun.jna.ptr.NativeLongByReference after = new com.sun.jna.ptr.NativeLongByReference();
+        PointerByReference prop = new PointerByReference();
+        int status = x11.XGetWindowProperty(display, new NativeLong(win), atom, new NativeLong(0), new NativeLong(1), 0,
+                new NativeLong(0), type, format, items, after, prop);
+        boolean present = status == 0 && items.getValue() != null && items.getValue().longValue() > 0;
+        if (prop.getValue() != null) x11.XFree(prop.getValue());
+        return present;
     }
 
     private void recomputeDockMargins() {
@@ -1729,6 +1766,7 @@ public final class X11WindowManagerService implements AutoCloseable {
                             if (isDockWindow(child)) {
                                 dockWindows.add(child);
                                 rememberDockStruts(child);
+                                x11.XSelectInput(display, new NativeLong(child), new NativeLong(LibX11.PropertyChangeMask));
                             } else if (isSpecialUnmanagedWindow(child)) {
                                 x11.XMoveResizeWindow(display, new NativeLong(child), 0, 0, screenWidth, screenHeight);
                             }
@@ -1942,6 +1980,8 @@ public final class X11WindowManagerService implements AutoCloseable {
                 if (isDockWindow(win)) {
                     dockWindows.add(win);
                     rememberDockStruts(win);
+                    // A dock that changes its size sets its strut again (Horizon's dock with another icon size)
+                    x11.XSelectInput(display, new NativeLong(win), new NativeLong(LibX11.PropertyChangeMask));
                     x11.XMapWindow(display, new NativeLong(win));
                     x11.XRaiseWindow(display, new NativeLong(win));
                     LOGGER.info(() -> "Mapped dock window without frame: " + win + " struts top=" + dockMarginTop + " bottom=" + dockMarginBottom);
@@ -2139,6 +2179,11 @@ public final class X11WindowManagerService implements AutoCloseable {
                     if (themeId != null && !themeId.isEmpty()) {
                         ThemeManager.applyTheme(themeId);
                     }
+                    break;
+                }
+                if (dockWindows.contains(win) && prop.atom != null
+                        && (prop.atom.equals(netWmStrutPartial) || prop.atom.equals(netWmStrut))) {
+                    rememberDockStruts(win);
                     break;
                 }
                 if (previews != null && previews.isIconProperty(prop.atom)) {
@@ -3076,7 +3121,7 @@ public final class X11WindowManagerService implements AutoCloseable {
     }
 
     private void createAndShowIconTile(long clientWin, String title) {
-        if (clientToTile.containsKey(clientWin)) {
+        if (clientToTile.containsKey(clientWin) || minimizeIntoDock()) {
             return;
         }
         int index = iconTiles.size();
@@ -3147,6 +3192,7 @@ public final class X11WindowManagerService implements AutoCloseable {
 
         dockWindows.remove(win);
         if (dockStruts.remove(win) != null) recomputeDockMargins();
+        if (minimizingDocks.remove(win)) updateIconTiles();
         clientToDesktop.remove(win);
         pings.forget(win);
         recentWindows.remove(win);
