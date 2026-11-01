@@ -31,8 +31,8 @@ public final class SettingsLauncher {
                     SettingsWindow.main(args);
                 } else {
                     System.err.println("Usage: amadeos-settings [input | color | font | backdrop | workspaces | panel"
-                            + " | keyboard | mouse | beep | display | display-apply | screen | window | notifications | clipboard | startup | network | bluetooth | printers | users | passwords | updates"
-                            + " | language]");
+                            + " | keyboard | mouse | beep | display | display-apply | screen | power | window | notifications | clipboard | startup | applications | network | bluetooth | printers | users | passwords | updates"
+                            + " | language | datetime]");
                     System.exit(2);
                 }
             }

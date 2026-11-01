@@ -388,6 +388,56 @@ final class SettingsIcons {
                 g.drawLine(5, 13, 31, 13);
                 g.drawLine(5, 23, 31, 23);
             }
+            case APPLICATIONS -> {
+                // A document with a folded corner that points at a program window: what opens which file.
+                g.setColor(paper);
+                Path2D sheet = new Path2D.Double();
+                sheet.moveTo(3, 4);
+                sheet.lineTo(14, 4);
+                sheet.lineTo(19, 9);
+                sheet.lineTo(19, 26);
+                sheet.lineTo(3, 26);
+                sheet.closePath();
+                g.fill(sheet);
+                g.setColor(ink);
+                g.draw(sheet);
+                g.drawLine(14, 4, 14, 9);
+                g.drawLine(14, 9, 19, 9);
+                for (int y = 13; y <= 22; y += 3) g.drawLine(6, y, 16, y);
+                g.setColor(paper);
+                g.fillRect(17, 17, 17, 15);
+                g.setColor(enabled ? t.activeTitleBg() : t.shadow());
+                g.fillRect(17, 17, 17, 4);
+                g.setColor(ink);
+                g.drawRect(17, 17, 17, 15);
+                g.setColor(enabled ? new Color(0x50, 0x90, 0x60) : t.shadow());
+                g.setStroke(new BasicStroke(2f));
+                g.drawLine(21, 27, 29, 27);
+                g.drawLine(26, 24, 29, 27);
+                g.drawLine(26, 30, 29, 27);
+            }
+            case DATETIME -> {
+                // A calendar sheet behind a clock face showing ten past ten.
+                g.setColor(paper);
+                g.fillRect(2, 5, 22, 20);
+                g.setColor(enabled ? new Color(0xC0, 0x40, 0x40) : t.shadow());
+                g.fillRect(2, 5, 22, 6);
+                g.setColor(ink);
+                g.drawRect(2, 5, 22, 20);
+                g.drawLine(7, 3, 7, 7);
+                g.drawLine(19, 3, 19, 7);
+                for (int y = 14; y <= 22; y += 4) {
+                    for (int x = 5; x <= 13; x += 4) g.fillRect(x, y, 2, 2);
+                }
+                g.setColor(paper);
+                g.fillOval(15, 13, 20, 20);
+                g.setColor(ink);
+                g.drawOval(15, 13, 20, 20);
+                g.setStroke(new BasicStroke(2f));
+                g.drawLine(25, 23, 25, 16);
+                g.drawLine(25, 23, 30, 21);
+                g.fillOval(24, 22, 2, 2);
+            }
             case STARTUP -> {
                 g.setColor(ink);
                 g.setStroke(new BasicStroke(2.4f));

@@ -259,7 +259,10 @@ public final class SettingsWindow extends JFrame {
             case USERS -> new UsersPage(this::setStatus, system.users());
             case PASSWORDS -> new PasswordsPage(this::setStatus, system.keyring());
             case UPDATES -> new UpdatesPage(this::setStatus, system.packages(), system.launcher());
-            case LANGUAGE -> new LanguagePage(this::setStatus, stores.locales(), system.timeZones());
+            case APPLICATIONS -> new ApplicationsPage(this::setStatus, system.mimeApps().get(), system.applications().get());
+            case LANGUAGE -> new LanguagePage(this::setStatus, stores.locales());
+            case DATETIME -> new DateTimePage(this::setStatus, system.clock(), stores.formats(), stores.locales(),
+                    system.regions().get());
         };
     }
 

@@ -94,7 +94,7 @@ class SettingsWindowTest {
         assertTrue(SettingsWindow.matches("zzz").isEmpty());
         assertTrue(SettingsWindow.matches("login").contains(SettingsCategory.STARTUP));
         assertEquals(List.of(SettingsCategory.PASSWORDS), SettingsWindow.matches("keyring"));
-        assertEquals(List.of(SettingsCategory.LANGUAGE), SettingsWindow.matches("time zone"));
+        assertEquals(List.of(SettingsCategory.DATETIME), SettingsWindow.matches("time zone"));
         assumeFalse(GraphicsEnvironment.isHeadless());
         SwingUtilities.invokeAndWait(() -> {
             SettingsWindow window = window();

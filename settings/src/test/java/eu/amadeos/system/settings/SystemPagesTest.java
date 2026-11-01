@@ -2,6 +2,7 @@ package eu.amadeos.system.settings;
 
 import eu.amadeos.commons.i18n.Language;
 import eu.amadeos.commons.i18n.LocaleStore;
+import eu.amadeos.commons.i18n.RegionalFormats;
 import eu.amadeos.commons.net.ProxyCheck;
 import eu.amadeos.commons.net.ProxySettings;
 import eu.amadeos.system.base.panel.PanelSettings;
@@ -9,6 +10,7 @@ import eu.amadeos.system.base.panel.PanelSettingsStore;
 import eu.amadeos.system.base.startup.StartupSettings;
 import eu.amadeos.system.base.startup.UserAutostart;
 import eu.amadeos.system.base.workspace.WorkspaceNames;
+import eu.amadeos.system.base.xdg.MimeApps;
 import eu.amadeos.system.base.xdg.XdgDesktopEntry;
 import eu.amadeos.system.base.xdg.XdgDesktopEntryParser;
 import eu.amadeos.system.keyring.Keyring;
@@ -28,6 +30,7 @@ import java.lang.reflect.Proxy;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -52,11 +55,12 @@ class SystemPagesTest {
 
     /** A system without a keyring, with an apt that has nothing to offer, and a time zone that only remembers. */
     static SystemAccess fakeSystem() {
-        return new SystemAccess(new FakeKeyring(), packages(new ArrayList<>(), List.of()), new FakeTimeZones(),
+        return new SystemAccess(new FakeKeyring(), packages(new ArrayList<>(), List.of()), new FakeClock(),
                 command -> { }, List::of, new FakeDisplays(),
                 (settings, password) -> new ProxyCheck.Result(ProxyCheck.Outcome.OK, "", "200"),
                 new FakeDevices.Network(), new FakeDevices.Sound(), new FakeDevices.Check(), new FakeDevices.Bluetooth(),
-                new FakeDevices.Printers(), new FakeUsers(), new FakePower(), FakePower::laptopBattery);
+                new FakeDevices.Printers(), new FakeUsers(), new FakePower(), FakePower::laptopBattery, SystemPagesTest::fakeMimeApps,
+                () -> RegionalFormats.REGIONS);
     }
 
     /** An apt whose automatic security updates are off and which records the calls that change them. */
@@ -244,22 +248,113 @@ class SystemPagesTest {
     }
 
     @Test
-    void languagePageWritesTheLanguageAndSetsTheTimeZone() throws Exception {
+    void languagePageWritesTheLanguage() throws Exception {
         assumeFalse(GraphicsEnvironment.isHeadless());
         LocaleStore locales = new LocaleStore(dir);
-        FakeTimeZones zones = new FakeTimeZones();
         AtomicReference<LanguagePage> page = new AtomicReference<>();
         SwingUtilities.invokeAndWait(() -> {
-            page.set(new LanguagePage(s -> { }, locales, zones));
+            page.set(new LanguagePage(s -> { }, locales));
             assertEquals(Optional.of(Language.ENGLISH), page.get().selectedLanguage());
             findButton(page.get(), "Deutsch").doClick();
-            page.get().zoneBox().setSelectedItem("Europe/Rome");
-            assertEquals("Language: Deutsch Time zone: saving…", page.get().apply());
+            assertEquals("Language: Deutsch", page.get().apply());
         });
         assertEquals(Optional.of(Language.GERMAN), locales.language());
-        waitFor(() -> "Europe/Rome".equals(zones.zone));
-        assertTrue(TimeZones.choices().contains("America/New_York"));
-        assertFalse(TimeZones.choices().contains("US/Eastern"), "no old aliases");
+    }
+
+    @Test
+    void dateTimePageSetsZoneNetworkTimeClockAndFormats() throws Exception {
+        assumeFalse(GraphicsEnvironment.isHeadless());
+        FakeClock clock = new FakeClock();
+        RegionalFormats formats = new RegionalFormats(dir);
+        AtomicReference<DateTimePage> page = new AtomicReference<>();
+        AtomicReference<String> status = new AtomicReference<>();
+        SwingUtilities.invokeAndWait(() -> {
+            page.set(new DateTimePage(status::set, clock, formats, new LocaleStore(dir), RegionalFormats.REGIONS));
+            assertEquals("Date and time: nothing changed", page.get().apply());
+            page.get().zoneBox().setSelectedItem("Europe/Rome");
+            page.get().regionBox().setSelectedItem(Locale.of("de", "AT"));
+            page.get().ntpBox().doClick();
+            page.get().enterTime(LocalDateTime.of(2026, 12, 24, 18, 30, 5));
+            assertEquals("Formats: Deutsch (Österreich). Clock: saving…", page.get().apply());
+        });
+        assertEquals(Optional.of(Locale.of("de", "AT")), formats.region());
+        waitFor(() -> "Clock: Europe / Rome, set by hand".equals(status.get()));
+        assertEquals(List.of("zone Europe/Rome", "ntp false", "time 2026-12-24T18:30:05"), clock.calls);
+        assertTrue(SystemClock.zones().contains("America/New_York"));
+        assertFalse(SystemClock.zones().contains("US/Eastern"), "no old aliases");
+    }
+
+    @Test
+    void timedatectlShowIsParsed() {
+        SystemClock.Status s = SystemClock.Timedatectl.parse("""
+                Timezone=Europe/Berlin
+                LocalRTC=no
+                CanNTP=yes
+                NTP=yes
+                NTPSynchronized=no
+                """, "UTC");
+        assertEquals(new SystemClock.Status("Europe/Berlin", true, true, false), s);
+        assertEquals("UTC", SystemClock.Timedatectl.parse("", "UTC").zone());
+    }
+
+    @Test
+    void applicationsPageWritesTheUsersChoicesAndDropsThemForTheDefaults() throws Exception {
+        assumeFalse(GraphicsEnvironment.isHeadless());
+        MimeApps apps = mimeApps(dir);
+        AtomicReference<ApplicationsPage> page = new AtomicReference<>();
+        SwingUtilities.invokeAndWait(() -> {
+            page.set(new ApplicationsPage(s -> { }, apps, FakeApplications.ALL));
+            javax.swing.JComboBox<String> pictures = page.get().choice(ApplicationsPage.Role.PICTURES);
+            assertEquals("amade-imageviewer.desktop", pictures.getSelectedItem());
+            assertEquals(List.of("amade-imageeditor.desktop", "amade-imageviewer.desktop", "amade-imagescan.desktop"),
+                    page.get().candidates(ApplicationsPage.Role.PICTURES));
+            pictures.setSelectedItem("amade-imageeditor.desktop");
+            assertEquals("1 default application changed", page.get().apply());
+        });
+        assertEquals(Optional.of("amade-imageeditor.desktop"), apps.defaultFor("image/png"));
+        assertTrue(apps.userChoice("image/webp"));
+        assertFalse(apps.userChoice("image/x-bmp"), "the editor does not list it");
+        SwingUtilities.invokeAndWait(() -> {
+            page.get().useSystemDefaults();
+            assertEquals("1 default application changed", page.get().apply());
+        });
+        assertFalse(apps.userChoice("image/png"));
+    }
+
+    /** The default applications of amadeOS's image in a directory of its own, for fake systems. */
+    static MimeApps fakeMimeApps() {
+        try {
+            return mimeApps(java.nio.file.Files.createTempDirectory("mimeapps"));
+        } catch (IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
+    }
+
+    static MimeApps mimeApps(Path dir) {
+        try {
+            Path system = dir.resolve("etc-mimeapps.list");
+            java.nio.file.Files.writeString(system, """
+                    [Default Applications]
+                    x-scheme-handler/http=firefox-esr.desktop
+                    x-scheme-handler/https=firefox-esr.desktop
+                    x-scheme-handler/mailto=amade-mail.desktop
+                    inode/directory=amade-files.desktop
+                    text/plain=amade-pad.desktop
+                    application/vnd.oasis.opendocument.text=amade-writepad.desktop
+                    image/jpeg=amade-imageviewer.desktop
+                    image/png=amade-imageviewer.desktop
+                    application/pdf=amade-pdfviewer.desktop
+                    application/epub+zip=amade-books.desktop
+                    audio/mpeg=amade-audio.desktop
+                    video/mp4=amade-video.desktop
+                    text/calendar=amade-calendar.desktop
+                    text/vcard=amade-contacts.desktop
+                    """);
+            Set<String> ids = FakeApplications.ALL.stream().map(XdgDesktopEntry::id).collect(java.util.stream.Collectors.toSet());
+            return new MimeApps(dir.resolve("user/mimeapps.list"), List.of(system), ids::contains);
+        } catch (IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
     }
 
     private static void waitFor(BooleanSupplier condition) throws Exception {
@@ -310,17 +405,31 @@ class SystemPagesTest {
         }
     }
 
-    static final class FakeTimeZones implements TimeZones {
-        volatile String zone = "Europe/Berlin";
+    static final class FakeClock implements SystemClock {
+        volatile Status status = new Status("Europe/Berlin", true, true, true);
+        final List<String> calls = new java.util.concurrent.CopyOnWriteArrayList<>();
 
         @Override
-        public String current() {
-            return zone;
+        public Status status() {
+            return status;
         }
 
         @Override
-        public void set(String zone) {
-            this.zone = zone;
+        public void setZone(String zone) {
+            calls.add("zone " + zone);
+            status = new Status(zone, status.canNtp(), status.ntp(), status.synchronized_());
+        }
+
+        @Override
+        public void setNtp(boolean on) {
+            calls.add("ntp " + on);
+            status = new Status(status.zone(), status.canNtp(), on, on);
+        }
+
+        @Override
+        public void setTime(LocalDateTime time) throws IOException {
+            if (status.ntp()) throw new IOException("Automatic time synchronization is enabled");
+            calls.add("time " + time);
         }
     }
 }
