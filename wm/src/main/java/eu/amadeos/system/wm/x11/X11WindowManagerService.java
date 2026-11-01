@@ -212,6 +212,9 @@ public final class X11WindowManagerService implements AutoCloseable {
     // Ctrl+Shift+Esc and Ctrl+Alt+Delete start the Task Manager.
     private int taskManagerEscapeKeycode = 0;
     private int deleteKeycode = 0;
+    // Ctrl+Alt+T opens a terminal.
+    private static final long XK_T = 0x0074;
+    private int terminalKeycode = 0;
     private int returnKeycode = 0;
     private int leftKeycode = 0;
     private int rightKeycode = 0;
@@ -445,6 +448,19 @@ public final class X11WindowManagerService implements AutoCloseable {
             LOGGER.warning(() -> "Failed to bind the Task Manager keys: " + e.getMessage());
         }
         // --8<-- [end:task-manager-keys]
+
+        // Ctrl+Alt+T opens a terminal (amade-terminal, see Terminals), as on most Linux desktops.
+        try {
+            this.terminalKeycode = keycode(XK_T);
+            for (long lock : new long[]{0, LibX11.Mod2Mask, LibX11.LockMask, LibX11.Mod2Mask | LibX11.LockMask}) {
+                if (terminalKeycode != 0) {
+                    x11.XGrabKey(display, terminalKeycode, new NativeLong(LibX11.ControlMask | LibX11.Mod1Mask | lock),
+                            new NativeLong(rootWindow), 1, LibX11.GrabModeAsync, LibX11.GrabModeAsync);
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.warning(() -> "Failed to bind Ctrl+Alt+T: " + e.getMessage());
+        }
 
         // --8<-- [start:alt-tab-keys]
         // Alt+Tab and Alt+Shift+Tab open the window switcher; once it is open the keyboard is grabbed, so
@@ -1782,6 +1798,10 @@ public final class X11WindowManagerService implements AutoCloseable {
                     startTaskManager(List.of());
                     return;
                 }
+                if (isCtrl && isAlt && !isShift && terminalKeycode != 0 && keyEvent.keycode == terminalKeycode) {
+                    startTerminal();
+                    return;
+                }
                 if (isAlt && tabKeycode != 0 && keyEvent.keycode == tabKeycode) {
                     openSwitcher((keyEvent.state & (int) LibX11.ShiftMask) != 0);
                     return;
@@ -2590,6 +2610,15 @@ public final class X11WindowManagerService implements AutoCloseable {
             eu.amadeos.system.base.process.ProcessLauncher.start(command);
         } catch (java.io.IOException e) {
             LOGGER.warning(() -> "Could not start the Task Manager (" + TASK_MANAGER + "): " + e.getMessage());
+        }
+    }
+
+    private static void startTerminal() {
+        String terminal = eu.amadeos.system.base.process.Terminals.program();
+        try {
+            eu.amadeos.system.base.process.ProcessLauncher.start(List.of(terminal));
+        } catch (java.io.IOException e) {
+            LOGGER.warning(() -> "Could not start the terminal (" + terminal + "): " + e.getMessage());
         }
     }
 

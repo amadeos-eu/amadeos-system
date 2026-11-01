@@ -141,17 +141,7 @@ public record XdgDesktopEntry(
         }
 
         if (terminal) {
-            List<String> termCmd = new ArrayList<>();
-            String termBin = System.getenv("TERMINAL");
-            if (termBin == null || termBin.isBlank()) {
-                termBin = "xterm";
-            }
-            termCmd.add(termBin);
-            termCmd.add("-title");
-            termCmd.add(name);
-            termCmd.add("-e");
-            termCmd.addAll(processedTokens);
-            return Collections.unmodifiableList(termCmd);
+            return eu.amadeos.system.base.process.Terminals.command(name, processedTokens);
         }
 
         return Collections.unmodifiableList(processedTokens);
