@@ -1,0 +1,24 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=amadeOS Disks
+Name[de]=amadeOS Datenträger
+Name[fr]=amadeOS Disques
+Name[es]=amadeOS Discos
+Name[it]=amadeOS Dischi
+GenericName=Disks
+GenericName[de]=Datenträger
+GenericName[fr]=Disques
+GenericName[es]=Discos
+GenericName[it]=Dischi
+Comment=Format sticks and cards, manage partitions, check disk health and write disk images
+Comment[de]=Sticks und Karten formatieren, Partitionen verwalten, den Zustand der Festplatten prüfen und Abbilder schreiben
+Comment[fr]=Formater clés et cartes, gérer les partitions, vérifier l'état des disques et écrire des images disque
+Comment[es]=Formatear memorias y tarjetas, gestionar particiones, comprobar el estado de los discos y escribir imágenes
+Comment[it]=Formattare chiavette e schede, gestire le partizioni, controllare lo stato dei dischi e scrivere immagini
+Icon=drive-harddisk
+Exec=/usr/bin/amadeos-disks
+Terminal=false
+Categories=System;HardwareSettings;
+Keywords=disk;drive;partition;format;usb;stick;sd;card;smart;health;image;iso;luks;fat32;exfat;ext4;
+StartupNotify=true
