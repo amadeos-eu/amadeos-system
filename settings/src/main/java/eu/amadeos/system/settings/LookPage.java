@@ -197,15 +197,16 @@ final class LookPage extends SettingsPage {
     // --8<-- [start:backdrop]
     /**
      * Horizon brings its picture for the chosen scheme (unless the box is cleared); back to classic, a Horizon
-     * picture gives way to amadeOS's own backdrop again. Backdrops the user chose stay.
+     * picture gives way to amadeOS's own backdrop again. Backdrops the user chose stay, the extra Horizon
+     * wallpapers (horizon-dunes.jpg and so on) too: only the two scheme pictures follow the scheme.
      */
     private void matchBackdrop(DesktopTheme before, DesktopTheme after) {
         String current = WallpaperManager.defaultBackdrop().path();
-        boolean horizonPicture = current != null && current.startsWith(HORIZON_BACKDROPS);
+        boolean horizonPicture = isSchemePicture(current);
         if (after.look() == DesktopLook.HORIZON) {
             if (!backdrop.isSelected()) return;
             String picture = HORIZON_BACKDROPS + scheme().id() + ".png";
-            boolean schemeChanged = before.look() == DesktopLook.CLASSIC || !picture.equals(current);
+            boolean schemeChanged = before.look() == DesktopLook.CLASSIC || horizonPicture && !picture.equals(current);
             if (schemeChanged && new java.io.File(picture).isFile()) {
                 WallpaperManager.applyWallpaper(picture, WallpaperManager.ScaleMode.FILL, after.base());
             }
@@ -214,6 +215,13 @@ final class LookPage extends SettingsPage {
         }
     }
     // --8<-- [end:backdrop]
+
+    /** Whether the path is one of the scheme pictures horizon-dark.png and horizon-light.png. */
+    static boolean isSchemePicture(String path) {
+        if (path == null || !path.startsWith(HORIZON_BACKDROPS)) return false;
+        String rest = path.substring(HORIZON_BACKDROPS.length());
+        return rest.equals("dark.png") || rest.equals("light.png");
+    }
 
     @Override
     protected void cancelled() {
