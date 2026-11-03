@@ -1,0 +1,7 @@
+#!/bin/sh
+# amadeos-settings: gives the default cursor theme back to the other cursor themes.
+set -e
+
+if [ "$1" = "remove" ]; then
+    update-alternatives --remove x-cursor-theme /usr/share/icons/amadeos-classic/cursor.theme
+fi

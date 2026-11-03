@@ -1,0 +1,9 @@
+#!/bin/sh
+# amadeos-settings: the classic X11 pointer stays the default when cursor themes are installed
+# (Settings > Accessibility offers the white and black pointers of dmz-cursor-theme).
+set -e
+
+if [ "$1" = "configure" ]; then
+    update-alternatives --install /usr/share/icons/default/index.theme x-cursor-theme \
+        /usr/share/icons/amadeos-classic/cursor.theme 200
+fi

@@ -73,6 +73,35 @@ public final class XCommands {
                 Integer.toString(b.durationMs())));
     }
 
+    // --8<-- [start:accessibility]
+    /**
+     * The keyboard aids through {@code xkbset} (XKB's AccessX controls), kept from expiring after two idle minutes,
+     * and the mouse pointer through the Xcursor resources, which every program reads when it connects to the X
+     * server. {@code xsetroot} puts the new pointer on the desktop at once; windows that are already open keep
+     * theirs. The classic pointer names a theme that does not exist, so libXcursor falls back to X's own cursors.
+     */
+    public static List<Command> accessibility(AccessibilitySettings a) {
+        List<String> keys = new ArrayList<>(List.of("xkbset"));
+        if (a.stickyKeys()) {
+            keys.addAll(List.of("sticky", a.stickyTwoKeys() ? "twokey" : "-twokey", a.stickyLock() ? "latchlock" : "-latchlock"));
+        } else {
+            keys.add("-sticky");
+        }
+        keys.addAll(a.slowKeys() ? List.of("slowkeys", Integer.toString(a.slowKeysMs())) : List.of("-slowkeys"));
+        keys.addAll(a.bounceKeys() ? List.of("bouncekeys", Integer.toString(a.bounceKeysMs())) : List.of("-bouncekeys"));
+        keys.add(a.mouseKeys() ? "mousekeys" : "-mousekeys");
+        keys.add(a.gestures() ? "accessx" : "-accessx");
+        keys.add(a.feedback() ? "feedback" : "-feedback");
+        String theme = a.pointer() == AccessibilitySettings.Pointer.CLASSIC ? "amadeos-classic" : a.pointer().theme();
+        return List.of(
+                new Command(keys, null),
+                Command.of("xkbset", "exp", "=sticky", "=slowkeys", "=bouncekeys", "=mousekeys", "=accessx"),
+                new Command(List.of("xrdb", "-nocpp", "-merge"),
+                        "Xcursor.theme: " + theme + "\nXcursor.size: " + a.pointerSize() + "\n"),
+                Command.of("xsetroot", "-cursor_name", "left_ptr"));
+    }
+    // --8<-- [end:accessibility]
+
     public static List<Command> all(InputSettings s, int pointerButtons) {
         List<Command> commands = new ArrayList<>(keyboard(s.keyboard()));
         commands.addAll(mouse(s.mouse(), pointerButtons));

@@ -34,6 +34,35 @@ class XCommandsTest {
     }
 
     @Test
+    void accessibilityCommands() {
+        assertEquals(List.of(
+                        "xkbset -sticky -slowkeys -bouncekeys -mousekeys -accessx feedback",
+                        "xkbset exp =sticky =slowkeys =bouncekeys =mousekeys =accessx",
+                        "xrdb -nocpp -merge",
+                        "xsetroot -cursor_name left_ptr"),
+                lines(XCommands.accessibility(AccessibilitySettings.DEFAULTS)));
+        AccessibilitySettings a = AccessibilitySettings.DEFAULTS.withPointer(AccessibilitySettings.Pointer.BLACK, 44)
+                .withKeys(true, true, false, true, 500, true, 200, true, false, false);
+        List<XCommands.Command> commands = XCommands.accessibility(a);
+        assertEquals("xkbset sticky -twokey latchlock slowkeys 500 bouncekeys 200 mousekeys -accessx -feedback",
+                lines(commands).getFirst());
+        assertEquals("Xcursor.theme: DMZ-Black\nXcursor.size: 48\n", commands.get(2).stdin());
+        assertEquals("Xcursor.theme: amadeos-classic\nXcursor.size: 24\n",
+                XCommands.accessibility(AccessibilitySettings.DEFAULTS).get(2).stdin());
+    }
+
+    @Test
+    void accessibilityStoreRoundTrip() {
+        AccessibilityStore store = new AccessibilityStore(dir.resolve(AccessibilityStore.FILE_NAME));
+        assertEquals(AccessibilitySettings.DEFAULTS, store.load());
+        AccessibilitySettings a = AccessibilitySettings.DEFAULTS.withPointer(AccessibilitySettings.Pointer.WHITE, 32)
+                .withKeys(true, false, true, false, 300, true, 150, false, true, true)
+                .withContrast(AccessibilitySettings.Contrast.DARK, "cde-desert");
+        store.save(a);
+        assertEquals(a, store.load());
+    }
+
+    @Test
     void beepCommand() {
         assertEquals(List.of("xset b 50 400 100"), lines(XCommands.beep(InputSettings.Beep.DEFAULTS)));
     }

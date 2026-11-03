@@ -686,6 +686,15 @@ public interface LibX11 extends Library {
 
     byte XKeysymToKeycode(Pointer display, NativeLong keysym);
 
+    /** The keysym of a name such as "t", "Escape" or "F4"; 0 (NoSymbol) if there is none. */
+    NativeLong XStringToKeysym(String string);
+
+    /** The name of a keysym, such as "Escape"; null if it has none. Not to be freed. */
+    String XKeysymToString(NativeLong keysym);
+
+    /** The keysym of a key in a group and shift level (0 = without Shift), from the XKB keyboard map. */
+    NativeLong XkbKeycodeToKeysym(Pointer display, int keycode, int group, int level);
+
     int XGrabKey(
         Pointer display,
         int keycode,

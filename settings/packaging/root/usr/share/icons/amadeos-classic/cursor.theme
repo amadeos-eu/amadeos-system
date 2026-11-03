@@ -1,0 +1,6 @@
+# The classic X11 pointer of amadeOS: a cursor theme without cursors. As the system's default cursor theme
+# (the x-cursor-theme alternative, set by this package) it lets libXcursor fall back to X's own cursors, so
+# installing dmz-cursor-theme for Settings > Accessibility does not change the pointer of everyone.
+[Icon Theme]
+Name=amadeOS classic
+Comment=The classic X11 pointer
