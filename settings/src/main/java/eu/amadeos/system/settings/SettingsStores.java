@@ -7,6 +7,7 @@ import eu.amadeos.commons.i18n.RegionalFormats;
 import eu.amadeos.commons.net.ProxyStore;
 import eu.amadeos.system.base.panel.PanelSettingsStore;
 import eu.amadeos.system.base.power.PowerSettingsStore;
+import eu.amadeos.system.base.shortcuts.ShortcutStore;
 import eu.amadeos.system.base.startup.DesktopServices;
 import eu.amadeos.system.base.startup.StartupSettings;
 import eu.amadeos.system.base.startup.UserAutostart;
@@ -16,6 +17,7 @@ import eu.amadeos.system.base.xdg.XdgDirectories;
 import eu.amadeos.system.clipboard.ClipboardSettingsStore;
 import eu.amadeos.system.notify.NotificationSettingsStore;
 import eu.amadeos.system.display.DisplaySettingsStore;
+import eu.amadeos.system.input.AccessibilityStore;
 import eu.amadeos.system.input.InputSettingsStore;
 import eu.amadeos.system.screen.ScreenSettingsStore;
 
@@ -33,7 +35,8 @@ record SettingsStores(ScreenSettingsStore screen, ClipboardSettingsStore clipboa
                       WindowSettingsStore window, PanelSettingsStore panel, WorkspaceNames workspaces,
                       StartupSettings startup, UserAutostart autostart, Path servicesDir, LocaleStore locales,
                       DisplaySettingsStore display, ProxyStore proxy, NotificationSettingsStore notifications,
-                      Path viewFile, PowerSettingsStore power, RegionalFormats formats) {
+                      Path viewFile, PowerSettingsStore power, RegionalFormats formats, ShortcutStore shortcuts,
+                      AccessibilityStore accessibility) {
     static final String VIEW_FILE = "settings.conf";
 
     /** The sidebar with one page per control, or CDE's row of buttons that open a dialog each. */
@@ -45,7 +48,7 @@ record SettingsStores(ScreenSettingsStore screen, ClipboardSettingsStore clipboa
                 UserAutostart.user(), DesktopServices.SYSTEM_DIR, new LocaleStore(XdgDirectories.amadeosConfigDir()),
                 DisplaySettingsStore.user(), ProxyStore.system(), NotificationSettingsStore.user(),
                 XdgDirectories.amadeosConfigDir().resolve(VIEW_FILE), PowerSettingsStore.user(),
-                new RegionalFormats(XdgDirectories.amadeosConfigDir()));
+                new RegionalFormats(XdgDirectories.amadeosConfigDir()), ShortcutStore.user(), AccessibilityStore.user());
     }
 
     /** The stores of one directory, for tests. */
@@ -59,7 +62,9 @@ record SettingsStores(ScreenSettingsStore screen, ClipboardSettingsStore clipboa
                 new DisplaySettingsStore(dir.resolve(DisplaySettingsStore.FILE_NAME)),
                 new ProxyStore(dir, new SessionPasswordStore()),
                 new NotificationSettingsStore(dir.resolve(NotificationSettingsStore.FILE_NAME)), dir.resolve(VIEW_FILE),
-                new PowerSettingsStore(dir.resolve(PowerSettingsStore.FILE_NAME)), new RegionalFormats(dir));
+                new PowerSettingsStore(dir.resolve(PowerSettingsStore.FILE_NAME)), new RegionalFormats(dir),
+                new ShortcutStore(dir.resolve(ShortcutStore.FILE_NAME)),
+                new AccessibilityStore(dir.resolve(AccessibilityStore.FILE_NAME)));
     }
 
     View view() {

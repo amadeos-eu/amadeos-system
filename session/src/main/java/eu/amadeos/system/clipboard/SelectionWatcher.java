@@ -29,9 +29,6 @@ final class SelectionWatcher {
     interface Listener {
         void ownerChanged(Selection selection, long owner, boolean gone);
 
-        /** Ctrl+Alt+V was pressed. */
-        void hotkey();
-
         void command(ClipboardCommand command);
 
         /** A program asks for the clipboard to be saved; answer through the probe. */
@@ -61,7 +58,6 @@ final class SelectionWatcher {
     private final NativeLong saveTargetsAtom;
     private final NativeLong commandAtom;
     private final Listener listener;
-    private int hotkeyCode;
 
     private SelectionWatcher(LibX11 x11, LibXfixes fixes, Pointer display, int fixesEvent, Listener listener)
             throws AlreadyRunningException {
@@ -93,7 +89,8 @@ final class SelectionWatcher {
         fixes.XFixesSelectSelectionInput(display, window, clipboardAtom, new NativeLong(mask));
         fixes.XFixesSelectSelectionInput(display, window, primaryAtom, new NativeLong(mask));
         // --8<-- [end:watch]
-        grabHotkey();
+        // Ctrl+Alt+V (Settings > Keyboard Shortcuts) is the window manager's: it runs amadeos-clipboard --show,
+        // which reaches this watcher as the SHOW command.
         x11.XFlush(display);
     }
 
@@ -125,17 +122,6 @@ final class SelectionWatcher {
         }
     }
 
-    private void grabHotkey() {
-        hotkeyCode = Byte.toUnsignedInt(x11.XKeysymToKeycode(display, new NativeLong(LibX11.XK_v)));
-        if (hotkeyCode == 0) return;
-        long base = LibX11.ControlMask | LibX11.Mod1Mask;
-        // The same keys with Num Lock and Caps Lock on.
-        for (long extra : new long[]{0, LibX11.Mod2Mask, LibX11.LockMask, LibX11.Mod2Mask | LibX11.LockMask}) {
-            x11.XGrabKey(display, hotkeyCode, new NativeLong(base | extra), root, 1,
-                    LibX11.GrabModeAsync, LibX11.GrabModeAsync);
-        }
-    }
-
     /** Handles events until the connection breaks. */
     void run() {
         LibX11.XEvent event = new LibX11.XEvent();
@@ -157,10 +143,6 @@ final class SelectionWatcher {
             return;
         }
         switch (event.type) {
-            case LibX11.KeyPress -> {
-                LibX11.XKeyEvent key = new LibX11.XKeyEvent(event.getPointer());
-                if (key.keycode == hotkeyCode) listener.hotkey();
-            }
             case LibX11.ClientMessage -> {
                 LibX11.XClientMessageEvent message = new LibX11.XClientMessageEvent(event.getPointer());
                 if (message.message_type.longValue() == commandAtom.longValue()) {

@@ -146,11 +146,6 @@ public final class ClipboardDaemon {
             }
 
             @Override
-            public void hotkey() {
-                SwingUtilities.invokeLater(ClipboardDaemon.this::showHistory);
-            }
-
-            @Override
             public void command(ClipboardCommand command) {
                 switch (command) {
                     case SHOW -> SwingUtilities.invokeLater(ClipboardDaemon.this::showHistory);

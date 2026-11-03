@@ -38,6 +38,13 @@ final class InputControls {
                 : SettingsTexts.format("status.not.run", what, failed.getFirst().args().getFirst());
     }
 
+    /** Applies commands that were saved elsewhere (Accessibility); returns a status message. */
+    String apply(List<XCommands.Command> commands, String what) {
+        List<XCommands.Command> failed = applier.apply(commands);
+        return failed.isEmpty() ? SettingsTexts.format("status.applied", what)
+                : SettingsTexts.format("status.not.run", what, failed.getFirst().args().getFirst());
+    }
+
     /** Applies commands without saving, e.g. to try out the bell. */
     void preview(List<XCommands.Command> commands) {
         applier.apply(commands);

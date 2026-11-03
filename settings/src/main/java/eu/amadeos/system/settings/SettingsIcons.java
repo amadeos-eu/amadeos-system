@@ -133,6 +133,34 @@ final class SettingsIcons {
                 }
                 g.drawLine(9, 24, 27, 24);
             }
+            case SHORTCUTS -> {
+                // Two key caps joined by a plus: a key combination.
+                for (int x : new int[]{1, 20}) {
+                    g.setColor(paper);
+                    g.fillRoundRect(x, 9, 15, 15, 4, 4);
+                    g.setColor(ink);
+                    g.drawRoundRect(x, 9, 15, 15, 4, 4);
+                    g.drawLine(x + 2, 21, x + 13, 21);
+                }
+                g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 9));
+                g.drawString("Ctl", 2, 19);
+                g.drawString("T", 25, 19);
+                g.setColor(enabled ? t.activeTitleBg() : t.shadow());
+                g.fillRect(17, 15, 3, 1);
+                g.fillRect(18, 14, 1, 3);
+            }
+            case ACCESSIBILITY -> {
+                // The figure with open arms in a circle, the usual sign for accessibility.
+                g.setColor(enabled ? new Color(0x2E, 0x5C, 0xA8) : t.shadow());
+                g.fillOval(2, 2, 32, 32);
+                g.setColor(enabled ? Color.WHITE : paper);
+                g.fillOval(15, 6, 6, 6);
+                g.setStroke(new BasicStroke(2.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g.drawLine(9, 15, 27, 15);
+                g.drawLine(18, 15, 18, 22);
+                g.drawLine(18, 22, 13, 30);
+                g.drawLine(18, 22, 23, 30);
+            }
             case MOUSE -> {
                 g.setColor(paper);
                 g.fillRoundRect(10, 6, 16, 26, 14, 14);

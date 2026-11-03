@@ -242,9 +242,12 @@ public final class SettingsWindow extends JFrame {
                     () -> openControl(SettingsCategory.BACKDROP));
             case PANEL -> new PanelPage(this::setStatus, stores.panel());
             case KEYBOARD -> new KeyboardPage(this::setStatus, input);
+            case SHORTCUTS -> new ShortcutsPage(this::setStatus, stores.shortcuts());
             case MOUSE -> new MousePage(this::setStatus, input);
             case SOUND -> new SoundPage(this::setStatus, system.sound(), system.soundTest());
             case BEEP -> new BeepPage(this::setStatus, input);
+            case ACCESSIBILITY -> new AccessibilityPage(this::setStatus, stores.accessibility(), input,
+                    () -> openControl(SettingsCategory.FONT));
             case DISPLAY -> new DisplayPage(this::setStatus, system.displays(), stores.display());
             case SCREEN -> new ScreenPage(this::setStatus, stores.screen());
             case POWER -> new PowerPage(this::setStatus, stores.power(), system.power(), system.battery());

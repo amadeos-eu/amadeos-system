@@ -55,6 +55,9 @@ import eu.amadeos.system.base.workspace.WorkspaceNames;
 import eu.amadeos.system.base.window.WindowSettings;
 import eu.amadeos.system.base.window.WindowSettingsStore;
 import eu.amadeos.commons.config.ConfigWatcher;
+import eu.amadeos.system.base.shortcuts.ShortcutAction;
+import eu.amadeos.system.base.shortcuts.ShortcutStore;
+import eu.amadeos.system.base.shortcuts.Shortcuts;
 import java.util.Set;
 import eu.amadeos.system.base.x11.X11EwmhHelper;
 import eu.amadeos.system.base.ui.SessionDialogHelper;
@@ -212,7 +215,6 @@ public final class X11WindowManagerService implements AutoCloseable {
     private final Map<Long, DesktopIconTile> tileWinToTile = new HashMap<>();
     private final Map<Long, DesktopIconTile> clientToTile = new HashMap<>();
 
-    private int lockKeycode = 0;
     private int powerKeycode = 0;
     private PowerButton powerButton;
 
@@ -221,19 +223,17 @@ public final class X11WindowManagerService implements AutoCloseable {
     private int tabKeycode = 0;
     private final Set<Integer> altKeycodes = new java.util.HashSet<>();
     private int escapeKeycode = 0;
-    // Ctrl+Shift+Esc and Ctrl+Alt+Delete start the Task Manager.
-    private int taskManagerEscapeKeycode = 0;
+    // Ctrl+Alt+Delete always starts the Task Manager; its other key is one of the shortcuts.
     private int deleteKeycode = 0;
-    // Ctrl+Alt+T opens a terminal.
-    private static final long XK_T = 0x0074;
-    private int terminalKeycode = 0;
-    // Super+Space opens Horizon's search.
-    private static final long XK_SPACE = 0x0020;
-    private int searchKeycode = 0;
-    // Super+D shows the desktop: the windows of the workspace step aside until it is pressed again or a
+    // The desktop shortcuts of Settings > Keyboard Shortcuts (Super+L, Ctrl+Alt+T, Super+D, ...): grabbed from
+    // shortcuts.conf, grabbed anew whenever the file changes.
+    private final ShortcutStore shortcutStore = ShortcutStore.user();
+    private ShortcutKeys shortcutKeys = ShortcutKeys.none();
+    private final ConfigWatcher shortcutWatcher = new ConfigWatcher(
+            shortcutStore.file().getParent(), Set.of(ShortcutStore.FILE_NAME), "amadeos-wm-shortcuts",
+            () -> runOnEventThread(this::grabShortcuts));
+    // Show desktop (Super+D): the windows of the workspace step aside until it is pressed again or a
     // window is activated (_NET_SHOWING_DESKTOP).
-    private static final long XK_D = 0x0064;
-    private int showDesktopKeycode = 0;
     private boolean showingDesktop;
     private final java.util.List<Long> desktopHidden = new java.util.ArrayList<>();
     private long activeBeforeDesktop;
@@ -408,33 +408,7 @@ public final class X11WindowManagerService implements AutoCloseable {
         // catches clicks on every window above it, so the front panel and the applications would never
         // see their right-clicks. The ButtonPressMask selected on the root delivers bare desktop clicks.
 
-        // Global shortcut: Super+L (Mod4Mask + 'l') to lock screen
-        try {
-            byte kc = x11.XKeysymToKeycode(display, new NativeLong(LibX11.XK_l));
-            this.lockKeycode = Byte.toUnsignedInt(kc);
-            if (this.lockKeycode != 0) {
-                long[] modMasks = {
-                    LibX11.Mod4Mask,
-                    LibX11.Mod4Mask | LibX11.Mod2Mask, // NumLock
-                    LibX11.Mod4Mask | LibX11.LockMask, // CapsLock
-                    LibX11.Mod4Mask | LibX11.Mod2Mask | LibX11.LockMask
-                };
-                for (long mask : modMasks) {
-                    x11.XGrabKey(
-                            display,
-                            this.lockKeycode,
-                            new NativeLong(mask),
-                            new NativeLong(rootWindow),
-                            1,
-                            LibX11.GrabModeAsync,
-                            LibX11.GrabModeAsync
-                    );
-                }
-                LOGGER.fine(() -> "Registered global Super+L lock screen shortcut (keycode=" + lockKeycode + ")");
-            }
-        } catch (Exception e) {
-            LOGGER.warning(() -> "Failed to bind Super+L screen lock shortcut: " + e.getMessage());
-        }
+        grabShortcuts();
 
         // The power button: the window manager does what Settings > Power says instead of logind.
         try {
@@ -453,67 +427,22 @@ public final class X11WindowManagerService implements AutoCloseable {
         }
 
         // --8<-- [start:task-manager-keys]
-        // Ctrl+Shift+Esc and Ctrl+Alt+Delete open the Task Manager. Under X, Ctrl+Alt+Delete is an ordinary
-        // key: the X server owns the keyboard, so systemd's reboot on the text console never sees it.
+        // Ctrl+Alt+Delete opens the Task Manager (its other key, Ctrl+Shift+Esc, is one of the shortcuts). Under
+        // X, Ctrl+Alt+Delete is an ordinary key: the X server owns the keyboard, so systemd's reboot on the text
+        // console never sees it. It cannot be changed, so a user who is stuck always finds it.
         try {
-            this.taskManagerEscapeKeycode = keycode(LibX11.XK_Escape);
             this.deleteKeycode = keycode(XK_DELETE);
             for (long lock : new long[]{0, LibX11.Mod2Mask, LibX11.LockMask, LibX11.Mod2Mask | LibX11.LockMask}) {
-                if (taskManagerEscapeKeycode != 0) {
-                    x11.XGrabKey(display, taskManagerEscapeKeycode,
-                            new NativeLong(LibX11.ControlMask | LibX11.ShiftMask | lock),
-                            new NativeLong(rootWindow), 1, LibX11.GrabModeAsync, LibX11.GrabModeAsync);
-                }
                 if (deleteKeycode != 0) {
                     x11.XGrabKey(display, deleteKeycode, new NativeLong(LibX11.ControlMask | LibX11.Mod1Mask | lock),
                             new NativeLong(rootWindow), 1, LibX11.GrabModeAsync, LibX11.GrabModeAsync);
                 }
             }
-            LOGGER.fine("Registered Ctrl+Shift+Esc and Ctrl+Alt+Delete for the Task Manager");
+            LOGGER.fine("Registered Ctrl+Alt+Delete for the Task Manager");
         } catch (Exception e) {
             LOGGER.warning(() -> "Failed to bind the Task Manager keys: " + e.getMessage());
         }
         // --8<-- [end:task-manager-keys]
-
-        // Ctrl+Alt+T opens a terminal (amade-terminal, see Terminals), as on most Linux desktops.
-        try {
-            this.terminalKeycode = keycode(XK_T);
-            for (long lock : new long[]{0, LibX11.Mod2Mask, LibX11.LockMask, LibX11.Mod2Mask | LibX11.LockMask}) {
-                if (terminalKeycode != 0) {
-                    x11.XGrabKey(display, terminalKeycode, new NativeLong(LibX11.ControlMask | LibX11.Mod1Mask | lock),
-                            new NativeLong(rootWindow), 1, LibX11.GrabModeAsync, LibX11.GrabModeAsync);
-                }
-            }
-        } catch (Exception e) {
-            LOGGER.warning(() -> "Failed to bind Ctrl+Alt+T: " + e.getMessage());
-        }
-
-        // --8<-- [start:search-key]
-        // Super+Space opens the search of Horizon's top bar, which listens on a socket (see startSearch).
-        try {
-            this.searchKeycode = keycode(XK_SPACE);
-            for (long lock : new long[]{0, LibX11.Mod2Mask, LibX11.LockMask, LibX11.Mod2Mask | LibX11.LockMask}) {
-                if (searchKeycode != 0) {
-                    x11.XGrabKey(display, searchKeycode, new NativeLong(LibX11.Mod4Mask | lock),
-                            new NativeLong(rootWindow), 1, LibX11.GrabModeAsync, LibX11.GrabModeAsync);
-                }
-            }
-        } catch (Exception e) {
-            LOGGER.warning(() -> "Failed to bind Super+Space: " + e.getMessage());
-        }
-        // --8<-- [end:search-key]
-
-        try {
-            this.showDesktopKeycode = keycode(XK_D);
-            for (long lock : new long[]{0, LibX11.Mod2Mask, LibX11.LockMask, LibX11.Mod2Mask | LibX11.LockMask}) {
-                if (showDesktopKeycode != 0) {
-                    x11.XGrabKey(display, showDesktopKeycode, new NativeLong(LibX11.Mod4Mask | lock),
-                            new NativeLong(rootWindow), 1, LibX11.GrabModeAsync, LibX11.GrabModeAsync);
-                }
-            }
-        } catch (Exception e) {
-            LOGGER.warning(() -> "Failed to bind Super+D: " + e.getMessage());
-        }
 
         // --8<-- [start:alt-tab-keys]
         // Alt+Tab and Alt+Shift+Tab open the window switcher; once it is open the keyboard is grabbed, so
@@ -671,6 +600,7 @@ public final class X11WindowManagerService implements AutoCloseable {
 
         ThemeManager.addListener(newTheme -> runOnEventThread(() -> applyThemeGlobally(newTheme)));
         windowSettingsWatcher.start();
+        shortcutWatcher.start();
 
         try {
             showWorkspaceBackdrop();
@@ -1991,35 +1921,15 @@ public final class X11WindowManagerService implements AutoCloseable {
                 boolean isAlt = (keyEvent.state & (int) LibX11.Mod1Mask) != 0;
                 boolean isCtrl = (keyEvent.state & (int) LibX11.ControlMask) != 0;
                 boolean isShift = (keyEvent.state & (int) LibX11.ShiftMask) != 0;
-                if (isCtrl && ((isShift && !isAlt && keyEvent.keycode == taskManagerEscapeKeycode)
-                        || (isAlt && deleteKeycode != 0 && keyEvent.keycode == deleteKeycode))) {
+                if (isCtrl && isAlt && !isShift && deleteKeycode != 0 && keyEvent.keycode == deleteKeycode) {
                     startTaskManager(List.of());
-                    return;
-                }
-                if (isCtrl && isAlt && !isShift && terminalKeycode != 0 && keyEvent.keycode == terminalKeycode) {
-                    startTerminal();
-                    return;
-                }
-                if ((keyEvent.state & (int) LibX11.Mod4Mask) != 0 && searchKeycode != 0
-                        && keyEvent.keycode == searchKeycode) {
-                    startSearch();
-                    return;
-                }
-                if ((keyEvent.state & (int) LibX11.Mod4Mask) != 0 && showDesktopKeycode != 0
-                        && keyEvent.keycode == showDesktopKeycode) {
-                    setShowingDesktop(!showingDesktop);
                     return;
                 }
                 if (isAlt && tabKeycode != 0 && keyEvent.keycode == tabKeycode) {
                     openSwitcher((keyEvent.state & (int) LibX11.ShiftMask) != 0);
                     return;
                 }
-                // Check if Super modifier (Mod4Mask) is held and keycode matches 'l'
-                boolean isSuper = (keyEvent.state & (int) LibX11.Mod4Mask) != 0;
-                if (isSuper && (lockKeycode != 0 && keyEvent.keycode == lockKeycode)) {
-                    LOGGER.info("Super+L pressed: starting the amadeOS screen lock");
-                    LockLauncher.lockScreen();
-                }
+                shortcutKeys.target(keyEvent.keycode, keyEvent.state).ifPresent(this::runShortcut);
             }
             case LibX11.KeyRelease -> {
                 LibX11.XKeyEvent keyEvent = new LibX11.XKeyEvent(event.getPointer());
@@ -2850,6 +2760,77 @@ public final class X11WindowManagerService implements AutoCloseable {
     }
     // --8<-- [end:ping]
 
+    // --8<-- [start:grab-shortcuts]
+    /**
+     * Grabs the keys of the desktop shortcuts on the root window, each also with Num Lock and Caps Lock on, after
+     * letting go of the ones grabbed before. Runs at the start and whenever {@code shortcuts.conf} changes.
+     */
+    private void grabShortcuts() {
+        long[] locks = {0, LibX11.Mod2Mask, LibX11.LockMask, LibX11.Mod2Mask | LibX11.LockMask};
+        for (ShortcutKeys.Grab grab : shortcutKeys.grabs().keySet()) {
+            for (long lock : locks) {
+                x11.XUngrabKey(display, grab.keycode(), new NativeLong(grab.modifiers() | lock), new NativeLong(rootWindow));
+            }
+        }
+        Shortcuts shortcuts = shortcutStore.load();
+        shortcutKeys = ShortcutKeys.of(shortcuts, name -> {
+            NativeLong keysym = x11.XStringToKeysym(name);
+            return keysym == null || keysym.longValue() == 0 ? 0 : keycode(keysym.longValue());
+        });
+        for (ShortcutKeys.Grab grab : shortcutKeys.grabs().keySet()) {
+            for (long lock : locks) {
+                x11.XGrabKey(display, grab.keycode(), new NativeLong(grab.modifiers() | lock), new NativeLong(rootWindow),
+                        1, LibX11.GrabModeAsync, LibX11.GrabModeAsync);
+            }
+        }
+        x11.XFlush(display);
+        LOGGER.fine(() -> "Grabbed " + shortcutKeys.grabs().size() + " desktop shortcuts");
+    }
+
+    /** Does what a shortcut key stands for. */
+    private void runShortcut(ShortcutKeys.Target target) {
+        switch (target) {
+            case ShortcutKeys.Target.Command c -> startProgram(List.of("sh", "-c", c.command()));
+            case ShortcutKeys.Target.Action a -> {
+                ShortcutAction action = a.action();
+                FrameWindow active = activeWindow == 0 ? null : clientToFrame.get(activeWindow);
+                switch (action) {
+                    case LOCK_SCREEN -> LockLauncher.lockScreen();
+                    case TERMINAL -> startTerminal();
+                    case SEARCH -> startSearch();
+                    case SHOW_DESKTOP -> setShowingDesktop(!showingDesktop);
+                    case CLOSE_WINDOW -> {
+                        if (active != null) requestClose(activeWindow);
+                    }
+                    case MAXIMIZE_WINDOW -> {
+                        if (active != null) toggleMaximize(active);
+                    }
+                    case MINIMIZE_WINDOW -> {
+                        if (active != null) minimizeWindow(active);
+                    }
+                    case WORKSPACE_PREVIOUS -> switchDesktop((currentDesktop + NUMBER_OF_DESKTOPS - 1) % NUMBER_OF_DESKTOPS);
+                    case WORKSPACE_NEXT -> switchDesktop((currentDesktop + 1) % NUMBER_OF_DESKTOPS);
+                    default -> {
+                        if (action.workspace() >= 0) {
+                            switchDesktop(action.workspace());
+                        } else if (!action.command().isEmpty()) {
+                            startProgram(action.command());
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // --8<-- [end:grab-shortcuts]
+
+    private static void startProgram(List<String> command) {
+        try {
+            eu.amadeos.system.base.process.ProcessLauncher.start(command);
+        } catch (java.io.IOException e) {
+            LOGGER.warning(() -> "Could not start " + command + ": " + e.getMessage());
+        }
+    }
+
     /** Starts the Task Manager (package amadeos-taskmanager), which shows its running window if there is one. */
     private static void startTaskManager(List<String> arguments) {
         List<String> command = new java.util.ArrayList<>();
@@ -3398,6 +3379,7 @@ public final class X11WindowManagerService implements AutoCloseable {
             }
         }
         windowSettingsWatcher.close();
+        shortcutWatcher.close();
         desktopMenu.dispose();
         windowMenu.dispose();
         if (switcherPopup != null) switcherPopup.dispose();

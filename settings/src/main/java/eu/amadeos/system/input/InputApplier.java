@@ -11,7 +11,8 @@ import java.util.logging.Logger;
 
 /**
  * Runs the {@link XCommands} against the current display. Used by the Settings (Apply) and at login
- * ({@code amadeos.jar input}, from {@code /etc/amadeos/autostart.d/10-amadeos-input}).
+ * ({@code amadeos.jar input}, from {@code /etc/amadeos/autostart.d/10-amadeos-input}), there also for the
+ * accessibility settings.
  */
 public class InputApplier {
     private static final Logger LOGGER = Logger.getLogger(InputApplier.class.getName());
@@ -63,7 +64,13 @@ public class InputApplier {
 
     /** {@code amadeos.jar input}: applies the stored settings at login. */
     public static void main(String[] args) {
-        List<XCommands.Command> failed = new InputApplier().applyAll(InputSettingsStore.user().load());
+        InputApplier applier = new InputApplier();
+        List<XCommands.Command> failed = new ArrayList<>(applier.applyAll(InputSettingsStore.user().load()));
+        // Accessibility only when the user changed something, so a computer without xkbset logs no warning.
+        AccessibilitySettings accessibility = AccessibilityStore.user().load();
+        if (!accessibility.equals(AccessibilitySettings.DEFAULTS)) {
+            failed.addAll(applier.apply(XCommands.accessibility(accessibility)));
+        }
         System.exit(failed.isEmpty() ? 0 : 1);
     }
 }
