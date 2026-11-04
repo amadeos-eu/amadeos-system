@@ -35,7 +35,8 @@ public interface PackageService {
 
     /**
      * Every package on offer or installed, sorted by name, each in its {@link Category}: the Software
-     * program's catalog. Reads all package indexes; takes a few seconds.
+     * program's catalog. Reads all package indexes, which takes a few seconds; an implementation may keep the
+     * result until the package lists or the installed packages change.
      */
     List<CatalogEntry> catalog() throws PackageException;
 

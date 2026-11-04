@@ -347,4 +347,81 @@ class AptPackageServiceTest {
                 () -> AptPackageService.run(List.of("sh", "-c", "echo 'E: Unable to locate package x' >&2; exit 100")));
         assertEquals("Unable to locate package x", e.getMessage());
     }
+    // --8<-- [start:busy-pool]
+    @Test
+    void largeOutputIsReadWhileTheCommonPoolIsBusy() throws Exception {
+        // On a machine with one or two processors the common pool has a single worker. Readers there would wait
+        // for it, apt-cache would block on a full pipe and the read would only end at the time limit.
+        int workers = java.util.concurrent.ForkJoinPool.getCommonPoolParallelism();
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch busy = new java.util.concurrent.CountDownLatch(workers);
+        for (int i = 0; i < workers; i++) {
+            java.util.concurrent.ForkJoinPool.commonPool().execute(() -> {
+                busy.countDown();
+                try {
+                    release.await();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            });
+        }
+        try {
+            assertTrue(busy.await(10, java.util.concurrent.TimeUnit.SECONDS));
+            int[] lines = new int[1];
+            AptPackageService.lines(List.of("sh", "-c", "echo starting >&2; yes Package: x | head -n 200000"),
+                    line -> lines[0]++, Duration.ofSeconds(20));
+            assertEquals(200000, lines[0]);
+        } finally {
+            release.countDown();
+        }
+    }
+    // --8<-- [end:busy-pool]
+
+    @Test
+    void automaticPackagesComeFromAptsOwnFile() throws Exception {
+        Path states = Files.writeString(dir.resolve("extended_states"), """
+                Package: libc6
+                Architecture: amd64
+                Auto-Installed: 1
+
+                Package: gimp
+                Architecture: amd64
+                Auto-Installed: 0
+
+                """);
+        List<List<String>> commands = new ArrayList<>();
+        AptPackageService service = new AptPackageService(List.of("false"), Map.of(), command -> {
+            commands.add(command);
+            if (command.getFirst().equals("dpkg-query")) return Fixtures.read("dpkg-query.txt");
+            throw new AssertionError(command);
+        }, dir, states, null);
+        List<InstalledPackage> installed = service.installed();
+        assertTrue(installed.stream().filter(p -> p.name().startsWith("libc6")).findFirst().orElseThrow().automatic());
+        assertTrue(commands.stream().noneMatch(c -> c.getFirst().equals("apt-mark")), "apt-mark is slow");
+    }
+
+    @Test
+    void theCatalogIsKeptUntilItsSourcesChange() throws Exception {
+        Path lists = Files.createDirectories(dir.resolve("lists"));
+        Path status = Files.writeString(dir.resolve("status"), "");
+        StampedCache cache = new StampedCache(dir.resolve("cache/catalog"), "test 1", List.of(lists, status));
+        int[] reads = new int[1];
+        AptPackageService service = new AptPackageService(List.of("false"), Map.of(), command -> {
+            String first = command.getFirst();
+            if (first.equals("apt-cache")) {
+                reads[0]++;
+                return Fixtures.read("dumpavail.txt");
+            }
+            if (first.equals("apt-mark")) return Fixtures.read("showauto.txt");
+            if (first.equals("dpkg-query") && command.get(1).equals("-W")) return Fixtures.read("dpkg-query.txt");
+            throw new PackageService.PackageException("dpkg-query: no path found matching pattern");
+        }, lists, null, cache);
+        List<CatalogEntry> first = service.catalog();
+        assertEquals(first, service.catalog());
+        assertEquals(1, reads[0], "the second start reads the cache");
+        Files.setLastModifiedTime(status, java.nio.file.attribute.FileTime.fromMillis(
+                Files.getLastModifiedTime(status).toMillis() + 5000));
+        assertEquals(first, service.catalog());
+        assertEquals(2, reads[0], "a package was installed: read anew");
+    }
 }
