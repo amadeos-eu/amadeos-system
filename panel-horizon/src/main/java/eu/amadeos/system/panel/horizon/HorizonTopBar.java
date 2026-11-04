@@ -23,6 +23,7 @@ import eu.amadeos.system.base.xdg.XdgDirectories;
 import eu.amadeos.commons.config.ConfigWatcher;
 import eu.amadeos.system.packages.AptPackageService;
 import eu.amadeos.system.panel.cde.PanelTexts;
+import eu.amadeos.system.panel.cde.activity.ActivityLight;
 import eu.amadeos.system.panel.cde.status.BatteryCell;
 import eu.amadeos.system.panel.cde.status.BluetoothCell;
 import eu.amadeos.system.panel.cde.status.CameraCell;
@@ -68,9 +69,9 @@ import java.util.logging.Logger;
 
 /**
  * The top bar of the Horizon look: along the top edge of the screen, the system menu (programs, Settings,
- * Software, lock, log out) and the name of the active program on the left; the workspaces, the status cells of
- * the Front Panel and the clock with the date on the right. It reserves its height at the top of the screen,
- * so windows stay below it, opens the search (the magnifier, Super+Space) and hands over to the Front Panel when the look changes back to classic.
+ * Software, lock, log out) and the name of the active program on the left; the workspaces, the Front Panel's busy
+ * light and status cells, the clock with the date and the power button (lock, log out or shut down) on the right.
+ * It reserves its height at the top of the screen, so windows stay below it, opens the search (the magnifier, Super+Space) and hands over to the Front Panel when the look changes back to classic.
  */
 public final class HorizonTopBar extends JFrame {
     private static final Logger LOGGER = Logger.getLogger(HorizonTopBar.class.getName());
@@ -87,6 +88,9 @@ public final class HorizonTopBar extends JFrame {
     private final BarButton searchButton;
     private final BarButton desktopButton;
     private final BarButton clockButton;
+    private final BarButton powerButton;
+    private final ActivityLight activityLight = new ActivityLight();
+    private long launchedAt;
     private HorizonSearch search;
     private final Map<String, StatusCell> cells = new LinkedHashMap<>();
     private final JPanel cellPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
@@ -233,6 +237,11 @@ public final class HorizonTopBar extends JFrame {
         workspaces = new WorkspaceDots(helper::setCurrentDesktop);
         workspaces.setActive(Math.max(0, helper.getCurrentDesktop()));
         right.add(workspaces);
+        // The busy light of the Front Panel, flat: apps starting, software installing, backups, disk and network
+        activityLight.setFlat(true);
+        activityLight.setPreferredSize(new Dimension(34, BAR_HEIGHT));
+        activityLight.setOnClick(() -> launch("amadeos-sysinfo"));
+        right.add(activityLight);
         cellPanel.setOpaque(false);
         right.add(cellPanel);
         searchButton = new BarButton("") {
@@ -256,10 +265,27 @@ public final class HorizonTopBar extends JFrame {
         clockButton.setToolTipText(TopBarTexts.get("clock.tooltip"));
         clockButton.addActionListener(e -> launch("amade-calendar"));
         right.add(clockButton);
+        // The power button at the far right: lock, or log out and shut down
+        powerButton = new BarButton("") {
+            @Override
+            int markWidth() {
+                return 14;
+            }
+
+            @Override
+            void paintMark(Graphics2D g, BarColors c) {
+                paintPowerMark(g, getInsets().left + 7, getHeight() / 2.0, c.text());
+            }
+        };
+        powerButton.setBorder(BorderFactory.createEmptyBorder(0, 8, 0, 8));
+        powerButton.setToolTipText(TopBarTexts.get("power.tooltip"));
+        powerButton.addActionListener(e -> showMenu(powerButton, powerMenu()));
+        right.add(powerButton);
         root.add(right, BorderLayout.EAST);
 
         createCells();
         applyPanelSettings();
+        activityLight.start();
         ConfigWatcher settingsWatch = new ConfigWatcher(XdgDirectories.amadeosConfigDir(),
                 Set.of(PanelSettingsStore.FILE_NAME), "topbar-settings",
                 () -> SwingUtilities.invokeLater(this::applyPanelSettings));
@@ -294,6 +320,11 @@ public final class HorizonTopBar extends JFrame {
         }
         int desktop = helper.getCurrentDesktop();
         if (desktop >= 0) workspaces.setActive(desktop);
+        // --8<-- [start:busy]
+        activityLight.setLaunching(helper.isLaunchBusy() || System.currentTimeMillis() - launchedAt < 1000);
+        StatusCell updates = cells.get("updates");
+        activityLight.setInstalling(updates instanceof UpdatesCell u && u.installing());
+        // --8<-- [end:busy]
         boolean shown = helper.isShowingDesktop();
         if (shown != desktopShown) {
             desktopShown = shown;
@@ -353,6 +384,7 @@ public final class HorizonTopBar extends JFrame {
     // --8<-- [end:cells]
 
     private void applyPanelSettings() {
+        activityLight.setMeterShown(panelSettings.load().activityMeter());
         layoutCells();
     }
 
@@ -377,6 +409,7 @@ public final class HorizonTopBar extends JFrame {
 
     private void applyTheme(DesktopTheme theme) {
         for (StatusCell cell : cells.values()) cell.onThemeChanged(theme);
+        activityLight.setTheme(theme);
         repaint();
     }
 
@@ -441,6 +474,19 @@ public final class HorizonTopBar extends JFrame {
         }
     }
 
+    /** The menu of the power button: lock the screen (also Super+L), or the dialog to log out, restart or shut down. */
+    JPopupMenu powerMenu() {
+        JPopupMenu menu = new JPopupMenu();
+        JMenuItem lock = new JMenuItem(TopBarTexts.get("system.lock"));
+        lock.addActionListener(e -> SessionDialogHelper.lockScreen(this));
+        menu.add(lock);
+        menu.addSeparator();
+        JMenuItem exit = new JMenuItem(TopBarTexts.get("system.exit"));
+        exit.addActionListener(e -> SessionDialogHelper.showSessionPowerDialog(this));
+        menu.add(exit);
+        return menu;
+    }
+
     /** The menu of the active program: minimise and close its window, or the Task Manager. */
     JPopupMenu programMenu() {
         JPopupMenu menu = new JPopupMenu();
@@ -482,7 +528,23 @@ public final class HorizonTopBar extends JFrame {
                 button.setMenuOpen(false);
             }
         });
-        menu.show(button, 0, BAR_HEIGHT - 2);
+        // A menu that would leave the screen on the right opens leftwards, under the button's right edge
+        int x = 0;
+        int width = menu.getPreferredSize().width;
+        int screenRight = helper.screenWidth();
+        if (button.isShowing() && button.getLocationOnScreen().x + width > screenRight) {
+            x = button.getWidth() - width;
+        }
+        menu.show(button, x, BAR_HEIGHT - 2);
+    }
+
+    /** The power symbol: a circle open at the top with a bar through the gap, centred on (cx, cy). */
+    static void paintPowerMark(Graphics2D g, double cx, double cy, java.awt.Color color) {
+        double r = 6;
+        g.setColor(color);
+        g.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.draw(new java.awt.geom.Arc2D.Double(cx - r, cy - r + 1, 2 * r, 2 * r, 60, -300, java.awt.geom.Arc2D.OPEN));
+        g.draw(new java.awt.geom.Line2D.Double(cx, cy - r - 0.5, cx, cy));
     }
 
     private Runnable software(String option) {
@@ -491,6 +553,7 @@ public final class HorizonTopBar extends JFrame {
     }
 
     private void launch(String... command) {
+        launchedAt = System.currentTimeMillis();
         try {
             ProcessLauncher.start(List.of(command));
         } catch (Exception e) {
