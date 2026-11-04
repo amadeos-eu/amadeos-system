@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -71,6 +72,12 @@ public final class AptPackageService implements PackageService {
     };
     /** Where apt keeps the package lists and the AppStream metadata (DEP-11) fetched with them. */
     private static final Path LISTS = Path.of("/var/lib/apt/lists");
+    /** apt's record of the automatically installed packages. */
+    private static final Path EXTENDED_STATES = Path.of("/var/lib/apt/extended_states");
+    /** Changes with every installation and removal. */
+    private static final Path DPKG_STATUS = Path.of("/var/lib/dpkg/status");
+    /** Names the layout of the catalog cache; raise it when CatalogEntry or the way it is read changes. */
+    private static final String CATALOG_FORMAT = "amadeos-catalog 1";
     /** Installed programs in these directories make a package a command-line package. */
     private static final List<String> PROGRAMS = List.of("/usr/bin/*", "/usr/sbin/*", "/bin/*", "/sbin/*");
 
@@ -78,9 +85,13 @@ public final class AptPackageService implements PackageService {
     private final Map<String, String> helperEnvironment;
     private final CommandRunner runner;
     private final Path lists;
+    /** apt's extended_states, read directly; null to ask {@code apt-mark showauto} through the runner. */
+    private final Path extendedStates;
+    /** Keeps the catalog between starts; null for none. */
+    private final StampedCache catalogCache;
 
     public AptPackageService() {
-        this(defaultHelper(), Map.of(), PROCESSES);
+        this(defaultHelper(), Map.of(), PROCESSES, LISTS, EXTENDED_STATES, defaultCatalogCache());
     }
 
     /**
@@ -94,10 +105,30 @@ public final class AptPackageService implements PackageService {
 
     AptPackageService(List<String> helper, Map<String, String> helperEnvironment, CommandRunner runner,
                       Path lists) {
+        this(helper, helperEnvironment, runner, lists, null, null);
+    }
+
+    AptPackageService(List<String> helper, Map<String, String> helperEnvironment, CommandRunner runner,
+                      Path lists, Path extendedStates, StampedCache catalogCache) {
         this.helper = List.copyOf(helper);
         this.helperEnvironment = Map.copyOf(helperEnvironment);
         this.runner = runner;
         this.lists = lists;
+        this.extendedStates = extendedStates;
+        this.catalogCache = catalogCache;
+    }
+
+    /**
+     * {@code ~/.cache/amadeos-packages/catalog}, stale once apt's lists, the sources, the installed packages,
+     * the menu entries or the program itself change.
+     */
+    static StampedCache defaultCatalogCache() {
+        List<Path> sources = new ArrayList<>(List.of(LISTS, DPKG_STATUS, EXTENDED_STATES,
+                Path.of("/etc/apt/sources.list"), Path.of("/etc/apt/sources.list.d"),
+                Path.of("/usr/share/applications")));
+        StampedCache.codeOf(AptPackageService.class).ifPresent(sources::add);
+        return new StampedCache(StampedCache.userCache().resolve("amadeos-packages").resolve("catalog"),
+                CATALOG_FORMAT, sources);
     }
 
     // --8<-- [start:helper]
@@ -126,7 +157,20 @@ public final class AptPackageService implements PackageService {
 
     @Override
     public List<InstalledPackage> installed() throws PackageException {
-        return Apt.parseInstalled(read(Apt.installed()), Apt.parseAutomatic(read(Apt.automatic())));
+        return Apt.parseInstalled(read(Apt.installed()), automatic());
+    }
+
+    /** The automatically installed packages: from apt's file when there is one, else from apt-mark. */
+    private Set<String> automatic() throws PackageException {
+        if (extendedStates != null) {
+            try {
+                return Apt.parseExtendedStates(Files.readString(extendedStates, StandardCharsets.UTF_8));
+            } catch (IOException e) {
+                // No such file on a system that never installed anything automatically; apt-mark knows.
+                LOGGER.log(Level.FINE, "Cannot read " + extendedStates, e);
+            }
+        }
+        return Apt.parseAutomatic(read(Apt.automatic()));
     }
 
     @Override
@@ -134,15 +178,70 @@ public final class AptPackageService implements PackageService {
         return Apt.parsePackages(read(Apt.dumpAvailable()));
     }
 
+    // --8<-- [start:catalog]
+    /**
+     * The catalog from the cache while nothing it was read from changed; otherwise read anew (the index, the
+     * installed packages and the hints at the same time) and kept for the next start.
+     */
     @Override
     public List<CatalogEntry> catalog() throws PackageException {
+        if (catalogCache == null) return readCatalog();
+        String stamp = catalogCache.stamp();
+        Optional<List<CatalogEntry>> kept = catalogCache.load(stamp, AptPackageService::decodeCatalog);
+        if (kept.isPresent()) return kept.get();
+        List<CatalogEntry> read = readCatalog();
+        catalogCache.save(stamp, read, AptPackageService::encodeCatalog);
+        return read;
+    }
+
+    private List<CatalogEntry> readCatalog() throws PackageException {
+        CompletableFuture<List<InstalledPackage>> installed = onOwnThread("catalog-installed", this::installed);
+        CompletableFuture<Categories.Hints> hints = onOwnThread("catalog-hints", this::hints);
         Apt.IndexReader index = new Apt.IndexReader();
         try {
             runner.lines(Apt.dumpAvailable(), index);
         } catch (IOException e) {
             throw new PackageException("apt-cache: " + e.getMessage());
         }
-        return merge(index.entries(), installed(), hints());
+        return merge(index.entries(), result(installed), result(hints));
+    }
+    // --8<-- [end:catalog]
+
+    private static <T> T result(CompletableFuture<T> future) throws PackageException {
+        try {
+            return future.get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new PackageException("interrupted");
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof PackageException p) throw p;
+            if (e.getCause() instanceof RuntimeException r) throw r;
+            throw new PackageException(String.valueOf(e.getCause().getMessage()));
+        }
+    }
+
+    static void encodeCatalog(java.io.DataOutputStream out, List<CatalogEntry> entries) throws IOException {
+        out.writeInt(entries.size());
+        for (CatalogEntry e : entries) {
+            out.writeUTF(e.name());
+            out.writeUTF(e.summary());
+            out.writeUTF(e.section());
+            out.writeUTF(e.category().name());
+            out.writeUTF(e.installedVersion());
+            out.writeUTF(e.availableVersion());
+            out.writeBoolean(e.automatic());
+        }
+    }
+
+    static List<CatalogEntry> decodeCatalog(java.io.DataInputStream in) throws IOException {
+        int count = in.readInt();
+        if (count < 0) throw new IOException("bad count " + count);
+        List<CatalogEntry> entries = new ArrayList<>(Math.min(count, 1 << 18));
+        for (int i = 0; i < count; i++) {
+            entries.add(new CatalogEntry(in.readUTF(), in.readUTF(), in.readUTF(), Category.valueOf(in.readUTF()),
+                    in.readUTF(), in.readUTF(), in.readBoolean()));
+        }
+        return List.copyOf(entries);
     }
 
     /** The index entries and the installed packages as one list sorted by name. */
@@ -370,12 +469,14 @@ public final class AptPackageService implements PackageService {
             try (var stdin = process.getOutputStream()) {
                 stdin.write(input.getBytes(StandardCharsets.UTF_8));
             }
-            CompletableFuture<Void> messages = CompletableFuture.runAsync(() -> forEachLine(process.getErrorStream(),
-                    line -> {
-                        synchronized (lock) {
-                            listener.message(line);
-                        }
-                    }));
+            CompletableFuture<Void> messages = onOwnThread("helper-messages", () -> {
+                forEachLine(process.getErrorStream(), line -> {
+                    synchronized (lock) {
+                        listener.message(line);
+                    }
+                });
+                return null;
+            });
             boolean done = false;
             boolean reboot = false;
             String error = null;
@@ -472,7 +573,10 @@ public final class AptPackageService implements PackageService {
     // --8<-- [start:lines]
     /**
      * Runs a read-only command and hands its output over line by line, on a thread of its own, so that the time
-     * limit also holds for a command that hangs without printing or closing its output.
+     * limit also holds for a command that hangs without printing or closing its output. Both outputs are read
+     * on threads of their own, never in the common pool: on a machine with one or two processors that pool has
+     * a single worker, which the standard error reader holds until the command ends, so the standard output
+     * would never be read, the command would block on a full pipe and the read would only end at the time limit.
      */
     static void lines(List<String> command, Consumer<String> sink, Duration timeout)
             throws IOException, PackageException {
@@ -480,14 +584,15 @@ public final class AptPackageService implements PackageService {
         builder.environment().put("LC_ALL", "C.UTF-8");
         Process process = builder.start();
         process.getOutputStream().close();
-        CompletableFuture<String> stderr = CompletableFuture.supplyAsync(() -> readAll(process.getErrorStream()));
-        CompletableFuture<Void> stdout = CompletableFuture.runAsync(() -> {
+        CompletableFuture<String> stderr = onOwnThread("apt-stderr", () -> readAll(process.getErrorStream()));
+        CompletableFuture<Void> stdout = onOwnThread("apt-stdout", () -> {
             try (BufferedReader out = reader(process.getInputStream())) {
                 String line;
                 while ((line = out.readLine()) != null) sink.accept(line);
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
+            return null;
         });
         long deadline = System.nanoTime() + timeout.toNanos();
         try {
@@ -511,6 +616,19 @@ public final class AptPackageService implements PackageService {
         if (process.exitValue() != 0) {
             throw new PackageException(errorMessage(stderr.join(), command.getFirst() + " failed"));
         }
+    }
+
+    /** Runs {@code task} on a new daemon thread, for reads that block until a process ends. */
+    static <T> CompletableFuture<T> onOwnThread(String name, Callable<T> task) {
+        CompletableFuture<T> result = new CompletableFuture<>();
+        Thread.ofPlatform().name(name).daemon().start(() -> {
+            try {
+                result.complete(task.call());
+            } catch (Throwable t) {
+                result.completeExceptionally(t);
+            }
+        });
+        return result;
     }
     // --8<-- [end:lines]
 

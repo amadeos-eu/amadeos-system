@@ -8,6 +8,7 @@ import eu.amadeos.system.packages.AptPackageService;
 import eu.amadeos.system.packages.PackageService;
 import eu.amadeos.system.software.appstream.AppStream;
 import eu.amadeos.system.software.appstream.AppData;
+import eu.amadeos.system.software.appstream.AppStreamCache;
 import eu.amadeos.system.software.appstream.AppStreamSource;
 import eu.amadeos.system.software.appstream.InstalledApps;
 import eu.amadeos.system.software.ui.ScreenshotCache;
@@ -37,14 +38,15 @@ public final class SoftwareModule extends AbstractModule {
     @Singleton
     AppStreamSource appStream(Locale locale) {
         // The repositories' AppStream data first; packages it does not know (the amade applications, a .deb
-        // installed by hand) get what their installed desktop entry and metainfo say.
-        return () -> {
+        // installed by hand) get what their installed desktop entry and metainfo say. Kept in the user's cache
+        // until the lists or the installed packages change, as reading all of Debian's YAML takes seconds.
+        return AppStreamCache.inUserCache(() -> {
             Map<String, AppData> apps = new HashMap<>(AppStream.read(AppStream.LISTS, AppStream.ICONS, locale));
             new InstalledApps(locale, InstalledApps.ICONS, InstalledApps.PIXMAPS)
                     .read(InstalledApps.dpkg(), InstalledApps.APPLICATIONS, InstalledApps.METAINFO)
                     .forEach(apps::putIfAbsent);
             return apps;
-        };
+        }, locale);
     }
 
     @Provides

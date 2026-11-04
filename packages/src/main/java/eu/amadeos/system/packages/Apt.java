@@ -251,6 +251,20 @@ public final class Apt {
         return packages;
     }
 
+    /**
+     * apt's own record of the automatically installed packages, {@code /var/lib/apt/extended_states}: stanzas
+     * with {@code Package}, {@code Architecture} and {@code Auto-Installed: 1}. Reading it directly is what
+     * {@code apt-mark showauto} does after loading the whole package cache, which takes a second or more.
+     */
+    public static Set<String> parseExtendedStates(String text) {
+        Set<String> names = new HashSet<>();
+        for (Map<String, String> stanza : parseControl(text)) {
+            String name = stanza.get("Package");
+            if (name != null && "1".equals(stanza.get("Auto-Installed"))) names.add(name);
+        }
+        return names;
+    }
+
     public static Set<String> parseAutomatic(String output) {
         Set<String> names = new HashSet<>();
         for (String line : output.lines().toList()) {
