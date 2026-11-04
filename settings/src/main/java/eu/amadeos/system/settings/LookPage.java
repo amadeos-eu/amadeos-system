@@ -68,8 +68,9 @@ final class LookPage extends SettingsPage {
         accent = HorizonThemes.accent(horizonId);
 
         JPanel cards = new JPanel(new GridLayout(1, 2, 16, 0));
-        cards.add(classic);
+        // Horizon first: it is the look a new account starts with
         cards.add(horizon);
+        cards.add(classic);
         classic.addActionListener(e -> choose(DesktopLook.CLASSIC));
         horizon.addActionListener(e -> choose(DesktopLook.HORIZON));
         JPanel lookBox = new JPanel(new BorderLayout(0, 6));
