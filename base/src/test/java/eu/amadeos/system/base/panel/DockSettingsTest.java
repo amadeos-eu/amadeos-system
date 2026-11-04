@@ -38,4 +38,10 @@ class DockSettingsTest {
         Files.writeString(file, "icon.size=big\n");
         assertEquals(DockSettings.DEFAULTS.iconSize(), DockSettings.load(file).iconSize());
     }
+
+    @Test
+    void theEditorFavouriteIsTheTextEditor() {
+        assertEquals(true, DockSettings.DEFAULT_FAVOURITES.contains("amade-pad.desktop"));
+        assertEquals(false, DockSettings.DEFAULT_FAVOURITES.contains("amade-writepad.desktop"));
+    }
 }
