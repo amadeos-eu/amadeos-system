@@ -83,4 +83,15 @@ class DockTest {
         assertEquals("<html><b>Pad</b><br>Edit plain text &amp; notes</html>",
                 HorizonDock.tooltip("Pad", "Edit plain text & notes"));
     }
+
+    @Test
+    void aMissingFolderIsCreatedNotReplaced(@org.junit.jupiter.api.io.TempDir java.nio.file.Path home) throws Exception {
+        java.nio.file.Path documents = home.resolve("Dokumente");
+        assertEquals(documents, HorizonDock.ensureFolder(documents, home));
+        assertTrue(java.nio.file.Files.isDirectory(documents));
+        // A file in the way: the home folder, never another folder
+        java.nio.file.Path blocked = home.resolve("Downloads");
+        java.nio.file.Files.writeString(blocked, "x");
+        assertEquals(home, HorizonDock.ensureFolder(blocked, home));
+    }
 }

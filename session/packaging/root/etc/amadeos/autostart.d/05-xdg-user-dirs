@@ -1,0 +1,6 @@
+#!/bin/sh
+# Creates the user's folders (Desktop, Documents, Downloads, Music, Pictures, Videos ...) under names in the
+# session's language, ~/Dokumente in German, and writes them to ~/.config/user-dirs.dirs, where Files, the dock
+# and the amade programs look them up. Folders that exist stay as they are.
+command -v xdg-user-dirs-update >/dev/null 2>&1 || exit 0
+exec xdg-user-dirs-update

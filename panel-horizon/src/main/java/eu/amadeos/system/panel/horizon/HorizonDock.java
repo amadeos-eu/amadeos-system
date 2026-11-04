@@ -262,9 +262,11 @@ public final class HorizonDock extends JFrame {
         }
         row.add(separator());
         if (settings.folders()) {
-            XdgDirectories xdg = XdgDirectories.system();
-            row.add(folderButton(xdg.downloads(), FolderIcon.Kind.DOWNLOADS, TopBarTexts.get("dock.downloads"), size));
-            row.add(folderButton(xdg.documents(), FolderIcon.Kind.DOCUMENTS, TopBarTexts.get("dock.documents"), size));
+            // Read at each click: xdg-user-dirs-update may write the localized names just after login
+            row.add(folderButton(() -> XdgDirectories.system().downloads(), FolderIcon.Kind.DOWNLOADS,
+                    TopBarTexts.get("dock.downloads"), size));
+            row.add(folderButton(() -> XdgDirectories.system().documents(), FolderIcon.Kind.DOCUMENTS,
+                    TopBarTexts.get("dock.documents"), size));
         }
         row.add(new DockButton(themeIcon("trash", size), size, TopBarTexts.get("dock.trash"),
                 HorizonDock::colors, e -> launch("amade-files", "trash:")));
@@ -468,15 +470,29 @@ public final class HorizonDock extends JFrame {
         return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
 
-    private DockButton folderButton(Path folder, FolderIcon.Kind kind, String name, int size) {
+    private DockButton folderButton(java.util.function.Supplier<Path> folder, FolderIcon.Kind kind, String name,
+                                    int size) {
         DockButton[] holder = new DockButton[1];
         holder[0] = new DockButton(new FolderIcon(kind, size, HorizonDock::colors), size, name, HorizonDock::colors,
-                e -> showFolder(folder, name, holder[0]));
+                e -> showFolder(ensureFolder(folder.get(), Path.of(System.getProperty("user.home"))), name, holder[0]));
         holder[0].setMark(DockButton.Mark.DRAWER, false);
         return holder[0];
     }
 
     // --8<-- [start:folder]
+    /**
+     * The folder, created if it is missing (a new account without xdg-user-dirs has no Documents yet), or the home
+     * folder if it cannot be created, so that Files never opens some other folder instead.
+     */
+    static Path ensureFolder(Path folder, Path home) {
+        if (Files.isDirectory(folder)) return folder;
+        try {
+            return Files.createDirectories(folder);
+        } catch (IOException | RuntimeException e) {
+            return home;
+        }
+    }
+
     /** The ten newest files of a folder, newest first, and Open folder. */
     private void showFolder(Path folder, String name, DockButton button) {
         JPopupMenu popup = new JPopupMenu();
