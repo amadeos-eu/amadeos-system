@@ -402,6 +402,12 @@ public final class HorizonDock extends JFrame {
     }
 
     // --8<-- [start:drawer-popup]
+    /** The tooltip of a program in a drawer: its full name and, if the program has one, its description. */
+    static String tooltip(String name, String comment) {
+        if (comment == null || comment.isBlank() || comment.equals(name)) return name;
+        return "<html><b>" + escape(name) + "</b><br>" + escape(comment) + "</html>";
+    }
+
     /** A grid of the drawer's programs above its icon; a click starts one. */
     private void showDrawer(Drawer drawer, DockButton button) {
         JPopupMenu popup = new JPopupMenu();
@@ -419,7 +425,7 @@ public final class HorizonDock extends JFrame {
             grid.setBorder(BorderFactory.createEmptyBorder(4, 8, 8, 8));
             for (XdgDesktopEntry app : apps) {
                 JButton tile = new JButton(shortName(app.name()), themeIcon(app.icon(), DRAWER_ICON));
-                tile.setToolTipText(app.name());
+                tile.setToolTipText(tooltip(app.name(), app.comment()));
                 tile.setVerticalTextPosition(SwingConstants.BOTTOM);
                 tile.setHorizontalTextPosition(SwingConstants.CENTER);
                 tile.setPreferredSize(new Dimension(96, DRAWER_ICON + 46));

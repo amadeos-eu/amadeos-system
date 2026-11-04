@@ -44,6 +44,7 @@ import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
+import javax.swing.UIManager;
 import javax.swing.event.PopupMenuEvent;
 import javax.swing.event.PopupMenuListener;
 import java.awt.BasicStroke;
@@ -79,6 +80,8 @@ public final class HorizonTopBar extends JFrame {
     public static final String WINDOW_TITLE = "amadeOS Horizon Top Bar";
     /** The widget host, package amadeos-widgets. */
     static final String WIDGETS = "/usr/bin/amadeos-widgets";
+    /** The Metal look's switch for tooltips ("activeApplication" = only while a window of the program has focus). */
+    static final String TOOLTIP_MODE = "ToolTipManager.enableToolTipMode";
     private static java.nio.channels.FileLock panelLock;
 
     private final X11EwmhHelper helper;
@@ -106,6 +109,9 @@ public final class HorizonTopBar extends JFrame {
             LOGGER.warning("Another panel is already running. Exiting.");
             return;
         }
+        // The bar and the dock never take the keyboard focus, and the Metal look shows tooltips only while a window
+        // of the program has it: let the tooltips of the bar, the dock and its drawers show in any case.
+        UIManager.put(TOOLTIP_MODE, "allWindows");
         X11EwmhHelper helper;
         try {
             helper = X11EwmhHelper.open(args.length > 0 ? args[0] : null);

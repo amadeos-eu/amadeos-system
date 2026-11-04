@@ -75,4 +75,12 @@ class DockTest {
         assertEquals("<html><center>Files</center></html>", HorizonDock.shortName("Files"));
         assertTrue(HorizonDock.shortName("R&D <tool>").contains("R&amp;D &lt;tool&gt;"));
     }
+
+    @Test
+    void drawerTooltipShowsNameAndDescription() {
+        assertEquals("Pad", HorizonDock.tooltip("Pad", ""));
+        assertEquals("Pad", HorizonDock.tooltip("Pad", null));
+        assertEquals("<html><b>Pad</b><br>Edit plain text &amp; notes</html>",
+                HorizonDock.tooltip("Pad", "Edit plain text & notes"));
+    }
 }
