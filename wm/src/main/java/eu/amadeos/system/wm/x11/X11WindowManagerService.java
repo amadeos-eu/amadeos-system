@@ -3364,6 +3364,8 @@ public final class X11WindowManagerService implements AutoCloseable {
             activeWindow = 0;
             long next = successor(owner == null ? 0 : owner, win);
             if (next != 0) focusClient(next);
+            // The last window closed: no window is active, or the top bar keeps the closed program's name.
+            if (activeWindow == 0) setActiveWindow(0);
         }
         updateClientList();
         LOGGER.info(() -> "Cleaned up window: " + win);
