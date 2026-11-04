@@ -44,7 +44,11 @@ public final class LogViewer extends JFrame {
     private boolean loading;
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new LogViewer().setVisible(true));
+        SwingUtilities.invokeLater(() -> {
+            // Install the desktop look before the window's fields are made, or they keep Swing's light defaults
+            ThemeManager.currentTheme();
+            new LogViewer().setVisible(true);
+        });
     }
 
     public LogViewer() {
