@@ -166,7 +166,13 @@ final class CatalogDetails extends JPanel {
         Color text = UIManager.getColor("Label.foreground");
         view.show(DetailsPage.build(msg, item, info, state, shot,
                 font != null ? font : new Font(Font.SANS_SERIF, Font.PLAIN, 12),
-                text != null ? text : Color.BLACK, new Color(0x1A, 0x4D, 0x99)));
+                text != null ? text : Color.BLACK, linkColour(UIManager.getColor("Panel.background"))));
+    }
+
+    /** A link blue that stands out on the given background: light on dark palettes, dark on light ones. */
+    static Color linkColour(Color background) {
+        return background != null && eu.amadeos.commons.theme.DesktopTheme.isDark(background)
+                ? new Color(0x8A, 0xB4, 0xF8) : new Color(0x1A, 0x4D, 0x99);
     }
 
     /** "Installed: version 1.2. Version 1.3 is available." and the like. */
