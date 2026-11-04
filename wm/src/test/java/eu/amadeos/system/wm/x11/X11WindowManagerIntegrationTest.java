@@ -126,10 +126,8 @@ class X11WindowManagerIntegrationTest {
         try (X11WindowManagerService wm = X11WindowManagerService.open(display)) {
             Process client = new ProcessBuilder("xmessage", "-display", display, "-buttons", "OK:0", "Drag Test").start();
             try {
-                Thread.sleep(500);
-                wm.processPendingEvents();
-
-                assertFalse(wm.core().registry().snapshot().isEmpty());
+                // xmessage can take longer than half a second to map on a busy CI runner: wait for it
+                assertTrue(waitFor(wm, () -> !wm.core().registry().snapshot().isEmpty()), "The window must be managed");
                 long windowId = wm.core().registry().snapshot().iterator().next().id();
                 eu.amadeos.system.wm.decoration.FrameWindow frame = wm.getFrameForClient(windowId);
                 assertNotNull(frame);
