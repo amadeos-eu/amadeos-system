@@ -1,0 +1,24 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Settings
+Name[de]=Einstellungen
+Name[fr]=Paramètres
+Name[es]=Configuración
+Name[it]=Impostazioni
+GenericName=Settings
+GenericName[de]=Einstellungen
+GenericName[fr]=Paramètres
+GenericName[es]=Configuración
+GenericName[it]=Impostazioni
+Comment=Change the look, the desktop, the devices, the accounts and the language of amadeOS
+Comment[de]=Aussehen, Arbeitsfläche, Geräte, Benutzerkonten und Sprache von amadeOS einstellen
+Comment[fr]=Modifier l'apparence, le bureau, les périphériques, les comptes et la langue d'amadeOS
+Comment[es]=Cambiar el aspecto, el escritorio, los dispositivos, las cuentas y el idioma de amadeOS
+Comment[it]=Cambiare l'aspetto, la scrivania, i dispositivi, gli account e la lingua di amadeOS
+Icon=preferences-desktop
+Exec=/usr/bin/amadeos-settings
+Terminal=false
+Categories=Settings;DesktopSettings;
+Keywords=settings;preferences;style;color;backdrop;wallpaper;keyboard;mouse;display;sound;network;bluetooth;printer;user;language;
+StartupNotify=true
