@@ -46,12 +46,25 @@ case "${AMADEOS_SESSION:-}" in
     classic|horizon)
         if grep -qs '^look=' "$LOOK_CONF"; then
             sed -i "s/^look=.*/look=$AMADEOS_SESSION/" "$LOOK_CONF"
-        elif [ -f "$LOOK_CONF" ] || [ "$AMADEOS_SESSION" = horizon ]; then
-            # Without look.conf the look is classic; Horizon then starts with its default scheme and accent.
+        else
+            # Horizon then starts with its default scheme and accent.
             mkdir -p "$(dirname "$LOOK_CONF")" && printf 'look=%s\n' "$AMADEOS_SESSION" >> "$LOOK_CONF"
         fi
         ;;
 esac
+# A user who never chose a look (no look line in look.conf and no classic palette in theme.conf) starts with
+# Horizon, if its top bar is installed, and with the picture of Horizon's scheme unless a backdrop was chosen already.
+AMADEOS_CONF_DIR="$(dirname "$LOOK_CONF")"
+if ! grep -qs '^look=' "$LOOK_CONF" && [ ! -f "$AMADEOS_CONF_DIR/theme.conf" ] \
+        && [ -x "${HORIZON_PANEL:-/usr/bin/amadeos-panel-horizon}" ]; then
+    mkdir -p "$AMADEOS_CONF_DIR" && printf 'look=horizon\n' >> "$LOOK_CONF"
+    HORIZON_SCHEME=dark
+    grep -qs '^scheme=light' "$LOOK_CONF" && HORIZON_SCHEME=light
+    HORIZON_PICTURE="/usr/share/backgrounds/amadeos/horizon-$HORIZON_SCHEME.png"
+    if [ ! -f "$AMADEOS_CONF_DIR/wallpaper.conf" ] && [ -f "$HORIZON_PICTURE" ]; then
+        printf 'wallpaper=%s\nmode=FILL\n' "$HORIZON_PICTURE" > "$AMADEOS_CONF_DIR/wallpaper.conf"
+    fi
+fi
 
 # Load system configuration manifest if present
 if [ -f "/etc/amadeos/session.conf" ]; then
