@@ -60,4 +60,11 @@ public interface LibXfixes extends Library {
     int XFixesQueryExtension(Pointer display, IntByReference eventBase, IntByReference errorBase);
 
     void XFixesSelectSelectionInput(Pointer display, NativeLong window, NativeLong selection, NativeLong eventMask);
+
+    /**
+     * Gives every cursor named {@code name}, of every program on the display, the image of {@code source}: how
+     * a new pointer theme reaches windows that are already open. Only named cursors (those from a cursor theme)
+     * are changed.
+     */
+    void XFixesChangeCursorByName(Pointer display, NativeLong source, String name);
 }

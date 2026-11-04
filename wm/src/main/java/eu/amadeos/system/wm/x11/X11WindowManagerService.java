@@ -55,6 +55,9 @@ import eu.amadeos.system.base.workspace.WorkspaceNames;
 import eu.amadeos.system.base.window.WindowSettings;
 import eu.amadeos.system.base.window.WindowSettingsStore;
 import eu.amadeos.commons.config.ConfigWatcher;
+import eu.amadeos.system.base.x11.LibXcursor;
+import eu.amadeos.system.base.x11.LibXfixes;
+import eu.amadeos.system.base.x11.XcursorResources;
 import eu.amadeos.system.base.shortcuts.ShortcutAction;
 import eu.amadeos.system.base.shortcuts.ShortcutStore;
 import eu.amadeos.system.base.shortcuts.Shortcuts;
@@ -130,17 +133,20 @@ public final class X11WindowManagerService implements AutoCloseable {
     private int wireframeH;
 
     // Cursors
-    private final NativeLong cursorDefault;
-    private final NativeLong cursorMove;
-    private final NativeLong cursorN;
-    private final NativeLong cursorS;
-    private final NativeLong cursorW;
-    private final NativeLong cursorE;
-    private final NativeLong cursorNW;
-    private final NativeLong cursorNE;
-    private final NativeLong cursorSW;
-    private final NativeLong cursorSE;
-    private final NativeLong cursorBusy;
+    private NativeLong cursorDefault;
+    private NativeLong cursorMove;
+    private NativeLong cursorN;
+    private NativeLong cursorS;
+    private NativeLong cursorW;
+    private NativeLong cursorE;
+    private NativeLong cursorNW;
+    private NativeLong cursorNE;
+    private NativeLong cursorSW;
+    private NativeLong cursorSE;
+    private NativeLong cursorBusy;
+    private final NativeLong resourceManagerAtom;
+    private LibXcursor xcursor;
+    private LibXfixes xfixes;
 
     // Launch feedback (see LaunchFeedback): the busy cursor until a new window appears.
     // busyUntil is only used on the event loop thread; 0 means not busy.
@@ -357,17 +363,9 @@ public final class X11WindowManagerService implements AutoCloseable {
         this.gc = gc;
         this.xorGc = xorGc;
 
-        this.cursorDefault = x11.XCreateFontCursor(display, LibX11.XC_left_ptr);
-        this.cursorMove = x11.XCreateFontCursor(display, LibX11.XC_fleur);
-        this.cursorN = x11.XCreateFontCursor(display, LibX11.XC_top_side);
-        this.cursorS = x11.XCreateFontCursor(display, LibX11.XC_bottom_side);
-        this.cursorW = x11.XCreateFontCursor(display, LibX11.XC_left_side);
-        this.cursorE = x11.XCreateFontCursor(display, LibX11.XC_right_side);
-        this.cursorNW = x11.XCreateFontCursor(display, LibX11.XC_top_left_corner);
-        this.cursorNE = x11.XCreateFontCursor(display, LibX11.XC_top_right_corner);
-        this.cursorSW = x11.XCreateFontCursor(display, LibX11.XC_bottom_left_corner);
-        this.cursorSE = x11.XCreateFontCursor(display, LibX11.XC_bottom_right_corner);
-        this.cursorBusy = x11.XCreateFontCursor(display, LibX11.XC_watch);
+        this.resourceManagerAtom = x11.XInternAtom(display, "RESOURCE_MANAGER", 0);
+        followPointerResources();
+        createCursors();
         this.launchAtom = x11.XInternAtom(display, LaunchFeedback.MESSAGE_ATOM, 0);
         this.launchBusyAtom = x11.XInternAtom(display, LaunchFeedback.BUSY_PROPERTY, 0);
 
@@ -1503,6 +1501,103 @@ public final class X11WindowManagerService implements AutoCloseable {
         return "Window";
     }
 
+    // --8<-- [start:pointer-reload]
+    private void createCursors() {
+            cursorDefault = x11.XCreateFontCursor(display, LibX11.XC_left_ptr);
+            cursorMove = x11.XCreateFontCursor(display, LibX11.XC_fleur);
+            cursorN = x11.XCreateFontCursor(display, LibX11.XC_top_side);
+            cursorS = x11.XCreateFontCursor(display, LibX11.XC_bottom_side);
+            cursorW = x11.XCreateFontCursor(display, LibX11.XC_left_side);
+            cursorE = x11.XCreateFontCursor(display, LibX11.XC_right_side);
+            cursorNW = x11.XCreateFontCursor(display, LibX11.XC_top_left_corner);
+            cursorNE = x11.XCreateFontCursor(display, LibX11.XC_top_right_corner);
+            cursorSW = x11.XCreateFontCursor(display, LibX11.XC_bottom_left_corner);
+            cursorSE = x11.XCreateFontCursor(display, LibX11.XC_bottom_right_corner);
+            cursorBusy = x11.XCreateFontCursor(display, LibX11.XC_watch);
+    }
+
+    private void freeCursors() {
+        for (NativeLong cursor : new NativeLong[] {cursorBusy, cursorDefault, cursorMove, cursorN, cursorS, cursorW,
+                cursorE, cursorNW, cursorNE, cursorSW, cursorSE}) {
+            if (cursor != null) x11.XFreeCursor(display, cursor);
+        }
+    }
+
+    /**
+     * libXcursor takes the pointer theme and size from the resources this connection saw when it opened, so the
+     * WM hands it the current {@code Xcursor.theme} and {@code Xcursor.size} itself: at start and whenever
+     * {@code xrdb} rewrites {@code RESOURCE_MANAGER} (Settings &gt; Accessibility).
+     */
+    private void followPointerResources() {
+        try {
+            if (xcursor == null) xcursor = LibXcursor.load();
+            XcursorResources pointer = XcursorResources.parse(fetchRootPropertyText(resourceManagerAtom));
+            pointer.themeName().ifPresent(t -> xcursor.XcursorSetTheme(display, t));
+            if (pointer.size() > 0) xcursor.XcursorSetDefaultSize(display, pointer.size());
+        } catch (UnsatisfiedLinkError | RuntimeException e) {
+            LOGGER.fine("Pointer theme not followed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * The pointer changed: every named cursor on the display, those of programs that are already open included,
+     * takes the image of the current theme and size; the WM's own cursors are made anew for the desktop and the
+     * frames, because X's cursor font gives cursors without a name.
+     */
+    private void reloadCursors() {
+        followPointerResources();
+        swapNamedCursors();
+        NativeLong[] old = {cursorBusy, cursorDefault, cursorMove, cursorN, cursorS, cursorW, cursorE, cursorNW,
+                cursorNE, cursorSW, cursorSE};
+        createCursors();
+        x11.XDefineCursor(display, new NativeLong(rootWindow), idleCursor());
+        for (FrameWindow frame : clientToFrame.values()) {
+            x11.XDefineCursor(display, frame.frameWindow(), idleCursor());
+        }
+        for (NativeLong cursor : old) {
+            if (cursor != null) x11.XFreeCursor(display, cursor);
+        }
+        x11.XFlush(display);
+    }
+    // --8<-- [end:pointer-reload]
+
+    private void swapNamedCursors() {
+        if (xcursor == null) return;
+        try {
+            if (xfixes == null) xfixes = LibXfixes.load();
+            int swapped = 0;
+            for (String name : XcursorResources.CURSOR_NAMES) {
+                NativeLong cursor = xcursor.XcursorLibraryLoadCursor(display, name);
+                if (cursor == null || cursor.longValue() == 0) continue;
+                xfixes.XFixesChangeCursorByName(display, cursor, name);
+                x11.XFreeCursor(display, cursor);
+                swapped++;
+            }
+            LOGGER.fine("Pointer changed: " + swapped + " named cursors swapped");
+        } catch (UnsatisfiedLinkError | RuntimeException e) {
+            LOGGER.fine("Named cursors not swapped: " + e.getMessage());
+        }
+    }
+
+    public String fetchRootPropertyText(NativeLong atom) {
+        PointerByReference actualTypeRet = new PointerByReference();
+        IntByReference actualFormatRet = new IntByReference();
+        com.sun.jna.ptr.NativeLongByReference nitemsRet = new com.sun.jna.ptr.NativeLongByReference();
+        com.sun.jna.ptr.NativeLongByReference bytesAfterRet = new com.sun.jna.ptr.NativeLongByReference();
+        PointerByReference propRet = new PointerByReference();
+        int status = x11.XGetWindowProperty(display, new NativeLong(rootWindow), atom, new NativeLong(0),
+                new NativeLong(1 << 16), 0, new NativeLong(0), actualTypeRet, actualFormatRet, nitemsRet,
+                bytesAfterRet, propRet);
+        if (status != 0 || propRet.getValue() == null) return null;
+        Pointer ptr = propRet.getValue();
+        try {
+            long items = nitemsRet.getValue() != null ? nitemsRet.getValue().longValue() : 0;
+            return items > 0 ? new String(ptr.getByteArray(0, (int) items), StandardCharsets.UTF_8) : null;
+        } finally {
+            x11.XFree(ptr);
+        }
+    }
+
     public String fetchRootPropertyString(NativeLong atom) {
         PointerByReference actualTypeRet = new PointerByReference();
         IntByReference actualFormatRet = new IntByReference();
@@ -2171,6 +2266,10 @@ public final class X11WindowManagerService implements AutoCloseable {
                 long win = prop.window != null ? prop.window.longValue() : 0L;
                 if (win == rootWindow && prop.atom != null && prop.atom.equals(netDesktopNames)) {
                     readDesktopNames();
+                    break;
+                }
+                if (win == rootWindow && prop.atom != null && prop.atom.equals(resourceManagerAtom)) {
+                    reloadCursors();
                     break;
                 }
                 if (win == rootWindow && prop.atom != null && prop.atom.equals(amadeosThemeAtom)) {
@@ -3403,17 +3502,7 @@ public final class X11WindowManagerService implements AutoCloseable {
 
             busyTimer.cancel();
             x11.XDeleteProperty(display, new NativeLong(rootWindow), launchBusyAtom);
-            if (cursorBusy != null) x11.XFreeCursor(display, cursorBusy);
-            if (cursorDefault != null) x11.XFreeCursor(display, cursorDefault);
-            if (cursorMove != null) x11.XFreeCursor(display, cursorMove);
-            if (cursorN != null) x11.XFreeCursor(display, cursorN);
-            if (cursorS != null) x11.XFreeCursor(display, cursorS);
-            if (cursorW != null) x11.XFreeCursor(display, cursorW);
-            if (cursorE != null) x11.XFreeCursor(display, cursorE);
-            if (cursorNW != null) x11.XFreeCursor(display, cursorNW);
-            if (cursorNE != null) x11.XFreeCursor(display, cursorNE);
-            if (cursorSW != null) x11.XFreeCursor(display, cursorSW);
-            if (cursorSE != null) x11.XFreeCursor(display, cursorSE);
+            freeCursors();
             if (gc != null) {
                 x11.XFreeGC(display, gc);
             }

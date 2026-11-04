@@ -152,7 +152,6 @@ final class AccessibilityPage extends SettingsPage {
     }
 
     private void updateEnabled() {
-        pointerSize.setEnabled(pointer.getSelectedItem() != Pointer.CLASSIC);
         stickyLock.setEnabled(sticky.isSelected());
         stickyTwoKeys.setEnabled(sticky.isSelected());
         slowMs.setEnabled(slow.isSelected());

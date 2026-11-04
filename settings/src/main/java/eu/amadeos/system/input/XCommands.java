@@ -77,8 +77,10 @@ public final class XCommands {
     /**
      * The keyboard aids through {@code xkbset} (XKB's AccessX controls), kept from expiring after two idle minutes,
      * and the mouse pointer through the Xcursor resources, which every program reads when it connects to the X
-     * server. {@code xsetroot} puts the new pointer on the desktop at once; windows that are already open keep
-     * theirs. The classic pointer names a theme that does not exist, so libXcursor falls back to X's own cursors.
+     * server. The window manager sees {@code xrdb} rewrite the resources and swaps every named cursor on the
+     * display, so the programs that are already open take the new pointer too; {@code xsetroot} sets the
+     * desktop's pointer when no amadeOS window manager runs. The classic pointer is the theme amadeos-classic,
+     * X's own cursors written as a cursor theme, so that its cursors have names as well.
      */
     public static List<Command> accessibility(AccessibilitySettings a) {
         List<String> keys = new ArrayList<>(List.of("xkbset"));

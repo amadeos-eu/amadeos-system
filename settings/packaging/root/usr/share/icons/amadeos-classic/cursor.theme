@@ -1,6 +1,9 @@
-# The classic X11 pointer of amadeOS: a cursor theme without cursors. As the system's default cursor theme
-# (the x-cursor-theme alternative, set by this package) it lets libXcursor fall back to X's own cursors, so
-# installing dmz-cursor-theme for Settings > Accessibility does not change the pointer of everyone.
+# The classic X11 pointer of amadeOS, as a cursor theme: X's own cursors, read from the cursor font by
+# settings/art/classic-cursors.py and written at 24, 32 and 48 pixels. As the system's default cursor theme (the
+# x-cursor-theme alternative, set by this package) it keeps the classic pointer when dmz-cursor-theme is
+# installed for Settings > Accessibility; and since every cursor of a theme has a name, a pointer change reaches
+# programs that are already open.
 [Icon Theme]
 Name=amadeOS classic
 Comment=The classic X11 pointer
+Inherits=amadeos-classic
