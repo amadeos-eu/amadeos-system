@@ -47,9 +47,13 @@ subprojects {
 
     test {
         useJUnitPlatform()
-        // Tests compare English texts, whatever the language of the build machine.
+        // Tests compare English texts, whatever the language of the build machine. The amadeOS texts follow
+        // locale.conf in $XDG_CONFIG_HOME/amadeos and then LANGUAGE/LC_ALL/LANG, not the JVM locale, so the
+        // tests get an empty configuration folder and the C locale too.
         systemProperty 'user.language', 'en'
         systemProperty 'user.country', 'US'
+        environment 'XDG_CONFIG_HOME', layout.buildDirectory.dir('test-config').get().asFile.path
+        environment 'LC_ALL', 'C.UTF-8'
     }
 }
 
