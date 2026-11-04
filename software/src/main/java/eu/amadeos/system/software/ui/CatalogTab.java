@@ -6,7 +6,12 @@ import eu.amadeos.system.packages.Category;
 import eu.amadeos.system.packages.PackageInfo;
 import eu.amadeos.system.software.appstream.AppData;
 
+import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
+import javax.swing.JComponent;
+import javax.swing.JMenuItem;
+import javax.swing.JPopupMenu;
+import javax.swing.KeyStroke;
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.DefaultListModel;
 import javax.swing.Icon;
@@ -23,12 +28,17 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Image;
+import java.awt.event.ActionEvent;
+import java.awt.event.KeyEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Consumer;
 
 /**
@@ -43,6 +53,7 @@ final class CatalogTab extends JPanel {
             BufferedImage.TYPE_INT_ARGB));
 
     private final Category category;
+    private final Marks marks;
     private final CatalogTableModel model;
     private final JTable table;
     private final CatalogDetails details;
@@ -53,6 +64,7 @@ final class CatalogTab extends JPanel {
     private final DefaultListModel<GroupRow> groupRows = new DefaultListModel<>();
     private boolean updatingGroups;
     private boolean withIcons;
+    private boolean busy;
 
     /** A line of the group list: a group (null for all) and how many items the search leaves in it. */
     record GroupRow(Group group, int count) {
@@ -64,10 +76,17 @@ final class CatalogTab extends JPanel {
     CatalogTab(Messages msg, Category category, CatalogDetails.ScreenshotLoader screenshots, Consumer<String> links,
                Consumer<CatalogEntry> chosen, Consumer<CatalogEntry> install, Consumer<CatalogEntry> remove,
                Consumer<CatalogEntry> update) {
+        this(msg, new Marks(), category, screenshots, links, chosen, install, remove, update);
+    }
+
+    CatalogTab(Messages msg, Marks marks, Category category, CatalogDetails.ScreenshotLoader screenshots,
+               Consumer<String> links, Consumer<CatalogEntry> chosen, Consumer<CatalogEntry> install,
+               Consumer<CatalogEntry> remove, Consumer<CatalogEntry> update) {
         super(new BorderLayout());
         this.msg = msg;
         this.category = category;
-        this.model = new CatalogTableModel(msg);
+        this.marks = marks;
+        this.model = new CatalogTableModel(msg, marks);
         this.table = new JTable(model);
         this.details = new CatalogDetails(msg, screenshots, links, install, remove, update);
         setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
@@ -76,8 +95,29 @@ final class CatalogTab extends JPanel {
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         table.setRowHeight(Math.max(table.getRowHeight(), 20));
         table.setDefaultRenderer(Object.class, new ItemRenderer());
-        int[] widths = {200, 320, 110, 130};
+        int[] widths = {28, 190, 300, 150, 120};
         for (int i = 0; i < widths.length; i++) table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
+        table.getColumnModel().getColumn(CatalogTableModel.MARK).setMaxWidth(32);
+        // Space ticks or unticks the chosen package, whichever column has the focus.
+        table.getInputMap(JComponent.WHEN_FOCUSED).put(KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0), "toggleMark");
+        table.getActionMap().put("toggleMark", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (table.isEditing()) table.getCellEditor().stopCellEditing();
+                toggleMark();
+            }
+        });
+        table.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                popup(e);
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                popup(e);
+            }
+        });
         table.getSelectionModel().addListSelectionListener(e -> {
             if (e.getValueIsAdjusting()) return;
             Optional<Item> selected = selected();
@@ -128,6 +168,47 @@ final class CatalogTab extends JPanel {
             groupList = null;
         }
         add(split, BorderLayout.CENTER);
+    }
+
+    /** Ticks the chosen package (install, update or remove, as its state says) or unticks it. */
+    void toggleMark() {
+        int row = table.getSelectedRow();
+        if (row < 0) return;
+        int modelRow = table.convertRowIndexToModel(row);
+        if (!model.isCellEditable(modelRow, CatalogTableModel.MARK)) return;
+        model.setValueAt(!Boolean.TRUE.equals(model.getValueAt(modelRow, CatalogTableModel.MARK)), modelRow,
+                CatalogTableModel.MARK);
+    }
+
+    /** The context menu of a row: mark it for installation, update or removal, or unmark it. */
+    private void popup(MouseEvent e) {
+        if (!e.isPopupTrigger()) return;
+        int row = table.rowAtPoint(e.getPoint());
+        if (row < 0) return;
+        table.setRowSelectionInterval(row, row);
+        markMenu(model.item(table.convertRowIndexToModel(row)).entry()).show(table, e.getX(), e.getY());
+    }
+
+    JPopupMenu markMenu(CatalogEntry entry) {
+        JPopupMenu menu = new JPopupMenu();
+        Set<Marks.Mark> allowed = Marks.allowed(entry);
+        Marks.Mark current = marks.get(entry.name()).orElse(null);
+        for (Marks.Mark mark : Marks.Mark.values()) {
+            if (!allowed.contains(mark)) continue;
+            JMenuItem item = new JMenuItem(msg.get(switch (mark) {
+                case INSTALL -> "action.mark-install";
+                case UPDATE -> "action.mark-update";
+                case REMOVE -> "action.mark-remove";
+            }));
+            item.setEnabled(!busy && mark != current);
+            item.addActionListener(a -> marks.mark(entry.name(), mark));
+            menu.add(item);
+        }
+        JMenuItem unmark = new JMenuItem(msg.get("action.unmark"));
+        unmark.setEnabled(!busy && current != null);
+        unmark.addActionListener(a -> marks.unmark(entry.name()));
+        menu.add(unmark);
+        return menu;
     }
 
     /** The groups with their counts for the current search; the chosen group stays chosen. */
@@ -217,6 +298,9 @@ final class CatalogTab extends JPanel {
     }
 
     void setBusy(boolean busy) {
+        this.busy = busy;
+        if (table.isEditing()) table.getCellEditor().cancelCellEditing();
+        model.setBusy(busy);
         details.setBusy(busy);
     }
 
@@ -251,6 +335,13 @@ final class CatalogTab extends JPanel {
             super.getTableCellRendererComponent(t, value, selected, focus, row, column);
             Item item = model.item(t.convertRowIndexToModel(row));
             setFont(item.entry().installed() ? getFont().deriveFont(Font.BOLD) : getFont().deriveFont(Font.PLAIN));
+            // A marked package says in its status what will happen to it; a removal in red.
+            Optional<Marks.Mark> mark = marks.get(item.name());
+            if (!selected) {
+                setForeground(column == CatalogTableModel.STATUS && mark.isPresent()
+                        ? (mark.get() == Marks.Mark.REMOVE ? UpdatesTab.SECURITY : CatalogDetails.linkColour(
+                        t.getBackground())) : t.getForeground());
+            }
             setIcon(column == CatalogTableModel.NAME && withIcons ? icon(item) : null);
             setToolTipText(switch (column) {
                 case CatalogTableModel.NAME -> item.title().equals(item.name()) ? null : item.name();

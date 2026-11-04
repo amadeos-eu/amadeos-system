@@ -6,13 +6,12 @@ import eu.amadeos.system.packages.Change;
 import javax.swing.table.AbstractTableModel;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
- * The waiting updates, security updates first, each with a check box. All are selected when they appear; a
- * package the user unticked stays unticked when the list is read again.
+ * The waiting updates, security updates first, each with a check box: its update mark in {@link Marks}, which
+ * the catalog tabs share. All are marked when they appear; a package the user unticked stays unticked when
+ * the list is read again.
  */
 final class UpdateTableModel extends AbstractTableModel {
     static final int SELECTED = 0;
@@ -24,10 +23,19 @@ final class UpdateTableModel extends AbstractTableModel {
 
     private final Messages msg;
     private List<Change> updates = List.of();
-    private final Set<String> unticked = new HashSet<>();
+    private final Marks marks;
 
     UpdateTableModel(Messages msg) {
+        this(msg, new Marks());
+    }
+
+    UpdateTableModel(Messages msg, Marks marks) {
         this.msg = msg;
+        this.marks = marks;
+        // A mark set in a catalog tab shows here too; fireTableRowsUpdated keeps the chosen row.
+        marks.addListener(() -> {
+            if (!updates.isEmpty()) fireTableRowsUpdated(0, updates.size() - 1);
+        });
     }
 
     /** Security updates first, then by name. */
@@ -39,10 +47,8 @@ final class UpdateTableModel extends AbstractTableModel {
 
     void setUpdates(List<Change> pending) {
         updates = order(pending);
-        Set<String> names = new HashSet<>();
-        for (Change c : updates) names.add(c.name());
-        unticked.retainAll(names);
         fireTableDataChanged();
+        marks.updatesRead(updates.stream().map(Change::name).toList());
     }
 
     Change update(int row) {
@@ -57,19 +63,21 @@ final class UpdateTableModel extends AbstractTableModel {
     List<String> selectedNames() {
         List<String> names = new ArrayList<>();
         for (Change c : updates) {
-            if (!unticked.contains(c.name())) names.add(c.name());
+            if (ticked(c)) names.add(c.name());
         }
         return names;
     }
 
+    private boolean ticked(Change c) {
+        return marks.get(c.name()).orElse(null) == Marks.Mark.UPDATE;
+    }
+
     boolean allSelected() {
-        return unticked.isEmpty();
+        return updates.stream().allMatch(this::ticked);
     }
 
     void selectAll(boolean selected) {
-        unticked.clear();
-        if (!selected) updates.forEach(c -> unticked.add(c.name()));
-        fireTableDataChanged();
+        marks.markAll(updates.stream().map(Change::name).toList(), selected ? Marks.Mark.UPDATE : null);
     }
 
     long securityCount() {
@@ -105,7 +113,7 @@ final class UpdateTableModel extends AbstractTableModel {
     public Object getValueAt(int row, int column) {
         Change c = updates.get(row);
         return switch (column) {
-            case SELECTED -> !unticked.contains(c.name());
+            case SELECTED -> ticked(c);
             case NAME -> c.name();
             case INSTALLED -> c.installedVersion();
             case NEW -> c.newVersion();
@@ -119,10 +127,9 @@ final class UpdateTableModel extends AbstractTableModel {
         if (column != SELECTED) return;
         String name = updates.get(row).name();
         if (Boolean.TRUE.equals(value)) {
-            unticked.remove(name);
+            marks.mark(name, Marks.Mark.UPDATE);
         } else {
-            unticked.add(name);
+            marks.unmark(name);
         }
-        fireTableCellUpdated(row, column);
     }
 }

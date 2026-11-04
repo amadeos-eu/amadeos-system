@@ -40,6 +40,14 @@ public final class Apt {
         return withNames(List.of("apt-get", "-s", "-o", "Debug::NoLocking=1", "remove"), names);
     }
 
+    /** One install run for the whole change set: names to install or upgrade, removals as "name-". */
+    public static List<String> simulateApply(ChangeSet changes) {
+        withNames(List.of(), changes.names());
+        List<String> command = new ArrayList<>(List.of("apt-get", "-s", "-o", "Debug::NoLocking=1", "install"));
+        command.addAll(changes.aptArguments());
+        return List.copyOf(command);
+    }
+
     public static List<String> dumpAvailable() {
         return List.of("apt-cache", "dumpavail");
     }

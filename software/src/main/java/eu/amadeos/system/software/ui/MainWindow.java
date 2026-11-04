@@ -8,6 +8,7 @@ import eu.amadeos.commons.swing.EdtExecutor;
 import eu.amadeos.system.packages.CatalogEntry;
 import eu.amadeos.system.packages.Category;
 import eu.amadeos.system.packages.Change;
+import eu.amadeos.system.packages.ChangeSet;
 import eu.amadeos.system.packages.PackageService;
 import eu.amadeos.system.packages.Progress;
 import eu.amadeos.system.packages.ProgressListener;
@@ -61,7 +62,8 @@ import java.util.function.Function;
  * The Software window: the Updates tab while updates wait, then the catalog in tabs (Applications, Command
  * line, Other, and Libraries when asked for), with one search and an All / Installed filter over all of them.
  * apt is asked on the background executor through {@link PackageService}; one operation runs at a time and
- * shows its progress in the bar at the bottom.
+ * shows its progress in the bar at the bottom. The check boxes of all tabs mark packages to install, update
+ * or remove ({@link Marks}); Apply changes does all of them in one apt run, behind one password prompt.
  */
 public final class MainWindow extends JFrame {
     private static final Logger LOG = LoggerFactory.getLogger(MainWindow.class);
@@ -83,6 +85,8 @@ public final class MainWindow extends JFrame {
     private final UpdatesTab updatesTab;
     private final Map<Category, CatalogTab> catalogTabs = new EnumMap<>(Category.class);
     private final OperationBar operation;
+    private final Marks marks = new Marks();
+    private final MarksBar marksBar;
     private final JPanel restartBar = new JPanel(new BorderLayout(8, 0));
     private final JTextField search = new JTextField(24);
     private final JComboBox<String> show;
@@ -90,12 +94,21 @@ public final class MainWindow extends JFrame {
     private final Timer searchDelay;
     private final Action check;
     private final Action settings;
+    private final Action applyMarks;
+    private final Action clearMarks;
     private boolean busy;
     private boolean catalogRead;
     private List<CatalogEntry> catalog = List.of();
     /** The package lists were fetched once already because there were none (a new image ships without them). */
     private boolean listsFetched;
     private Map<String, AppData> apps = Map.of();
+    /** Asks OK or Cancel before applying the marks; tests answer without a dialog. */
+    private Asker asker = (question, type) -> JOptionPane.showConfirmDialog(this, question, getTitle(),
+            JOptionPane.OK_CANCEL_OPTION, type) == JOptionPane.OK_OPTION;
+
+    interface Asker {
+        boolean ok(String question, int messageType);
+    }
 
     @Inject
     public MainWindow(PackageService packages, Messages msg, ExecutorService executor, EdtExecutor edt,
@@ -110,16 +123,23 @@ public final class MainWindow extends JFrame {
         this.screenshots = screenshots;
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
 
-        updatesTab = new UpdatesTab(msg, this::loadDetails, this::installUpdates, this::installSecurityUpdates);
+        updatesTab = new UpdatesTab(msg, marks, this::loadDetails, this::installUpdates,
+                this::installSecurityUpdates);
         for (Category category : List.of(Category.APPLICATION, Category.COMMAND_LINE, Category.OTHER,
                 Category.LIBRARY)) {
-            catalogTabs.put(category, new CatalogTab(msg, category, this::loadScreenshot, this::browse,
+            catalogTabs.put(category, new CatalogTab(msg, marks, category, this::loadScreenshot, this::browse,
                     this::loadDetails, this::install, this::remove, this::update));
         }
         operation = new OperationBar(msg);
+        marksBar = new MarksBar(msg, marks, this::applyMarks);
 
         check = action("action.check", KeyStroke.getKeyStroke(KeyEvent.VK_F5, 0), this::checkNow);
         settings = action("action.settings", null, this::openSettings);
+        applyMarks = action("action.apply", KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, KeyEvent.CTRL_DOWN_MASK),
+                this::applyMarks);
+        clearMarks = action("action.clear-marks", null, marks::clear);
+        marks.addListener(this::updateMarkActions);
+        updateMarkActions();
         Action exit = action("action.exit", KeyStroke.getKeyStroke(KeyEvent.VK_Q, KeyEvent.CTRL_DOWN_MASK),
                 this::dispose);
         Action find = action("action.search", KeyStroke.getKeyStroke(KeyEvent.VK_F, KeyEvent.CTRL_DOWN_MASK),
@@ -131,6 +151,9 @@ public final class MainWindow extends JFrame {
         JMenu software = Mnemonics.apply(new JMenu(), msg.get("menu.software"));
         software.add(check);
         software.add(find);
+        software.add(applyMarks);
+        software.add(clearMarks);
+        software.addSeparator();
         software.add(settings);
         software.addSeparator();
         software.add(exit);
@@ -185,7 +208,10 @@ public final class MainWindow extends JFrame {
         north.add(filterBar, BorderLayout.SOUTH);
         add(north, BorderLayout.NORTH);
         add(tabs, BorderLayout.CENTER);
-        add(operation, BorderLayout.SOUTH);
+        JPanel south = new JPanel(new BorderLayout());
+        south.add(marksBar, BorderLayout.NORTH);
+        south.add(operation, BorderLayout.SOUTH);
+        add(south, BorderLayout.SOUTH);
         updateTabs();
 
         setSize(new Dimension(1080, 660));
@@ -246,6 +272,7 @@ public final class MainWindow extends JFrame {
 
     void showCatalog(List<CatalogEntry> read) {
         catalog = read;
+        marks.catalogRead(read);
         if (!catalogRead && !busy) operation.end(" ");
         catalogRead = true;
         showItems();
@@ -393,6 +420,67 @@ public final class MainWindow extends JFrame {
                 msg.format("outcome.updated", entry.name()));
     }
 
+    // --8<-- [start:apply-marks]
+    /**
+     * Applies everything marked in all tabs in one apt run, once the user has agreed to the list and to what
+     * else apt would install or remove with it. Only updates, and all waiting ones: the plain upgrade, as
+     * "Install selected" does it, without a question.
+     */
+    void applyMarks() {
+        if (busy || marks.isEmpty()) return;
+        ChangeSet changes = marks.changeSet();
+        List<String> waiting = updatesTab.model().updates().stream().map(Change::name).sorted().toList();
+        if (changes.install().isEmpty() && changes.remove().isEmpty() && changes.upgrade().equals(waiting)) {
+            perform(msg.get("progress.installing"), listener -> packages.upgrade(List.of(), false, listener),
+                    msg.get("outcome.installed"), () -> marks.forget(changes.names()));
+            return;
+        }
+        background(() -> packages.simulate(changes), simulated -> {
+            String question = applyConfirmation(changes, simulated);
+            boolean removes = !changes.remove().isEmpty()
+                    || simulated.stream().anyMatch(c -> c.kind() == Change.Kind.REMOVE);
+            if (!asker.ok(question, removes ? JOptionPane.WARNING_MESSAGE : JOptionPane.QUESTION_MESSAGE)) return;
+            perform(msg.get("progress.applying"), listener -> packages.apply(changes, listener),
+                    msg.get("outcome.applied"), () -> marks.forget(changes.names()));
+        }, error -> operation.end(msg.format("error.simulate", message(error))));
+    }
+    // --8<-- [end:apply-marks]
+
+    /**
+     * The question before applying the marks: what will be installed, updated and removed, then what apt
+     * installs or removes besides (dependencies, packages that need a removed one).
+     */
+    String applyConfirmation(ChangeSet changes, List<Change> simulated) {
+        List<String> lines = new ArrayList<>();
+        if (!changes.install().isEmpty()) lines.add(msg.format("confirm.apply.install", names(changes.install())));
+        if (!changes.upgrade().isEmpty()) lines.add(msg.format("confirm.apply.update", names(changes.upgrade())));
+        if (!changes.remove().isEmpty()) lines.add(msg.format("confirm.apply.remove", names(changes.remove())));
+        List<String> marked = changes.names();
+        List<String> installs = new ArrayList<>();
+        List<String> removes = new ArrayList<>();
+        for (Change c : simulated) {
+            String plain = c.name().contains(":") ? c.name().substring(0, c.name().indexOf(':')) : c.name();
+            if (marked.contains(plain) || marked.contains(c.name())) continue;
+            if (c.kind() == Change.Kind.INSTALL) installs.add(plain);
+            if (c.kind() == Change.Kind.REMOVE) removes.add(plain);
+        }
+        List<String> blocks = new ArrayList<>();
+        blocks.add(String.join("\n", lines));
+        if (!installs.isEmpty()) {
+            blocks.add(msg.format("confirm.apply.more-installs", installs.size(), names(installs)));
+        }
+        if (!removes.isEmpty()) {
+            blocks.add(msg.format("confirm.apply.more-removes", removes.size(), names(removes)));
+        }
+        blocks.add(msg.get("confirm.apply"));
+        return String.join("\n\n", blocks);
+    }
+
+    private void updateMarkActions() {
+        applyMarks.setEnabled(!busy && !marks.isEmpty());
+        clearMarks.setEnabled(!busy && !marks.isEmpty());
+    }
+
     /**
      * What a change does besides the package itself, as lines for a confirmation: the other packages it
      * installs and those it removes. Empty when it touches nothing else.
@@ -444,6 +532,12 @@ public final class MainWindow extends JFrame {
      * line (and in a dialog when it failed), the updates and the catalog read again afterwards.
      */
     void perform(String title, Function<ProgressListener, Result> work, String doneText) {
+        perform(title, work, doneText, () -> {
+        });
+    }
+
+    /** @param succeeded run on the event dispatch thread when the change was done */
+    void perform(String title, Function<ProgressListener, Result> work, String doneText, Runnable succeeded) {
         if (busy) return;
         setBusy(true);
         operation.begin(title);
@@ -458,7 +552,10 @@ public final class MainWindow extends JFrame {
                 edt.execute(() -> operation.message(line));
             }
         };
-        background(() -> work.apply(listener), result -> finished(result, doneText),
+        background(() -> work.apply(listener), result -> {
+                    if (result.success()) succeeded.run();
+                    finished(result, doneText);
+                },
                 error -> finished(new Result(Result.Status.FAILED, message(error), false), doneText));
     }
     // --8<-- [end:perform]
@@ -493,6 +590,8 @@ public final class MainWindow extends JFrame {
         catalogTabs.values().forEach(tab -> tab.setBusy(busy));
         check.setEnabled(!busy);
         settings.setEnabled(!busy);
+        marksBar.setBusy(busy);
+        updateMarkActions();
     }
 
     /** Restarts the computer through logind, which lets the user of the active session do it. */
@@ -520,6 +619,18 @@ public final class MainWindow extends JFrame {
 
     CatalogTab catalogTab(Category category) {
         return catalogTabs.get(category);
+    }
+
+    void setAsker(Asker asker) {
+        this.asker = asker;
+    }
+
+    MarksBar marksBar() {
+        return marksBar;
+    }
+
+    Marks marks() {
+        return marks;
     }
 
     OperationBar operation() {

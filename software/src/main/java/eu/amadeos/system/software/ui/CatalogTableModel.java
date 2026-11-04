@@ -10,15 +10,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** The packages of one catalog tab that the filter lets through. */
+/**
+ * The packages of one catalog tab that the filter lets through, each with a check box: whether it is marked
+ * in {@link Marks} (to install, update or remove), which all tabs share.
+ */
 final class CatalogTableModel extends AbstractTableModel {
-    static final int NAME = 0;
-    static final int SUMMARY = 1;
-    static final int STATUS = 2;
-    static final int VERSION = 3;
-    private static final String[] COLUMNS = {"column.name", "column.summary", "column.status", "column.version"};
+    static final int MARK = 0;
+    static final int NAME = 1;
+    static final int SUMMARY = 2;
+    static final int STATUS = 3;
+    static final int VERSION = 4;
+    private static final String[] COLUMNS = {"", "column.name", "column.summary", "column.status",
+            "column.version"};
 
     private final Messages msg;
+    private final Marks marks;
+    private boolean busy;
     private List<Item> all = List.of();
     private CatalogFilter filter = CatalogFilter.ALL;
     /** What the filter lets through, in all groups. */
@@ -29,7 +36,21 @@ final class CatalogTableModel extends AbstractTableModel {
     private final Map<String, Set<Group>> groups = new HashMap<>();
 
     CatalogTableModel(Messages msg) {
+        this(msg, new Marks());
+    }
+
+    CatalogTableModel(Messages msg, Marks marks) {
         this.msg = msg;
+        this.marks = marks;
+        // A mark set in another tab shows here too; fireTableRowsUpdated keeps the chosen row.
+        marks.addListener(() -> {
+            if (!shown.isEmpty()) fireTableRowsUpdated(0, shown.size() - 1);
+        });
+    }
+
+    /** While apt works, the marks cannot be changed. */
+    void setBusy(boolean busy) {
+        this.busy = busy;
     }
 
     void setItems(List<Item> items) {
@@ -106,7 +127,28 @@ final class CatalogTableModel extends AbstractTableModel {
 
     @Override
     public String getColumnName(int column) {
-        return msg.get(COLUMNS[column]);
+        return COLUMNS[column].isEmpty() ? "" : msg.get(COLUMNS[column]);
+    }
+
+    @Override
+    public Class<?> getColumnClass(int column) {
+        return column == MARK ? Boolean.class : Object.class;
+    }
+
+    @Override
+    public boolean isCellEditable(int row, int column) {
+        return column == MARK && !busy && Marks.defaultMark(shown.get(row).entry()).isPresent();
+    }
+
+    @Override
+    public void setValueAt(Object value, int row, int column) {
+        if (column != MARK) return;
+        CatalogEntry e = shown.get(row).entry();
+        if (Boolean.TRUE.equals(value)) {
+            Marks.defaultMark(e).ifPresent(mark -> marks.mark(e.name(), mark));
+        } else {
+            marks.unmark(e.name());
+        }
     }
 
     @Override
@@ -114,12 +156,22 @@ final class CatalogTableModel extends AbstractTableModel {
         Item item = shown.get(row);
         CatalogEntry e = item.entry();
         return switch (column) {
+            case MARK -> marks.marked(e.name());
             case NAME -> item.title();
             case SUMMARY -> item.summary();
-            case STATUS -> status(msg, e);
+            case STATUS -> marks.get(e.name()).map(m -> markText(msg, m)).orElseGet(() -> status(msg, e));
             case VERSION -> e.installed() ? e.installedVersion() : e.availableVersion();
             default -> "";
         };
+    }
+
+    /** "To be installed" and the like, in place of the status while a package is marked. */
+    static String markText(Messages msg, Marks.Mark mark) {
+        return msg.get(switch (mark) {
+            case INSTALL -> "mark.install";
+            case UPDATE -> "mark.update";
+            case REMOVE -> "mark.remove";
+        });
     }
 
     static String status(Messages msg, CatalogEntry e) {

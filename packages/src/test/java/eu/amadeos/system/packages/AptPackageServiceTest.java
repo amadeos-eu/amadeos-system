@@ -64,7 +64,8 @@ class AptPackageServiceTest {
         Map<String, String> env = new java.util.HashMap<>(Map.of(
                 "AMADEOS_PACKAGES_APT_GET", dir.resolve("apt-get").toString(),
                 "AMADEOS_PACKAGES_LOG", log.toString(),
-                "AMADEOS_PACKAGES_REBOOT_FILE", rebootFile.toString()));
+                "AMADEOS_PACKAGES_REBOOT_FILE", rebootFile.toString(),
+                "AMADEOS_PACKAGES_APT_MARK", dir.resolve("apt-mark").toString()));
         if (fail != null) env.put("FAKE_APT_FAIL", fail);
         return new AptPackageService(List.of("bash", HELPER.toString()), env, command -> {
             throw new AssertionError("no read expected: " + command);
@@ -108,6 +109,43 @@ class AptPackageServiceTest {
         assertTrue(Files.readString(log).contains("Setting up distro-info-data"), "messages are logged");
     }
     // --8<-- [end:install]
+
+    @Test
+    void applyDoesEverythingInOneAptRunAndKeepsAutomaticMarks() throws IOException {
+        // A fake apt-mark: libssl3t64 is automatic; "auto" calls are recorded.
+        Path mark = dir.resolve("apt-mark");
+        Files.writeString(mark, """
+                #!/bin/bash
+                if [ "$1" = showauto ]; then shift; for p in "$@"; do [ "$p" = libssl3t64 ] && echo "$p"; done; exit 0; fi
+                echo "apt-mark $*" >> '%s'
+                """.formatted(aptArgs));
+        assertTrue(mark.toFile().setExecutable(true));
+
+        ChangeSet changes = new ChangeSet(List.of("gimp"), List.of("bash", "libssl3t64"), List.of("nano"));
+        Result result = service(null).apply(changes, ProgressListener.NONE);
+
+        assertTrue(result.success(), result.toString());
+        List<String> calls = aptCalls();
+        assertTrue(calls.getFirst().endsWith("-y install gimp bash libssl3t64 nano-"), calls.getFirst());
+        assertEquals("apt-mark auto libssl3t64", calls.get(1));
+        assertEquals(2, calls.size());
+    }
+
+    @Test
+    void applyRefusesWhatIsNoPackageName() throws IOException {
+        Result result = service(null).apply(new ChangeSet(List.of("--purge"), List.of(), List.of()),
+                ProgressListener.NONE);
+        assertFalse(result.success());
+        assertEquals(List.of(), aptCalls());
+    }
+
+    @Test
+    void theSimulationOfAChangeSetIsOneInstallRun() {
+        assertEquals(List.of("apt-get", "-s", "-o", "Debug::NoLocking=1", "install", "gimp", "vim", "nano-"),
+                Apt.simulateApply(new ChangeSet(List.of("gimp"), List.of("vim"), List.of("nano"))));
+        assertEquals(List.of("apply", "--install", "gimp", "--remove", "nano"),
+                new ChangeSet(List.of("gimp"), List.of(), List.of("nano")).helperArguments());
+    }
 
     @Test
     void upgradeAllAndRebootRequired() throws IOException {

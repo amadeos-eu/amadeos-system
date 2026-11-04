@@ -48,9 +48,15 @@ final class UpdatesTab extends JPanel {
      * @param security called for "security updates only"
      */
     UpdatesTab(Messages msg, Consumer<Change> chosen, Consumer<List<String>> install, Runnable security) {
+        this(msg, new Marks(), chosen, install, security);
+    }
+
+    /** @param marks the marks all tabs share: a ticked update is marked for update */
+    UpdatesTab(Messages msg, Marks marks, Consumer<Change> chosen, Consumer<List<String>> install,
+               Runnable security) {
         super(new BorderLayout(0, 6));
         this.msg = msg;
-        this.model = new UpdateTableModel(msg);
+        this.model = new UpdateTableModel(msg, marks);
         this.table = new JTable(model);
         this.details = new DetailsPane(msg);
         setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));

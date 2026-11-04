@@ -7,6 +7,9 @@
 #   upgrade [--security-only] [PKG…] all upgrades, only those from a security archive, or the given packages
 #   install PKG…                     install packages (marked as installed by the user)
 #   remove PKG…                      remove packages (configuration files stay, nothing is autoremoved)
+#   apply [--install PKG…] [--upgrade PKG…] [--remove PKG…]
+#                                    all marked changes in one apt run (one password); upgraded packages
+#                                    keep their automatic mark
 #   check                            list the pending upgrades; read-only, needs no root
 #   automatic-security on|off        install security updates automatically (unattended-upgrades) or not
 #   proxy                            apt's proxy from standard input ("http URL", "https URL"); none: removed
@@ -27,6 +30,7 @@ VERSION="0.1.0"
 # For tests only: a fake apt-get and log. pkexec gives the script a clean environment, so these cannot be
 # set from a desktop session.
 APT_GET="${AMADEOS_PACKAGES_APT_GET:-/usr/bin/apt-get}"
+APT_MARK="${AMADEOS_PACKAGES_APT_MARK:-/usr/bin/apt-mark}"
 LOG_FILE="${AMADEOS_PACKAGES_LOG:-/var/log/amadeos-packages.log}"
 REBOOT_REQUIRED="${AMADEOS_PACKAGES_REBOOT_FILE:-/run/reboot-required}"
 APT_CONF_DIR="${AMADEOS_PACKAGES_APT_CONF_DIR:-/etc/apt/apt.conf.d}"
@@ -46,6 +50,7 @@ Usage: amadeos-packages refresh
        amadeos-packages upgrade [--security-only] [PACKAGE…]
        amadeos-packages install PACKAGE…
        amadeos-packages remove PACKAGE…
+       amadeos-packages apply [--install PACKAGE…] [--upgrade PACKAGE…] [--remove PACKAGE…]
        amadeos-packages check
        amadeos-packages automatic-security on|off
        amadeos-packages proxy < "http URL" and "https URL" lines
@@ -172,6 +177,43 @@ case "$COMMAND" in
         require_root
         log remove "$@"
         run_apt -y remove "$@"
+        finish
+        ;;
+    apply)
+        # One apt-get install for everything the user marked in Software: "PKG" installs or upgrades,
+        # "PKG-" removes. apt marks every named package as installed by the user, so upgraded packages
+        # that were installed automatically get their automatic mark back afterwards.
+        INSTALL=()
+        UPGRADE=()
+        REMOVE=()
+        GROUP=""
+        for ARG in "$@"; do
+            case "$ARG" in
+                --install) GROUP=install ;;
+                --upgrade) GROUP=upgrade ;;
+                --remove) GROUP=remove ;;
+                *)
+                    [ -n "$GROUP" ] || fail usage 1 "apply needs --install, --upgrade or --remove before $ARG"
+                    check_names "$ARG"
+                    case "$GROUP" in
+                        install) INSTALL+=("$ARG") ;;
+                        upgrade) UPGRADE+=("$ARG") ;;
+                        remove) REMOVE+=("$ARG-") ;;
+                    esac
+                    ;;
+            esac
+        done
+        [ "$(( ${#INSTALL[@]} + ${#UPGRADE[@]} + ${#REMOVE[@]} ))" -gt 0 ] || fail usage 1 "no package given"
+        require_root
+        AUTOMATIC=()
+        if [ "${#UPGRADE[@]}" -gt 0 ]; then
+            mapfile -t AUTOMATIC < <("$APT_MARK" showauto "${UPGRADE[@]}" 2>/dev/null || true)
+        fi
+        log apply "$@"
+        run_apt -y install "${INSTALL[@]}" "${UPGRADE[@]}" "${REMOVE[@]}"
+        if [ "${#AUTOMATIC[@]}" -gt 0 ]; then
+            "$APT_MARK" auto "${AUTOMATIC[@]}" >>"$LOG_FILE" 2>&1 || true
+        fi
         finish
         ;;
     automatic-security)
