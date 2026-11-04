@@ -24,6 +24,11 @@ public interface PackageService {
     /** What removing the packages would change, packages that depend on them included. */
     List<Change> simulateRemove(List<String> names) throws PackageException;
 
+    /** What applying the change set would change, dependencies and packages that need removed ones included. */
+    default List<Change> simulate(ChangeSet changes) throws PackageException {
+        throw new PackageException("not supported");
+    }
+
     /** The packages installed on this system. */
     List<InstalledPackage> installed() throws PackageException;
 
@@ -60,6 +65,14 @@ public interface PackageService {
 
     /** Removes the packages; their configuration files stay, nothing is removed automatically. */
     Result remove(List<String> names, ProgressListener listener);
+
+    /**
+     * Installs, upgrades and removes the packages of the change set in one apt run, behind one password
+     * prompt. Upgraded packages that were installed automatically stay so.
+     */
+    default Result apply(ChangeSet changes, ProgressListener listener) {
+        return Result.failed("not supported");
+    }
 
     /**
      * Calls {@code onChange} (on a background thread) after the installed packages or the package lists have

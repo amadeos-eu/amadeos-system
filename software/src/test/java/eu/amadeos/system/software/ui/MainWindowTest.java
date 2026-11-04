@@ -5,6 +5,7 @@ import eu.amadeos.commons.swing.EdtExecutor;
 import eu.amadeos.system.packages.CatalogEntry;
 import eu.amadeos.system.packages.Category;
 import eu.amadeos.system.packages.Change;
+import eu.amadeos.system.packages.ChangeSet;
 import eu.amadeos.system.packages.InstalledPackage;
 import eu.amadeos.system.packages.PackageInfo;
 import eu.amadeos.system.packages.PackageService;
@@ -225,6 +226,84 @@ class MainWindowTest {
     }
 
     @Test
+    void marksFromAllTabsAreAppliedInOneRun() throws Exception {
+        service.updates = List.of(update("bash", STABLE), update("vim", STABLE));
+        service.catalog = List.of(entry("gimp", Category.APPLICATION, "", "2.10", false),
+                entry("inkscape", Category.APPLICATION, "", "1.4", false),
+                entry("bash", Category.COMMAND_LINE, "1.0", "1.1", false),
+                entry("vim", Category.COMMAND_LINE, "1.0", "1.1", false),
+                entry("nano", Category.COMMAND_LINE, "8.4", "8.4", false));
+        service.simulated = List.of(new Change(Change.Kind.INSTALL, "libgimp2.0", "", "2.10", List.of(STABLE),
+                "amd64"));
+        List<String> questions = new CopyOnWriteArrayList<>();
+        open();
+        SwingUtilities.invokeAndWait(() -> window.setAsker((question, type) -> {
+            questions.add(question);
+            return true;
+        }));
+        await(() -> onEdt(() -> window.catalogTab(Category.APPLICATION).shown()) == 2);
+        await(() -> onEdt(() -> window.updatesTab().model().getRowCount()) == 2);
+
+        // The waiting updates are marked from the start, and show so in the catalog too.
+        assertEquals("2 packages are marked: 2 to update.", onEdt(() -> window.marksBar().text()));
+        assertEquals("To be updated", onEdt(() -> window.catalogTab(Category.COMMAND_LINE).model()
+                .getValueAt(0, CatalogTableModel.STATUS)));
+
+        SwingUtilities.invokeAndWait(() -> {
+            CatalogTableModel apps = window.catalogTab(Category.APPLICATION).model();
+            apps.setValueAt(true, 0, CatalogTableModel.MARK);
+            CatalogTableModel tools = window.catalogTab(Category.COMMAND_LINE).model();
+            // bash, nano, vim: unticking vim here unticks it in the Updates tab; ticking nano removes it.
+            tools.setValueAt(true, 1, CatalogTableModel.MARK);
+            tools.setValueAt(false, 2, CatalogTableModel.MARK);
+        });
+        assertEquals(List.of("bash"), onEdt(() -> window.updatesTab().model().selectedNames()));
+        assertEquals("3 packages are marked: 1 to install, 1 to update, 1 to remove.",
+                onEdt(() -> window.marksBar().text()));
+        assertEquals("To be removed", onEdt(() -> window.catalogTab(Category.COMMAND_LINE).model()
+                .getValueAt(1, CatalogTableModel.STATUS)));
+
+        SwingUtilities.invokeAndWait(() -> window.marksBar().applyButton().doClick());
+        await(() -> service.calls.contains("apply [apply, --install, gimp, --upgrade, bash, --remove, nano]"));
+        assertTrue(service.calls.contains("simulate [gimp, bash, nano-]"));
+        assertEquals("Install: gimp\nUpdate: bash\nRemove: nano\n\nThis also installs one more package: "
+                + "libgimp2.0\n\nApply these changes?", questions.getFirst());
+        await(() -> onEdt(() -> window.operation().statusText()).equals("The changes are applied."));
+        // The applied marks are gone; vim, unmarked, stays unmarked.
+        assertTrue(onEdt(() -> window.marks().isEmpty()));
+        assertFalse(onEdt(() -> window.marksBar().isVisible()));
+    }
+
+    @Test
+    void allWaitingUpdatesAloneAreThePlainUpgrade() throws Exception {
+        service.updates = List.of(update("bash", STABLE), update("zsh", STABLE));
+        open();
+        await(() -> onEdt(() -> window.marks().size()) == 2);
+        SwingUtilities.invokeAndWait(() -> window.marksBar().applyButton().doClick());
+        await(() -> service.calls.contains("upgrade [] security=false"));
+        assertFalse(service.calls.stream().anyMatch(c -> c.startsWith("simulate")));
+    }
+
+    @Test
+    void cancellingTheQuestionKeepsTheMarks() throws Exception {
+        service.catalog = List.of(entry("gimp", Category.APPLICATION, "", "2.10", false));
+        open();
+        SwingUtilities.invokeAndWait(() -> window.setAsker((question, type) -> false));
+        await(() -> onEdt(() -> window.catalogTab(Category.APPLICATION).shown()) == 1);
+        SwingUtilities.invokeAndWait(() -> {
+            window.catalogTab(Category.APPLICATION).select("gimp");
+            window.catalogTab(Category.APPLICATION).toggleMark();
+            window.marksBar().applyButton().doClick();
+        });
+        await(() -> service.calls.contains("simulate [gimp]"));
+        Thread.sleep(100);
+        assertFalse(service.calls.stream().anyMatch(c -> c.startsWith("apply")));
+        assertEquals("One package is marked: 1 to install.", onEdt(() -> window.marksBar().text()));
+        SwingUtilities.invokeAndWait(() -> window.marksBar().clearButton().doClick());
+        assertFalse(onEdt(() -> window.marksBar().isVisible()));
+    }
+
+    @Test
     void confirmationsNameWhatElseChanges() throws Exception {
         open();
         Change dependency = new Change(Change.Kind.INSTALL, "libgimp2.0", "", "2.10", List.of(STABLE), "amd64");
@@ -274,6 +353,8 @@ class MainWindowTest {
         final List<String> calls = new CopyOnWriteArrayList<>();
         volatile List<Change> updates = List.of();
         volatile List<CatalogEntry> catalog = List.of();
+        /** What a simulation changes besides the marked packages. */
+        volatile List<Change> simulated = List.of();
         volatile Result result = new Result(Result.Status.DONE, "", false);
         volatile Optional<Instant> lastRefresh = Optional.of(Instant.parse("2026-10-21T08:00:00Z"));
 
@@ -343,6 +424,22 @@ class MainWindowTest {
 
         @Override
         public Result remove(List<String> names, ProgressListener listener) {
+            return result;
+        }
+
+        @Override
+        public List<Change> simulate(ChangeSet changes) {
+            calls.add("simulate " + changes.aptArguments());
+            List<Change> changed = new java.util.ArrayList<>(simulated);
+            changes.install().forEach(n -> changed.add(new Change(Change.Kind.INSTALL, n, "", "1", List.of(STABLE),
+                    "amd64")));
+            changes.remove().forEach(n -> changed.add(new Change(Change.Kind.REMOVE, n, "1", "", List.of(), "")));
+            return changed;
+        }
+
+        @Override
+        public Result apply(ChangeSet changes, ProgressListener listener) {
+            calls.add("apply " + changes.helperArguments());
             return result;
         }
 

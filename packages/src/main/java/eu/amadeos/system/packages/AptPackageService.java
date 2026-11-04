@@ -156,6 +156,12 @@ public final class AptPackageService implements PackageService {
     }
 
     @Override
+    public List<Change> simulate(ChangeSet changes) throws PackageException {
+        checked(changes.names());
+        return Apt.parseSimulation(read(Apt.simulateApply(changes)));
+    }
+
+    @Override
     public List<InstalledPackage> installed() throws PackageException {
         return Apt.parseInstalled(read(Apt.installed()), automatic());
     }
@@ -437,6 +443,12 @@ public final class AptPackageService implements PackageService {
         List<String> args = new ArrayList<>(List.of("remove"));
         args.addAll(names);
         return runHelper(names, args, listener);
+    }
+
+    @Override
+    public Result apply(ChangeSet changes, ProgressListener listener) {
+        if (changes.isEmpty()) return Result.failed("no package given");
+        return runHelper(changes.names(), changes.helperArguments(), listener);
     }
 
     private Result runHelper(List<String> names, List<String> args, ProgressListener listener) {
