@@ -32,6 +32,15 @@ public interface DesktopMenuActions {
 
     void refreshDesktop();
 
+    /** Whether desktop widgets can be added now: the Horizon look with the widget host installed. */
+    default boolean widgetsAvailable() {
+        return false;
+    }
+
+    /** Opens the widget gallery, where widgets are added to the desktop. */
+    default void openWidgets() {
+    }
+
     void openSettings();
 
     void lockScreen();

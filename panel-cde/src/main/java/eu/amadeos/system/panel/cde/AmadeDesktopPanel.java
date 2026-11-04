@@ -18,6 +18,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -616,11 +617,15 @@ public final class AmadeDesktopPanel extends JFrame {
 
     /** Starts the first installed application of the category, or the fallback while there is none. */
     private ActionListener primaryAction(XdgCategory category, ActionListener fallback) {
-        List<XdgDesktopEntry> apps = XdgApplicationManager.getInstance().getApplicationsByCategory(category);
+        XdgApplicationManager manager = XdgApplicationManager.getInstance();
+        List<XdgDesktopEntry> apps = manager.getApplicationsByCategory(category);
         if (apps.isEmpty()) {
             return fallback;
         }
-        XdgDesktopEntry primaryApp = apps.get(0);
+        Optional<String> textDefault = category == XdgCategory.TEXT_EDITOR
+                ? eu.amadeos.system.base.xdg.MimeApps.system(manager.getAllApplications()).defaultFor("text/plain")
+                : Optional.empty();
+        XdgDesktopEntry primaryApp = primaryApp(apps, category, textDefault);
         return e -> {
             try {
                 primaryApp.launch();
@@ -630,6 +635,26 @@ public final class AmadeDesktopPanel extends JFrame {
                 launchFailed(primaryApp.name(), ex);
             }
         };
+    }
+
+    /**
+     * The program a drawer's button starts. For Text &amp; Office that is the text editor: the default program for
+     * plain text (Settings &gt; Default Applications) if it is in the drawer, otherwise the first entry that is a
+     * TextEditor rather than a WordProcessor, so the button opens Pad and not WritePad. Other drawers start their
+     * first entry.
+     */
+    static XdgDesktopEntry primaryApp(List<XdgDesktopEntry> apps, XdgCategory category, Optional<String> textDefault) {
+        if (category == XdgCategory.TEXT_EDITOR) {
+            if (textDefault.isPresent()) {
+                for (XdgDesktopEntry app : apps) {
+                    if (app.id().equals(textDefault.get())) return app;
+                }
+            }
+            for (XdgDesktopEntry app : apps) {
+                if (app.categories().stream().anyMatch(c -> c.equalsIgnoreCase("TextEditor"))) return app;
+            }
+        }
+        return apps.get(0);
     }
 
     /** Fills the drawers again from the desktop entries just read; on the EDT. */
