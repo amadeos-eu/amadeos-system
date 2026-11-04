@@ -26,7 +26,8 @@ import eu.amadeos.system.panel.cde.PanelTexts;
  * <p>
  * The counters are read from {@code /proc} every {@link #TICK_MILLIS} on a thread of the light's own; the
  * dashes change on the event dispatch thread. The LED colours are fixed, a real LED does not follow the
- * palette; the slit around them does.
+ * palette; the slit around them does. In the flat Horizon top bar ({@link #setFlat}) the slit is a dark rounded
+ * strip without the bevel.
  */
 public final class ActivityLight extends JComponent {
     static final int DASHES = 10;
@@ -69,6 +70,7 @@ public final class ActivityLight extends JComponent {
     private boolean installerRunning;
     private boolean backupRunning;
     private boolean meterShown = true;
+    private boolean flat;
     private int diskLevel;
     private int networkLevel;
     private long diskRate;
@@ -114,6 +116,12 @@ public final class ActivityLight extends JComponent {
         if (installing == busy) return;
         installing = busy;
         refresh();
+    }
+
+    /** The flat look of the Horizon top bar: a rounded dark strip instead of the sunken CDE slit. */
+    public void setFlat(boolean flat) {
+        this.flat = flat;
+        repaint();
     }
 
     /** Whether the disk and network halves light up (Settings > Front Panel); on the event dispatch thread. */
@@ -264,19 +272,27 @@ public final class ActivityLight extends JComponent {
         int sx = (getWidth() - 24) / 2;
         int sy = (getHeight() - 7) / 2;
 
-        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
+        if (flat) {
+            // A dark rounded strip, the dashes inside it as in the slit
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(SLIT);
+            g2.fillRoundRect(sx - 1, sy, 27, 8, 6, 6);
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
+        } else {
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
 
-        // Sunken slit border
-        g2.setColor(theme.darkShadow());
-        g2.drawLine(sx, sy, sx + 23, sy);
-        g2.drawLine(sx, sy, sx, sy + 6);
-        g2.setColor(Color.WHITE);
-        g2.drawLine(sx + 1, sy + 7, sx + 24, sy + 7);
-        g2.drawLine(sx + 24, sy + 1, sx + 24, sy + 7);
+            // Sunken slit border
+            g2.setColor(theme.darkShadow());
+            g2.drawLine(sx, sy, sx + 23, sy);
+            g2.drawLine(sx, sy, sx, sy + 6);
+            g2.setColor(Color.WHITE);
+            g2.drawLine(sx + 1, sy + 7, sx + 24, sy + 7);
+            g2.drawLine(sx + 24, sy + 1, sx + 24, sy + 7);
 
-        // Dark interior
-        g2.setColor(SLIT);
-        g2.fillRect(sx + 1, sy + 1, 23, 6);
+            // Dark interior
+            g2.setColor(SLIT);
+            g2.fillRect(sx + 1, sy + 1, 23, 6);
+        }
 
         // The LED dashes, one pixel wide with a pixel between them
         for (int i = 0; i < DASHES; i++) {
