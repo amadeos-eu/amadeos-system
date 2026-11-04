@@ -204,6 +204,8 @@ public final class X11WindowManagerService implements AutoCloseable {
     /** How often the active window is pinged and the waiting pings are checked. */
     private static final long PING_PERIOD_MILLIS = 2000;
     private static final String TASK_MANAGER = "amadeos-taskmanager";
+    /** The widget host of the Horizon look (package amadeos-widgets). */
+    private static final String WIDGETS = "/usr/bin/amadeos-widgets";
     private static final long XK_DELETE = 0xFFFF;
 
     private final java.util.Set<Long> dockWindows = new java.util.HashSet<>();
@@ -538,6 +540,23 @@ public final class X11WindowManagerService implements AutoCloseable {
             @Override
             public void refreshDesktop() {
                 runOnEventThread(X11WindowManagerService.this::refreshDesktop);
+            }
+
+            @Override
+            public boolean widgetsAvailable() {
+                return eu.amadeos.system.base.theme.ThemeManager.currentTheme().look()
+                        == eu.amadeos.commons.theme.DesktopLook.HORIZON
+                        && new java.io.File(WIDGETS).canExecute();
+            }
+
+            @Override
+            public void openWidgets() {
+                // The widget host (package amadeos-widgets) opens its gallery, or hands the request to the running host.
+                try {
+                    eu.amadeos.system.base.process.ProcessLauncher.start(java.util.List.of(WIDGETS, "--gallery"));
+                } catch (java.io.IOException e) {
+                    LOGGER.warning(() -> "Could not open the widget gallery (amadeos-widgets): " + e.getMessage());
+                }
             }
 
             @Override

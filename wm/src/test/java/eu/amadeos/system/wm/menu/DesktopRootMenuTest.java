@@ -102,5 +102,41 @@ class DesktopRootMenuTest {
         rootMenu.hide();
         rootMenu.dispose();
     }
-}
 
+    private static DesktopMenuActions widgetActions(boolean available, AtomicBoolean opened) {
+        return new DesktopMenuActions() {
+            @Override public void switchWorkspace(int workspaceIndex) { }
+            @Override public int currentWorkspace() { return 0; }
+            @Override public void shuffleUp() { }
+            @Override public void shuffleDown() { }
+            @Override public void minimizeAll() { }
+            @Override public void restoreAll() { }
+            @Override public void refreshDesktop() { }
+            @Override public void openSettings() { }
+            @Override public void lockScreen() { }
+            @Override public void logoutSession() { }
+            @Override public boolean widgetsAvailable() { return available; }
+            @Override public void openWidgets() { opened.set(true); }
+        };
+    }
+
+    private static JMenuItem item(JPopupMenu menu, String text) {
+        for (var c : menu.getComponents()) {
+            if (c instanceof JMenuItem i && !(c instanceof JMenu) && text.equals(i.getText())) return i;
+        }
+        return null;
+    }
+
+    @Test
+    void widgetsEntryOnlyWhereWidgetsRun() {
+        AtomicBoolean opened = new AtomicBoolean(false);
+        JPopupMenu horizon = new DesktopRootMenu(widgetActions(true, opened)).buildPopupMenu();
+        JMenuItem widgets = item(horizon, "Add Widgets...");
+        assertNotNull(widgets, "The Horizon look offers the widget gallery");
+        widgets.doClick();
+        assertTrue(opened.get(), "The entry opens the widget gallery");
+
+        JPopupMenu classic = new DesktopRootMenu(widgetActions(false, new AtomicBoolean())).buildPopupMenu();
+        assertEquals(null, item(classic, "Add Widgets..."), "Classic has no widgets");
+    }
+}

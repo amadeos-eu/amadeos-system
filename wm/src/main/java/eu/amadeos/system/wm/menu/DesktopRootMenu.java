@@ -164,7 +164,10 @@ public final class DesktopRootMenu {
 
         menu.add(createSeparator(theme));
 
-        // 6. Settings (formerly the Settings)
+        // 6. Widgets (Horizon only: the widget host runs only in that look), then Settings
+        if (actions.widgetsAvailable()) {
+            menu.add(createStyledMenuItem("Add Widgets...", "user-desktop", e -> actions.openWidgets(), theme));
+        }
         menu.add(createStyledMenuItem("Settings...", "style", e -> actions.openSettings(), theme));
 
         // 7. Refresh Desktop
