@@ -22,9 +22,9 @@ public record DockSettings(List<String> favourites, int iconSize, boolean drawer
     public static final String FILE_NAME = "dock.conf";
     /** Small, medium and large icons. */
     public static final int[] SIZES = {36, 44, 52};
-    /** The first favourites, those of them that are installed. */
+    /** The first favourites, those of them that are installed. The editor is Pad, the text editor; WritePad is in the Text & Office drawer. */
     public static final List<String> DEFAULT_FAVOURITES = List.of("amade-files.desktop", "firefox-esr.desktop",
-            "amade-mail.desktop", "amade-calendar.desktop", "amade-writepad.desktop", "amade-audio.desktop",
+            "amade-mail.desktop", "amade-calendar.desktop", "amade-pad.desktop", "amade-audio.desktop",
             "amade-terminal.desktop", "amadeos-software.desktop");
     public static final DockSettings DEFAULTS = new DockSettings(DEFAULT_FAVOURITES, 44, true, true);
 
