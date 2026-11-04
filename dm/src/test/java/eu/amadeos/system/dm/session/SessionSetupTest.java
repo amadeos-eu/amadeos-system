@@ -14,7 +14,11 @@ class SessionSetupTest {
     void sessionTypeComesFromGreeterLabelOrId() {
         assertEquals(SessionType.FAILSAFE, SessionType.from("Failsafe Terminal"));
         assertEquals(SessionType.FAILSAFE, SessionType.from("failsafe"));
-        assertEquals(SessionType.DESKTOP, SessionType.from("amadeOS CDE Desktop"));
+        assertEquals(SessionType.DESKTOP, SessionType.from("amadeOS CDE Desktop"), "the label before Horizon");
+        assertEquals(SessionType.DESKTOP, SessionType.from("amadeOS Desktop"));
+        assertEquals(SessionType.CLASSIC, SessionType.from("amadeOS Classic (CDE)"));
+        assertEquals(SessionType.HORIZON, SessionType.from("horizon"));
+        assertEquals("amadeOS Desktop", SessionType.labels()[0], "the session field starts with the last look");
         assertEquals(SessionType.DESKTOP, SessionType.from("something else"));
     }
 

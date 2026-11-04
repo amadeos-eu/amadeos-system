@@ -149,7 +149,7 @@ public final class AmadeLoginGreeter extends JFrame {
         // created); the greeter runs as root, so the state file under /var/lib is readable.
         this.userField = new JTextField(LastUser.SYSTEM.propose(), 16);
         this.passField = new JPasswordField(16);
-        this.sessionCombo = new JComboBox<>(new String[]{"amadeOS CDE Desktop", "Failsafe Terminal"});
+        this.sessionCombo = new JComboBox<>(eu.amadeos.system.dm.session.SessionType.labels());
         this.languageCombo = new JComboBox<>(Language.values());
         languageCombo.setRenderer(new DefaultListCellRenderer() {
             @Override

@@ -38,6 +38,21 @@ if [ -n "${AMADEOS_LOGIN_LOCALE:-}" ]; then
 fi
 unset AMADEOS_LOGIN_LOCALE
 
+# Desktop look: the greeter's session field passes classic or horizon (AMADEOS_SESSION); write it to
+# ~/.config/amadeos/look.conf before the window manager and the panel read it, as Settings > Desktop look
+# does, so it stays for later logins. "desktop" keeps the look of the last session.
+LOOK_CONF="${XDG_CONFIG_HOME:-$HOME/.config}/amadeos/look.conf"
+case "${AMADEOS_SESSION:-}" in
+    classic|horizon)
+        if grep -qs '^look=' "$LOOK_CONF"; then
+            sed -i "s/^look=.*/look=$AMADEOS_SESSION/" "$LOOK_CONF"
+        elif [ -f "$LOOK_CONF" ] || [ "$AMADEOS_SESSION" = horizon ]; then
+            # Without look.conf the look is classic; Horizon then starts with its default scheme and accent.
+            mkdir -p "$(dirname "$LOOK_CONF")" && printf 'look=%s\n' "$AMADEOS_SESSION" >> "$LOOK_CONF"
+        fi
+        ;;
+esac
+
 # Load system configuration manifest if present
 if [ -f "/etc/amadeos/session.conf" ]; then
     . "/etc/amadeos/session.conf"
