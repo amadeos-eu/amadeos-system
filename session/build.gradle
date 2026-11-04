@@ -21,7 +21,9 @@ debian = [
     // xterm: the fallback of a failed session; xinit: startx without the display manager (amadeos-session
     // is registered as x-session-manager).
     // xdg-user-dirs: the user's folders (Documents, Downloads ...) in the session's language at login.
-    recommends : ['xterm', 'xinit', 'amadeos-settings', 'xdg-user-dirs'],
+    // amadeos-desktop (meta package of the amadeos repository): systems installed before it existed get it,
+    // and with it the programs of later releases, through the next update of the session.
+    recommends : ['xterm', 'xinit', 'amadeos-settings', 'xdg-user-dirs', 'amadeos-desktop'],
     conflicts  : ['amade-desktop', 'amade-session'],
     replaces   : ['amade-desktop', 'amade-session'],
     summary    : 'Desktop session, screen lock, screen saver, power management, polkit agent, clipboard manager and notifications of amadeOS',
