@@ -1,5 +1,6 @@
 package eu.amadeos.system.wm.menu;
 
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.swing.JMenu;
@@ -38,7 +39,7 @@ class DesktopRootMenuTest {
             @Override public void logoutSession() { loggedOut.set(true); }
         };
 
-        DesktopRootMenu rootMenu = new DesktopRootMenu(actions);
+        DesktopRootMenu rootMenu = new DesktopRootMenu(actions, Locale.ENGLISH);
         JPopupMenu menu = rootMenu.buildPopupMenu();
 
         assertNotNull(menu, "Popup menu should be constructed");
@@ -130,13 +131,50 @@ class DesktopRootMenuTest {
     @Test
     void widgetsEntryOnlyWhereWidgetsRun() {
         AtomicBoolean opened = new AtomicBoolean(false);
-        JPopupMenu horizon = new DesktopRootMenu(widgetActions(true, opened)).buildPopupMenu();
+        JPopupMenu horizon = new DesktopRootMenu(widgetActions(true, opened), Locale.ENGLISH).buildPopupMenu();
         JMenuItem widgets = item(horizon, "Add Widgets...");
         assertNotNull(widgets, "The Horizon look offers the widget gallery");
         widgets.doClick();
         assertTrue(opened.get(), "The entry opens the widget gallery");
 
-        JPopupMenu classic = new DesktopRootMenu(widgetActions(false, new AtomicBoolean())).buildPopupMenu();
+        JPopupMenu classic = new DesktopRootMenu(widgetActions(false, new AtomicBoolean()), Locale.ENGLISH).buildPopupMenu();
         assertEquals(null, item(classic, "Add Widgets..."), "Classic has no widgets");
+    }
+
+    @Test
+    void textsFollowTheDesktopLanguage() {
+        JPopupMenu menu = new DesktopRootMenu(widgetActions(true, new AtomicBoolean()), Locale.GERMAN).buildPopupMenu();
+        assertNotNull(item(menu, "Bildschirm sperren"), "German lock entry");
+        assertNotNull(item(menu, "Widgets hinzufügen..."), "German widgets entry");
+        boolean programs = false;
+        for (var c : menu.getComponents()) {
+            if (c instanceof JMenu m && "Programme".equals(m.getText())) programs = true;
+        }
+        assertTrue(programs, "German Programs submenu");
+    }
+
+    @Test
+    void programGroupsUseTheSharedNames() {
+        DesktopRootMenu german = new DesktopRootMenu(widgetActions(false, new AtomicBoolean()), Locale.GERMAN);
+        assertEquals("Spiele", german.categoryName(eu.amadeos.system.base.xdg.XdgCategory.GAMES));
+        DesktopRootMenu english = new DesktopRootMenu(widgetActions(false, new AtomicBoolean()), Locale.ENGLISH);
+        assertEquals("Games", english.categoryName(eu.amadeos.system.base.xdg.XdgCategory.GAMES));
+    }
+
+    @Test
+    void everyLanguageHasEveryText() throws Exception {
+        java.util.Properties base = load("");
+        for (String lang : new String[]{"_de", "_fr", "_it", "_es"}) {
+            java.util.Properties p = load(lang);
+            assertEquals(base.keySet(), p.keySet(), "keys of menu" + lang);
+        }
+    }
+
+    private static java.util.Properties load(String suffix) throws Exception {
+        java.util.Properties p = new java.util.Properties();
+        try (var in = DesktopRootMenuTest.class.getResourceAsStream("/eu/amadeos/system/wm/menu/menu" + suffix + ".properties")) {
+            p.load(new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8));
+        }
+        return p;
     }
 }
