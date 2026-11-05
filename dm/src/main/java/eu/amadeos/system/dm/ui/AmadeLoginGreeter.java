@@ -1,18 +1,24 @@
 package eu.amadeos.system.dm.ui;
 
+import java.awt.AlphaComposite;
+import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.Image;
 import java.awt.Insets;
 import java.awt.RenderingHints;
 import java.awt.Toolkit;
-import java.awt.Component;
+import java.awt.geom.RoundRectangle2D;
+import java.io.File;
 import java.net.InetAddress;
 import java.nio.file.Path;
 import java.time.DateTimeException;
@@ -21,12 +27,20 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
+import javax.imageio.ImageIO;
 import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
 import javax.swing.DefaultListCellRenderer;
+import javax.swing.JComponent;
 import javax.swing.JList;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
@@ -39,14 +53,25 @@ import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import eu.amadeos.commons.i18n.Language;
+import eu.amadeos.commons.swing.AmadeUI;
+import eu.amadeos.commons.swing.HorizonUI;
 import eu.amadeos.commons.theme.DesktopTheme;
 import eu.amadeos.system.dm.session.LastUser;
 import eu.amadeos.system.dm.session.KeyboardLayouts;
+import eu.amadeos.system.dm.session.SessionType;
 import eu.amadeos.system.dm.session.SystemTimeZone;
 import eu.amadeos.system.dm.session.UserAccount;
 import eu.amadeos.system.base.theme.ThemeManager;
 
+/**
+ * The login screen. It has the look of the session it will start: the Motif look with a bevelled card for the
+ * Classic (CDE) session, the flat Horizon look with a rounded card over Horizon's picture for the Horizon
+ * session, and for the desktop session the look the user had last time ({@link GreeterLook}). Choosing another
+ * session or user switches the look at once.
+ */
 public final class AmadeLoginGreeter extends JFrame {
     public interface LoginCallback {
         /** @param timeZone the zone chosen for the system, e.g. {@code Europe/Berlin} */
@@ -54,6 +79,12 @@ public final class AmadeLoginGreeter extends JFrame {
     }
 
     private static final DateTimeFormatter CLOCK_FMT = DateTimeFormatter.ofPattern("EEE, MMM dd  HH:mm:ss");
+    private static final String PROMPT = "Please enter your password to begin session.";
+    /** Horizon's pictures, one per scheme; the image ships them, the greeter paints a gradient without them. */
+    static final String HORIZON_PICTURES = "/usr/share/backgrounds/amadeos/horizon-";
+    private static final int CARD_ARC = 22;
+
+    private enum StatusKind { NORMAL, OK, ERROR }
 
     private final LoginCallback loginCallback;
     private final Consumer<String> powerActionCallback;
@@ -68,78 +99,105 @@ public final class AmadeLoginGreeter extends JFrame {
     private final JLabel clockLabel;
     private final JButton loginBtn;
 
+    /** The greeter's own classic palette, for users who have none. */
+    private final DesktopTheme classicTheme = GreeterLook.classic(ThemeManager.currentTheme());
+    private DesktopTheme theme = classicTheme;
+    private boolean horizon;
+    private StatusKind statusKind = StatusKind.NORMAL;
+    private final Map<String, Image> pictures = new HashMap<>();
+
+    private final JPanel headerBar = new JPanel(new BorderLayout(10, 0)) {
+        @Override
+        protected void paintComponent(Graphics g) {
+            if (!horizon) return;
+            // Horizon: a slim dark bar along the top, like the top bar of the desktop
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setColor(new Color(0, 0, 0, 110));
+            g2.fillRect(0, 0, getWidth(), getHeight());
+            g2.dispose();
+        }
+    };
+    private final JLabel hostLabel = new JLabel();
+    private final JPanel loginCard = new JPanel(new BorderLayout(0, 10)) {
+        @Override
+        protected void paintComponent(Graphics g) {
+            if (horizon) paintHorizonCard((Graphics2D) g, this);
+            else paintMotifCard(g, this);
+        }
+    };
+    private final JPanel bannerPanel = new JPanel();
+    private final Avatar avatar = new Avatar();
+    private final JLabel titleText = new JLabel("amadeOS Desktop Login", SwingConstants.CENTER);
+    private final JPanel formPanel = new JPanel(new GridBagLayout());
+    private final List<JLabel> formLabels = new ArrayList<>();
+    private final JPanel statusPlate = new JPanel(new BorderLayout()) {
+        @Override
+        protected void paintComponent(Graphics g) {
+            if (horizon) return;
+            super.paintComponent(g);
+            // Sunken recessed plate
+            g.setColor(theme.darkShadow());
+            g.drawLine(0, 0, getWidth() - 1, 0);
+            g.drawLine(0, 0, 0, getHeight() - 1);
+            g.setColor(theme.highlight());
+            g.drawLine(getWidth() - 1, 0, getWidth() - 1, getHeight() - 1);
+            g.drawLine(0, getHeight() - 1, getWidth() - 1, getHeight() - 1);
+        }
+    };
+    private final JPanel buttonRow = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+    private final JPanel bottomBar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 14, 10));
+    private final JButton clearBtn = new JButton("Clear");
+    private final JButton rebootBtn = new JButton("Reboot...");
+    private final JButton poweroffBtn = new JButton("Shut Down...");
+
     public AmadeLoginGreeter(LoginCallback loginCallback, Consumer<String> powerActionCallback) {
         super("amadeOS Login Greeter");
         this.loginCallback = Objects.requireNonNull(loginCallback);
         this.powerActionCallback = powerActionCallback;
 
-        DesktopTheme theme = ThemeManager.currentTheme();
         setUndecorated(true);
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 
         Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
         setBounds(0, 0, screenSize.width, screenSize.height);
 
-        // Root background panel (Classic UNIX workstation slate-blue #4a6984)
+        // Root background: the classic UNIX workstation slate blue, or Horizon's picture
         JPanel rootPanel = new JPanel(new BorderLayout()) {
             @Override
             protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g;
-                g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-                Color c1 = new Color(0x3B, 0x54, 0x6E);
-                Color c2 = new Color(0x27, 0x38, 0x4A);
-                java.awt.GradientPaint gp = new java.awt.GradientPaint(0, 0, c1, 0, getHeight(), c2);
-                g2.setPaint(gp);
-                g2.fillRect(0, 0, getWidth(), getHeight());
+                paintBackdrop((Graphics2D) g, getWidth(), getHeight());
             }
         };
-        rootPanel.setLayout(new BorderLayout());
         setContentPane(rootPanel);
 
         // 1. TOP HEADER BAR
-        JPanel headerBar = new JPanel(new BorderLayout(10, 0));
         headerBar.setOpaque(false);
-        headerBar.setBorder(BorderFactory.createEmptyBorder(16, 24, 0, 24));
-
         String hostName = "amadeos";
         try {
             hostName = InetAddress.getLocalHost().getHostName();
         } catch (Exception ignored) {}
-
-        JLabel hostLabel = new JLabel("amadeOS UNIX Workstation  [" + hostName + "]");
-        hostLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 15));
-        hostLabel.setForeground(new Color(0xE0, 0xE8, 0xF0));
+        hostLabel.setText("amadeOS UNIX Workstation  [" + hostName + "]");
+        hostLabel.putClientProperty("host", hostName);
         headerBar.add(hostLabel, BorderLayout.WEST);
 
         clockLabel = new JLabel(LocalDateTime.now().format(CLOCK_FMT));
-        clockLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 14));
-        clockLabel.setForeground(new Color(0xD0, 0xD8, 0xE0));
         headerBar.add(clockLabel, BorderLayout.EAST);
         rootPanel.add(headerBar, BorderLayout.NORTH);
 
         Timer clockTimer = new Timer(1000, e -> clockLabel.setText(LocalDateTime.now().format(CLOCK_FMT)));
         clockTimer.start();
 
-        // 2. CENTER: Motif 3D Beveled Login Card
+        // 2. CENTER: the login card
         JPanel centerContainer = new JPanel(new GridBagLayout());
         centerContainer.setOpaque(false);
-
-        JPanel loginCard = createMotifCard(theme);
         centerContainer.add(loginCard, new GridBagConstraints());
         rootPanel.add(centerContainer, BorderLayout.CENTER);
 
         // 3. BOTTOM WORKSTATION CONTROLS BAR
-        JPanel bottomBar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 14, 10));
         bottomBar.setOpaque(false);
         bottomBar.setBorder(BorderFactory.createEmptyBorder(0, 16, 12, 24));
-
-        JButton rebootBtn = createMotifButton("Reboot...", theme);
         rebootBtn.addActionListener(e -> confirmPowerAction("reboot", "Restart the computer?"));
-
-        JButton poweroffBtn = createMotifButton("Shut Down...", theme);
         poweroffBtn.addActionListener(e -> confirmPowerAction("poweroff", "Shut down and power off the computer?"));
-
         bottomBar.add(rebootBtn);
         bottomBar.add(poweroffBtn);
         rootPanel.add(bottomBar, BorderLayout.SOUTH);
@@ -149,7 +207,7 @@ public final class AmadeLoginGreeter extends JFrame {
         // created); the greeter runs as root, so the state file under /var/lib is readable.
         this.userField = new JTextField(LastUser.SYSTEM.propose(), 16);
         this.passField = new JPasswordField(16);
-        this.sessionCombo = new JComboBox<>(eu.amadeos.system.dm.session.SessionType.labels());
+        this.sessionCombo = new JComboBox<>(SessionType.labels());
         this.languageCombo = new JComboBox<>(Language.values());
         languageCombo.setRenderer(new DefaultListCellRenderer() {
             @Override
@@ -181,10 +239,19 @@ public final class AmadeLoginGreeter extends JFrame {
         keyboardCombo.setToolTipText("Keyboard layout, switched at once for typing the password");
         KeyboardLayouts.find(layouts, systemLayout.code()).ifPresent(keyboardCombo::setSelectedItem);
         keyboardCombo.addActionListener(e -> applySelectedKeyboardLayout());
-        this.statusLabel = new JLabel("Please enter your password to begin session.", SwingConstants.CENTER);
-        this.loginBtn = createMotifButton("  Log In  ", theme);
+        this.statusLabel = new JLabel(PROMPT, SwingConstants.CENTER);
+        this.loginBtn = new JButton("  Log In  ");
 
-        buildCardContent(loginCard, theme);
+        buildCardContent();
+
+        // The look follows the session and, for the desktop session, the user
+        sessionCombo.addActionListener(e -> followSession());
+        userField.getDocument().addDocumentListener(new DocumentListener() {
+            @Override public void insertUpdate(DocumentEvent e) { avatar.repaint(); }
+            @Override public void removeUpdate(DocumentEvent e) { avatar.repaint(); }
+            @Override public void changedUpdate(DocumentEvent e) { avatar.repaint(); }
+        });
+        followSession();
 
         // Auto-focus password field and apply German layout when opened
         addWindowListener(new java.awt.event.WindowAdapter() {
@@ -198,182 +265,325 @@ public final class AmadeLoginGreeter extends JFrame {
         });
     }
 
-    private JPanel createMotifCard(DesktopTheme theme) {
-        JPanel card = new JPanel(new BorderLayout(0, 10)) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g;
-                DesktopTheme t = ThemeManager.currentTheme();
-                int w = getWidth();
-                int h = getHeight();
+    private void buildCardContent() {
+        // Card title: the banner of the Motif card; Horizon shows the user's initial above it
+        bannerPanel.setLayout(new BoxLayout(bannerPanel, BoxLayout.Y_AXIS));
+        avatar.setAlignmentX(0.5f);
+        titleText.setAlignmentX(0.5f);
+        titleText.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        bannerPanel.add(avatar);
+        bannerPanel.add(titleText);
+        loginCard.add(bannerPanel, BorderLayout.NORTH);
 
-                // Outer 3D bevel (raised)
-                g2.setColor(t.highlight());
-                g2.drawLine(0, 0, w - 1, 0);
-                g2.drawLine(0, 0, 0, h - 1);
-                g2.setColor(t.softHighlight());
-                g2.drawLine(1, 1, w - 2, 1);
-                g2.drawLine(1, 1, 1, h - 2);
-
-                g2.setColor(t.darkShadow());
-                g2.drawLine(w - 1, 0, w - 1, h - 1);
-                g2.drawLine(0, h - 1, w - 1, h - 1);
-                g2.setColor(t.shadow());
-                g2.drawLine(w - 2, 1, w - 2, h - 2);
-                g2.drawLine(1, h - 2, w - 2, h - 2);
-            }
-        };
-        card.setBackground(theme.base());
-        card.setPreferredSize(new Dimension(480, 415));
-        card.setBorder(BorderFactory.createEmptyBorder(12, 16, 14, 16));
-        return card;
-    }
-
-    private void buildCardContent(JPanel card, DesktopTheme theme) {
-        // Card Title / Banner
-        JPanel bannerPanel = new JPanel(new BorderLayout());
-        bannerPanel.setBackground(theme.activeTitleBg());
-        bannerPanel.setBorder(BorderFactory.createEmptyBorder(6, 12, 6, 12));
-
-        JLabel titleText = new JLabel("amadeOS Desktop Login", SwingConstants.CENTER);
-        titleText.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 14));
-        titleText.setForeground(theme.textActive());
-        bannerPanel.add(titleText, BorderLayout.CENTER);
-        card.add(bannerPanel, BorderLayout.NORTH);
-
-        // Input Form
-        JPanel formPanel = new JPanel(new GridBagLayout());
-        formPanel.setBackground(theme.base());
+        // Input form
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(6, 8, 6, 8);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        // User row
-        gbc.gridx = 0; gbc.gridy = 0; gbc.weightx = 0.3;
-        JLabel userLabel = new JLabel("User Name:", SwingConstants.RIGHT);
-        userLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 12));
-        userLabel.setForeground(theme.textActive());
-        formPanel.add(userLabel, gbc);
-
-        gbc.gridx = 1; gbc.gridy = 0; gbc.weightx = 0.7;
-        userField.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 13));
         userField.addActionListener(e -> passField.requestFocusInWindow());
         userField.addFocusListener(new java.awt.event.FocusAdapter() {
             @Override
             public void focusLost(java.awt.event.FocusEvent e) {
                 preselectLanguage();
+                followSession();
             }
         });
-        formPanel.add(userField, gbc);
-
-        // Password row
-        gbc.gridx = 0; gbc.gridy = 1; gbc.weightx = 0.3;
-        JLabel passLabel = new JLabel("Password:", SwingConstants.RIGHT);
-        passLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 12));
-        passLabel.setForeground(theme.textActive());
-        formPanel.add(passLabel, gbc);
-
-        gbc.gridx = 1; gbc.gridy = 1; gbc.weightx = 0.7;
-        passField.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 13));
         passField.addActionListener(e -> performLogin());
-        formPanel.add(passField, gbc);
+        addRow(gbc, 0, "User Name:", userField);
+        addRow(gbc, 1, "Password:", passField);
+        addRow(gbc, 2, "Session:", sessionCombo);
+        // The language holds for the whole session (CDE: Options > Language)
+        addRow(gbc, 3, "Language:", languageCombo);
+        // A choice switches the keyboard at once
+        addRow(gbc, 4, "Keyboard:", keyboardCombo);
+        // The display manager runs as root, so this is where the system's zone is set
+        addRow(gbc, 5, "Time Zone:", timeZoneCombo);
 
-        // Session row
-        gbc.gridx = 0; gbc.gridy = 2; gbc.weightx = 0.3;
-        JLabel sessLabel = new JLabel("Session:", SwingConstants.RIGHT);
-        sessLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 12));
-        sessLabel.setForeground(theme.textActive());
-        formPanel.add(sessLabel, gbc);
-
-        gbc.gridx = 1; gbc.gridy = 2; gbc.weightx = 0.7;
-        formPanel.add(sessionCombo, gbc);
-
-        // Language row (CDE: Options > Language); the choice holds for the whole session
-        gbc.gridx = 0; gbc.gridy = 3; gbc.weightx = 0.3;
-        JLabel langLabel = new JLabel("Language:", SwingConstants.RIGHT);
-        langLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 12));
-        langLabel.setForeground(theme.textActive());
-        langLabel.setLabelFor(languageCombo);
-        formPanel.add(langLabel, gbc);
-
-        gbc.gridx = 1; gbc.gridy = 3; gbc.weightx = 0.7;
-        formPanel.add(languageCombo, gbc);
-
-        // Keyboard Layout row
-        gbc.gridx = 0; gbc.gridy = 4; gbc.weightx = 0.3;
-        JLabel kbLabel = new JLabel("Keyboard:", SwingConstants.RIGHT);
-        kbLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 12));
-        kbLabel.setForeground(theme.textActive());
-        formPanel.add(kbLabel, gbc);
-
-        gbc.gridx = 1; gbc.gridy = 4; gbc.weightx = 0.7;
-        formPanel.add(keyboardCombo, gbc);
-
-        // Time zone row: the display manager runs as root, so this is where the system's zone is set
-        gbc.gridx = 0; gbc.gridy = 5; gbc.weightx = 0.3;
-        JLabel zoneLabel = new JLabel("Time Zone:", SwingConstants.RIGHT);
-        zoneLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 12));
-        zoneLabel.setForeground(theme.textActive());
-        zoneLabel.setLabelFor(timeZoneCombo);
-        formPanel.add(zoneLabel, gbc);
-
-        gbc.gridx = 1; gbc.gridy = 5; gbc.weightx = 0.7;
-        formPanel.add(timeZoneCombo, gbc);
-
-        // Recessed status message box
+        // Status message: a recessed plate in the classic look, a line of text in Horizon
         gbc.gridx = 0; gbc.gridy = 6; gbc.gridwidth = 2;
         gbc.insets = new Insets(10, 4, 4, 4);
-        JPanel statusPlate = new JPanel(new BorderLayout()) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g;
-                DesktopTheme t = ThemeManager.currentTheme();
-                // Sunken recessed plate
-                g2.setColor(t.darkShadow());
-                g2.drawLine(0, 0, getWidth() - 1, 0);
-                g2.drawLine(0, 0, 0, getHeight() - 1);
-                g2.setColor(t.highlight());
-                g2.drawLine(getWidth() - 1, 0, getWidth() - 1, getHeight() - 1);
-                g2.drawLine(0, getHeight() - 1, getWidth() - 1, getHeight() - 1);
-            }
-        };
-        statusPlate.setBackground(new Color(0xE8, 0xE2, 0xDD));
         statusPlate.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
-        statusLabel.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 11));
-        statusLabel.setForeground(new Color(0x33, 0x33, 0x33));
         statusPlate.add(statusLabel, BorderLayout.CENTER);
         formPanel.add(statusPlate, gbc);
+        loginCard.add(formPanel, BorderLayout.CENTER);
 
-        card.add(formPanel, BorderLayout.CENTER);
-
-        // Bottom Action Buttons
-        JPanel buttonRow = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
-        buttonRow.setBackground(theme.base());
-
-        JButton clearBtn = createMotifButton("Clear", theme);
+        // Bottom action buttons
         clearBtn.addActionListener(e -> {
             passField.setText("");
-            statusLabel.setText("Please enter your password to begin session.");
-            statusLabel.setForeground(new Color(0x33, 0x33, 0x33));
+            showStatus(PROMPT, StatusKind.NORMAL);
             passField.requestFocusInWindow();
         });
-
         loginBtn.addActionListener(e -> performLogin());
-
         buttonRow.add(clearBtn);
         buttonRow.add(loginBtn);
-        card.add(buttonRow, BorderLayout.SOUTH);
+        loginCard.add(buttonRow, BorderLayout.SOUTH);
     }
 
-    private JButton createMotifButton(String text, DesktopTheme theme) {
-        JButton btn = new JButton(text);
-        btn.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 12));
-        btn.setBackground(theme.base());
-        btn.setForeground(theme.textActive());
-        btn.setFocusPainted(false);
-        return btn;
+    private void addRow(GridBagConstraints gbc, int row, String text, JComponent field) {
+        gbc.gridx = 0; gbc.gridy = row; gbc.weightx = 0.3;
+        JLabel label = new JLabel(text, SwingConstants.RIGHT);
+        label.setLabelFor(field);
+        formLabels.add(label);
+        formPanel.add(label, gbc);
+        gbc.gridx = 1; gbc.weightx = 0.7;
+        formPanel.add(field, gbc);
+    }
+
+    // ---- the look ----------------------------------------------------------------------------------
+
+    /** The session field's choice. */
+    SessionType selectedSession() {
+        return SessionType.from((String) sessionCombo.getSelectedItem());
+    }
+
+    /** Takes the look of the chosen session, for the desktop session the user's last look. */
+    private void followSession() {
+        applyLook(GreeterLook.themeFor(selectedSession(), userHome(userField.getText().trim()), classicTheme));
+    }
+
+    /** Whether the greeter shows the Horizon look now. */
+    boolean showsHorizon() {
+        return horizon;
+    }
+
+    DesktopTheme theme() {
+        return theme;
+    }
+
+    /** Shows the greeter in a theme's look: Motif for a classic palette, flat for a Horizon one. */
+    void applyLook(DesktopTheme newTheme) {
+        if (newTheme.equals(theme) && rootPane.getClientProperty("amade.look") != null) return;
+        rootPane.putClientProperty("amade.look", newTheme.id());
+        theme = newTheme;
+        horizon = HorizonUI.active(newTheme);
+        AmadeUI.install(newTheme);
+        SwingUtilities.updateComponentTreeUI(this);
+        style();
+        getRootPane().setDefaultButton(horizon ? loginBtn : null);
+        revalidate();
+        repaint();
+    }
+
+    /** Colours, fonts and borders of the greeter's own parts for the current look. */
+    private void style() {
+        DesktopTheme t = theme;
+        Color text = t.textActive();
+        boolean flat = horizon;
+        String host = String.valueOf(hostLabel.getClientProperty("host"));
+
+        headerBar.setBorder(flat ? BorderFactory.createEmptyBorder(6, 16, 6, 16)
+                : BorderFactory.createEmptyBorder(16, 24, 0, 24));
+        hostLabel.setText(flat ? host : "amadeOS UNIX Workstation  [" + host + "]");
+        hostLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, flat ? 13 : 15));
+        hostLabel.setForeground(flat ? new Color(0xF0, 0xF1, 0xF6) : new Color(0xE0, 0xE8, 0xF0));
+        clockLabel.setFont(flat ? new Font(Font.SANS_SERIF, Font.BOLD, 13) : new Font(Font.MONOSPACED, Font.BOLD, 14));
+        clockLabel.setForeground(flat ? new Color(0xF0, 0xF1, 0xF6) : new Color(0xD0, 0xD8, 0xE0));
+
+        loginCard.setOpaque(!flat);
+        loginCard.setBackground(t.base());
+        loginCard.setPreferredSize(flat ? new Dimension(540, 550) : new Dimension(480, 415));
+        loginCard.setBorder(flat ? BorderFactory.createEmptyBorder(26, 30, 26, 30)
+                : BorderFactory.createEmptyBorder(12, 16, 14, 16));
+
+        avatar.setVisible(flat);
+        bannerPanel.setOpaque(!flat);
+        bannerPanel.setBackground(t.activeTitleBg());
+        bannerPanel.setBorder(flat ? BorderFactory.createEmptyBorder(0, 0, 6, 0)
+                : BorderFactory.createEmptyBorder(6, 12, 6, 12));
+        titleText.setFont(new Font(Font.SANS_SERIF, Font.BOLD, flat ? 18 : 14));
+        titleText.setForeground(flat ? text : t.textActive());
+        titleText.setBorder(flat ? BorderFactory.createEmptyBorder(10, 0, 0, 0) : null);
+
+        formPanel.setOpaque(!flat);
+        formPanel.setBackground(t.base());
+        for (JLabel label : formLabels) {
+            label.setFont(new Font(Font.SANS_SERIF, flat ? Font.PLAIN : Font.BOLD, flat ? 13 : 12));
+            label.setForeground(flat ? t.textInactive() : text);
+        }
+        Font fieldFont = flat ? new Font(Font.SANS_SERIF, Font.PLAIN, 14) : new Font(Font.MONOSPACED, Font.PLAIN, 13);
+        userField.setFont(fieldFont);
+        passField.setFont(fieldFont);
+
+        statusPlate.setOpaque(!flat);
+        statusPlate.setBackground(new Color(0xE8, 0xE2, 0xDD));
+        statusLabel.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, flat ? 12 : 11));
+        statusLabel.setForeground(statusColor(statusKind));
+
+        buttonRow.setOpaque(!flat);
+        buttonRow.setBackground(t.base());
+        buttonRow.setLayout(new FlowLayout(flat ? FlowLayout.CENTER : FlowLayout.RIGHT, 10, 0));
+        loginBtn.setText(flat ? "Log In" : "  Log In  ");
+        for (JButton b : new JButton[]{clearBtn, loginBtn, rebootBtn, poweroffBtn}) {
+            b.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 12));
+            b.setFocusPainted(false);
+            if (flat) {
+                // The look's own colours: the accent for the default button, flat faces for the others
+                b.setBackground(null);
+                b.setForeground(null);
+            } else {
+                b.setBackground(t.base());
+                b.setForeground(t.textActive());
+            }
+        }
+        if (flat) {
+            loginBtn.setPreferredSize(null);
+            Dimension d = loginBtn.getPreferredSize();
+            loginBtn.setPreferredSize(new Dimension(Math.max(d.width, 140), d.height));
+        } else {
+            loginBtn.setPreferredSize(null);
+        }
+        rebootBtn.setText(flat ? "Restart..." : "Reboot...");
+    }
+
+    private Color statusColor(StatusKind kind) {
+        if (horizon) {
+            return switch (kind) {
+                case NORMAL -> theme.textInactive();
+                case OK -> theme.textActive();
+                case ERROR -> theme.isDark() ? new Color(0xF0, 0x7A, 0x7A) : new Color(0xC0, 0x30, 0x30);
+            };
+        }
+        return switch (kind) {
+            case NORMAL -> new Color(0x33, 0x33, 0x33);
+            case OK -> new Color(0x11, 0x44, 0x11);
+            case ERROR -> new Color(0x99, 0x11, 0x11);
+        };
+    }
+
+    private void showStatus(String message, StatusKind kind) {
+        statusKind = kind;
+        statusLabel.setText(message);
+        statusLabel.setForeground(statusColor(kind));
+    }
+
+    private void paintBackdrop(Graphics2D g2, int w, int h) {
+        g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        if (!horizon) {
+            g2.setPaint(new java.awt.GradientPaint(0, 0, new Color(0x3B, 0x54, 0x6E), 0, h, new Color(0x27, 0x38, 0x4A)));
+            g2.fillRect(0, 0, w, h);
+            return;
+        }
+        Image picture = picture(theme.isDark() ? "dark" : "light");
+        if (picture != null && picture.getWidth(null) > 0) {
+            // Fill the screen, cut what sticks out, as the desktop shows it (mode FILL)
+            int pw = picture.getWidth(null), ph = picture.getHeight(null);
+            double scale = Math.max(w / (double) pw, h / (double) ph);
+            int sw = (int) Math.ceil(pw * scale), sh = (int) Math.ceil(ph * scale);
+            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g2.drawImage(picture, (w - sw) / 2, (h - sh) / 2, sw, sh, null);
+        } else {
+            Color accent = theme.activeTitleBg();
+            Color top = theme.isDark() ? new Color(0x1A, 0x1B, 0x26) : new Color(0xDD, 0xE3, 0xEE);
+            Color bottom = mix(top, accent, theme.isDark() ? 0.35 : 0.45);
+            g2.setPaint(new java.awt.GradientPaint(0, 0, top, w, h, bottom));
+            g2.fillRect(0, 0, w, h);
+        }
+    }
+
+    private Image picture(String scheme) {
+        return pictures.computeIfAbsent(scheme, s -> {
+            File file = new File(HORIZON_PICTURES + s + ".png");
+            try {
+                return file.isFile() ? ImageIO.read(file) : null;
+            } catch (Exception e) {
+                return null;
+            }
+        });
+    }
+
+    private void paintMotifCard(Graphics g, JComponent c) {
+        g.setColor(c.getBackground());
+        g.fillRect(0, 0, c.getWidth(), c.getHeight());
+        DesktopTheme t = theme;
+        int w = c.getWidth();
+        int h = c.getHeight();
+        // Outer 3D bevel (raised)
+        g.setColor(t.highlight());
+        g.drawLine(0, 0, w - 1, 0);
+        g.drawLine(0, 0, 0, h - 1);
+        g.setColor(t.softHighlight());
+        g.drawLine(1, 1, w - 2, 1);
+        g.drawLine(1, 1, 1, h - 2);
+        g.setColor(t.darkShadow());
+        g.drawLine(w - 1, 0, w - 1, h - 1);
+        g.drawLine(0, h - 1, w - 1, h - 1);
+        g.setColor(t.shadow());
+        g.drawLine(w - 2, 1, w - 2, h - 2);
+        g.drawLine(1, h - 2, w - 2, h - 2);
+    }
+
+    /** Horizon's card: rounded, a soft shadow below it, the window colour slightly see-through. */
+    private void paintHorizonCard(Graphics2D g, JComponent c) {
+        Graphics2D g2 = (Graphics2D) g.create();
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        int w = c.getWidth(), h = c.getHeight();
+        int inset = 8;
+        for (int i = 0; i < inset; i++) {
+            g2.setColor(new Color(0, 0, 0, 6 + i * 2));
+            g2.fill(new RoundRectangle2D.Float(i, i + 3, w - 2f * i, h - 2f * i - 3, CARD_ARC + inset - i, CARD_ARC + inset - i));
+        }
+        RoundRectangle2D card = new RoundRectangle2D.Float(inset, inset, w - 2f * inset, h - 2f * inset, CARD_ARC, CARD_ARC);
+        Color base = theme.base();
+        g2.setComposite(AlphaComposite.SrcOver);
+        g2.setColor(new Color(base.getRed(), base.getGreen(), base.getBlue(), 238));
+        g2.fill(card);
+        g2.setColor(HorizonUI.palette().line());
+        g2.setStroke(new BasicStroke(1f));
+        g2.draw(card);
+        g2.dispose();
+    }
+
+    static Color mix(Color a, Color b, double weightOfB) {
+        return new Color(
+                (int) Math.round(a.getRed() * (1 - weightOfB) + b.getRed() * weightOfB),
+                (int) Math.round(a.getGreen() * (1 - weightOfB) + b.getGreen() * weightOfB),
+                (int) Math.round(a.getBlue() * (1 - weightOfB) + b.getBlue() * weightOfB));
+    }
+
+    /** The home of a user, if the system knows the user. */
+    private static Optional<Path> userHome(String username) {
+        if (username.isEmpty()) return Optional.empty();
+        try {
+            return UserAccount.lookup(username).map(account -> Path.of(account.home()));
+        } catch (RuntimeException | LinkageError e) {
+            // no libc lookup (e.g. preview on another system)
+            return Optional.empty();
+        }
+    }
+
+    /** The first letter of a user name, upper case, for Horizon's round picture; "?" for none. */
+    static String initial(String username) {
+        String name = username == null ? "" : username.strip();
+        return name.isEmpty() ? "?" : name.substring(0, name.offsetByCodePoints(0, 1)).toUpperCase(Locale.ROOT);
+    }
+
+    /** Horizon's round user picture: the first letter of the user name on the accent colour. */
+    private final class Avatar extends JComponent {
+        private static final int SIZE = 76;
+
+        Avatar() {
+            setPreferredSize(new Dimension(SIZE, SIZE));
+            setMaximumSize(new Dimension(SIZE, SIZE));
+            setMinimumSize(new Dimension(SIZE, SIZE));
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            int d = Math.min(getWidth(), getHeight()) - 2;
+            int x = (getWidth() - d) / 2, y = (getHeight() - d) / 2;
+            HorizonUI.Palette p = HorizonUI.Palette.of(theme);
+            g2.setColor(p.accent());
+            g2.fillOval(x, y, d, d);
+            g2.setFont(new Font(Font.SANS_SERIF, Font.BOLD, d / 2));
+            FontMetrics fm = g2.getFontMetrics();
+            String letter = initial(userField == null ? "" : userField.getText());
+            g2.setColor(p.onAccent());
+            g2.drawString(letter, x + (d - fm.stringWidth(letter)) / 2, y + (d - fm.getHeight()) / 2 + fm.getAscent());
+            g2.dispose();
+        }
     }
 
     private void performLogin() {
@@ -404,8 +614,7 @@ public final class AmadeLoginGreeter extends JFrame {
 
     public void setStatus(String message, boolean error) {
         SwingUtilities.invokeLater(() -> {
-            statusLabel.setText(message);
-            statusLabel.setForeground(error ? new Color(0x99, 0x11, 0x11) : new Color(0x11, 0x44, 0x11));
+            showStatus(message, error ? StatusKind.ERROR : StatusKind.OK);
             if (error) {
                 passField.selectAll();
                 passField.requestFocusInWindow();
@@ -457,8 +666,7 @@ public final class AmadeLoginGreeter extends JFrame {
             preselectLanguage();
             preselectTimeZone();
             passField.setText("");
-            statusLabel.setText("Please enter your password to begin session.");
-            statusLabel.setForeground(new Color(0x33, 0x33, 0x33));
+            showStatus(PROMPT, StatusKind.NORMAL);
             passField.requestFocusInWindow();
         });
     }
