@@ -16,12 +16,15 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JWindow;
 import javax.swing.SwingConstants;
+import eu.amadeos.commons.swing.HorizonUI;
 import eu.amadeos.commons.theme.DesktopTheme;
 import eu.amadeos.system.base.theme.ThemeManager;
 
 /**
  * The visible part of the lock: one override-redirect window over all monitors. It never
  * receives input; keyboard and pointer are grabbed by {@link ScreenLock} on its own connection.
+ * It has the desktop's look: a Motif card on a dark pattern in the classic look, and in Horizon the
+ * time, the user's round picture and a rounded password field over Horizon's picture.
  * Must be used on the Swing event dispatch thread.
  */
 final class LockScreenUi {
@@ -29,15 +32,27 @@ final class LockScreenUi {
     private final JWindow window = new JWindow();
     private final JLabel dots = new JLabel(" ", SwingConstants.CENTER);
     private final JLabel status = new JLabel("Type your password and press Enter.", SwingConstants.CENTER);
+    private final DesktopTheme theme;
+    private final boolean horizon;
 
     LockScreenUi(String user) {
-        DesktopTheme theme = ThemeManager.currentTheme();
+        this(user, ThemeManager.currentTheme());
+    }
+
+    LockScreenUi(String user, DesktopTheme theme) {
+        this.theme = theme;
+        this.horizon = HorizonUI.active(theme);
         // POPUP windows are override-redirect on X11: the window manager neither frames nor moves them.
         window.setType(Window.Type.POPUP);
         window.setName(TITLE);
         window.setAlwaysOnTop(true);
         window.setFocusableWindowState(false);
         window.setBounds(allScreens());
+        if (horizon) {
+            window.setContentPane(new HorizonLockPane(user, theme, dots, status));
+            setStatus(status.getText(), false);
+            return;
+        }
 
         JPanel backdrop = new JPanel(new GridBagLayout()) {
             @Override
@@ -103,10 +118,21 @@ final class LockScreenUi {
 
     void setPasswordLength(int length) {
         dots.setText(length == 0 ? " " : "●".repeat(Math.min(length, 32)));
+        if (horizon) window.repaint();
+    }
+
+    /** The window's content, for tests and pictures. */
+    java.awt.Container content() {
+        return window.getContentPane();
     }
 
     void setStatus(String message, boolean error) {
-        status.setForeground(error ? new Color(0xB0, 0x20, 0x20) : Color.DARK_GRAY);
+        if (horizon) {
+            // White text over the dimmed picture in both schemes, so a light red for errors
+            status.setForeground(error ? new Color(0xFF, 0x8C, 0x8C) : new Color(0xE8, 0xE9, 0xF1));
+        } else {
+            status.setForeground(error ? new Color(0xB0, 0x20, 0x20) : Color.DARK_GRAY);
+        }
         status.setText(message);
     }
 
