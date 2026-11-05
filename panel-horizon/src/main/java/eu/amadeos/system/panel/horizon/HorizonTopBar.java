@@ -53,6 +53,7 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.io.File;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
@@ -190,13 +191,18 @@ public final class HorizonTopBar extends JFrame {
 
             @Override
             void paintMark(Graphics2D g, BarColors c) {
-                // The amadeOS ring in the accent colour
-                int d = 14;
+                // The amadeOS logo: four workspace tiles, "One" in the accent colour
+                int cell = 6;
+                int gap = 2;
                 int x = getInsets().left + 1;
-                int y = (getHeight() - d) / 2;
-                g.setStroke(new BasicStroke(2.2f));
-                g.setColor(c.accent());
-                g.drawOval(x, y, d, d);
+                int y = (getHeight() - (2 * cell + gap)) / 2;
+                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                for (int row = 0; row < 2; row++) {
+                    for (int col = 0; col < 2; col++) {
+                        g.setColor(row == 0 && col == 0 ? c.accent() : c.dim());
+                        g.fillRoundRect(x + col * (cell + gap), y + row * (cell + gap), cell, cell, 3, 3);
+                    }
+                }
             }
         };
         systemButton.setToolTipText(TopBarTexts.get("system.tooltip"));

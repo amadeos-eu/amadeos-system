@@ -15,13 +15,10 @@ import java.util.Random;
  */
 final class LogoModule implements SaverModule {
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm");
-    // Emblem colors, the same as in the boot menu and the wallpaper
-    private static final Color ACTIVE = new Color(0x4E7A96);
-    private static final Color ACTIVE_SHADOW = new Color(0x27384A);
-    private static final Color ACTIVE_HIGHLIGHT = new Color(0x9CB8D0);
-    private static final Color FACE = new Color(0xC8BEB4);
-    private static final Color HIGHLIGHT = new Color(0xF0ECE8);
-    private static final Color SHADOW = new Color(0x6E6660);
+    // Emblem colors, the same as in the boot menu, the wallpaper and on amadeos.eu: "One" in the Horizon teal,
+    // the other workspaces grey (#8C8EA2 at 55 % on black).
+    private static final Color ACTIVE = new Color(0x2F, 0xB8, 0xB0);
+    private static final Color FACE = new Color(0x4D, 0x4E, 0x59);
     private static final Color CLOCK = new Color(0xBF, 0xB6, 0xAF);
 
     private double x;
@@ -75,11 +72,10 @@ final class LogoModule implements SaverModule {
         FontMetrics cm = g.getFontMetrics(clock);
         String name = "amadeOS";
         String time = LocalTime.now().format(TIME);
-        // Emblem proportions as in icons/src/boot-splash.svg: two rows of cells about as high as the capitals.
-        int cellH = Math.max(3, Math.round(title.getSize() * 0.39f));
-        int cellW = Math.round(cellH * 28f / 22f);
-        int cellGap = Math.max(1, title.getSize() / 14);
-        int emblemW = 2 * cellW + cellGap;
+        // Emblem proportions as in icons/src/boot-splash.svg: two rows of square tiles about as high as the capitals.
+        int cell = Math.max(3, Math.round(title.getSize() * 0.41f));
+        int cellGap = Math.max(1, Math.round(cell * 3f / 23f));
+        int emblemW = 2 * cell + cellGap;
         int emblemGap = Math.round(title.getSize() * 0.32f);
         int logoW = emblemW + emblemGap + tm.stringWidth(name);
         int blockW = Math.max(logoW, cm.stringWidth(time));
@@ -93,7 +89,7 @@ final class LogoModule implements SaverModule {
 
         int logoX = (int) x + (blockW - logoW) / 2;
         int baseline = (int) y + tm.getAscent();
-        paintEmblem(g, logoX, baseline - 2 * cellH - cellGap, cellW, cellH, cellGap);
+        paintEmblem(g, logoX, baseline - 2 * cell - cellGap, cell, cellGap);
         g.setFont(title);
         g.setColor(Color.getHSBColor(hue, 0.35f, 0.9f));
         g.drawString(name, logoX + emblemW + emblemGap, baseline);
@@ -102,25 +98,14 @@ final class LogoModule implements SaverModule {
         g.drawString(time, (int) x + (blockW - cm.stringWidth(time)) / 2, (int) y + tm.getHeight() + cm.getAscent());
     }
 
-    /** The four workspaces of the front panel as Motif buttons, "One" pressed and highlighted. */
-    private static void paintEmblem(Graphics2D g, int x, int y, int cellW, int cellH, int gap) {
-        int bevel = Math.max(1, cellH / 11);
+    /** The four workspaces as flat rounded tiles, "One" in teal. */
+    private static void paintEmblem(Graphics2D g, int x, int y, int cell, int gap) {
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        int arc = Math.max(2, Math.round(cell * 12f / 23f));
         for (int row = 0; row < 2; row++) {
             for (int col = 0; col < 2; col++) {
-                int cx = x + col * (cellW + gap);
-                int cy = y + row * (cellH + gap);
-                boolean active = row == 0 && col == 0;
-                Color face = active ? ACTIVE : FACE;
-                Color topLeft = active ? ACTIVE_SHADOW : HIGHLIGHT;
-                Color bottomRight = active ? ACTIVE_HIGHLIGHT : SHADOW;
-                g.setColor(face);
-                g.fillRect(cx, cy, cellW, cellH);
-                g.setColor(topLeft);
-                g.fillRect(cx, cy, cellW, bevel);
-                g.fillRect(cx, cy, bevel, cellH);
-                g.setColor(bottomRight);
-                g.fillRect(cx, cy + cellH - bevel, cellW, bevel);
-                g.fillRect(cx + cellW - bevel, cy, bevel, cellH);
+                g.setColor(row == 0 && col == 0 ? ACTIVE : FACE);
+                g.fillRoundRect(x + col * (cell + gap), y + row * (cell + gap), cell, cell, arc, arc);
             }
         }
     }
