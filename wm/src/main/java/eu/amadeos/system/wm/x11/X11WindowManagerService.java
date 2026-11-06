@@ -20,6 +20,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.SwingUtilities;
 import eu.amadeos.system.wm.FloatingLayoutPolicy;
+import eu.amadeos.system.wm.DialogStack;
 import eu.amadeos.system.wm.FocusSuccessor;
 import eu.amadeos.system.wm.WindowGeometry;
 import eu.amadeos.system.wm.WindowManagerCore;
@@ -1385,7 +1386,12 @@ public final class X11WindowManagerService implements AutoCloseable {
         recentWindows.touch(win);
         ungrabWindowButtons(win);
         core.focus(win);
-        if (raise) core.raise(win);
+        if (raise) {
+            core.raise(win);
+            // Its dialogs stay above it, or a click on a window hides its modal dialog behind it.
+            List<Long> stack = core.registry().snapshot().stream().map(WindowRecord::id).toList();
+            for (long dialog : DialogStack.above(stack, win, transientOwners, this::isShown)) core.raise(dialog);
+        }
         setActiveWindow(win);
 
         // Update active highlight across all decoration frames
