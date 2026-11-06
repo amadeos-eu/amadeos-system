@@ -39,7 +39,8 @@ public final class ScreenSettingsStore {
                 integer(p, "saver.minutes", d.saverMinutes()),
                 bool(p, "lock.enabled", d.lockEnabled()),
                 integer(p, "lock.minutes", d.lockMinutes()),
-                p.getProperty("saver.module", d.module()));
+                p.getProperty("saver.module", d.module()),
+                p.getProperty("saver.lava.colors", d.lavaColors()));
     }
 
     public void save(ScreenSettings s) {
@@ -47,6 +48,7 @@ public final class ScreenSettingsStore {
         p.setProperty("saver.enabled", Boolean.toString(s.saverEnabled()));
         p.setProperty("saver.minutes", Integer.toString(s.saverMinutes()));
         p.setProperty("saver.module", s.module());
+        p.setProperty("saver.lava.colors", s.lavaColors());
         p.setProperty("lock.enabled", Boolean.toString(s.lockEnabled()));
         p.setProperty("lock.minutes", Integer.toString(s.lockMinutes()));
         PropertiesFile.store(file, p, "amadeOS screen saver and screen lock (Settings > Screen)");

@@ -5,12 +5,16 @@ import eu.amadeos.system.screen.SaverCanvas;
 import eu.amadeos.system.screen.SaverWindow;
 import eu.amadeos.system.screen.ScreenSettings;
 import eu.amadeos.system.screen.ScreenSettingsStore;
+import eu.amadeos.system.screen.modules.LavaColors;
+import eu.amadeos.system.screen.modules.SaverModule;
 import eu.amadeos.system.screen.modules.SaverModules;
 
 import javax.swing.BorderFactory;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
+import javax.swing.DefaultListCellRenderer;
 import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
@@ -40,6 +44,8 @@ final class ScreenPage extends SettingsPage {
     private final JSpinner lockMinutes = minutes();
     private final DefaultListModel<Object> modules = new DefaultListModel<>();
     private final JList<Object> moduleList = new JList<>(modules);
+    private final JComboBox<LavaColors> lavaColors = new JComboBox<>(LavaColors.ALL.toArray(LavaColors[]::new));
+    private final JPanel lavaRow;
     private final SaverCanvas preview;
     private final Random random = new Random();
 
@@ -54,11 +60,27 @@ final class ScreenPage extends SettingsPage {
         moduleList.setVisibleRowCount(6);
         select(settings.module());
 
-        preview = new SaverCanvas(SaverModules.create(selectedId(), random));
+        lavaColors.setSelectedItem(LavaColors.byId(settings.lavaColors()));
+        lavaColors.setRenderer(new DefaultListCellRenderer() {
+            @Override
+            public java.awt.Component getListCellRendererComponent(JList<?> list, Object value, int index,
+                                                                   boolean selected, boolean focus) {
+                Object label = value instanceof LavaColors c ? colorsName(c) : value;
+                return super.getListCellRendererComponent(list, label, index, selected, focus);
+            }
+        });
+        JLabel lavaLabel = new JLabel(SettingsTexts.get("screen.lava.colors"));
+        lavaLabel.setLabelFor(lavaColors);
+        lavaRow = row(lavaLabel, lavaColors);
+
+        preview = new SaverCanvas(createModule());
         preview.setPreferredSize(new Dimension(240, 150));
         moduleList.addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting()) preview.setModule(SaverModules.create(selectedId(), random));
+            if (e.getValueIsAdjusting()) return;
+            preview.setModule(createModule());
+            updateEnabled();
         });
+        lavaColors.addActionListener(e -> preview.setModule(createModule()));
 
         saverOn.setSelected(settings.saverEnabled());
         saverMinutes.setValue(settings.saverMinutes());
@@ -70,7 +92,7 @@ final class ScreenPage extends SettingsPage {
         JButton test = new JButton(SettingsTexts.get("button.test"));
         test.setToolTipText(SettingsTexts.get("screen.test.tooltip"));
         test.addActionListener(e -> {
-            SaverWindow window = new SaverWindow(SaverModules.create(selectedId(), random));
+            SaverWindow window = new SaverWindow(createModule());
             window.dismissOnInput(() -> {
             });
             window.showSaver();
@@ -88,8 +110,9 @@ final class ScreenPage extends SettingsPage {
         framed.setBorder(AmadeUI.sunken());
         framed.add(preview);
         previewBox.add(framed, BorderLayout.CENTER);
-        JPanel testRow = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
-        testRow.add(test);
+        JPanel testRow = new JPanel(new BorderLayout(8, 0));
+        testRow.add(lavaRow, BorderLayout.CENTER);
+        testRow.add(test, BorderLayout.EAST);
         previewBox.add(testRow, BorderLayout.SOUTH);
         saverBox.add(previewBox, BorderLayout.CENTER);
 
@@ -130,6 +153,10 @@ final class ScreenPage extends SettingsPage {
     private void updateEnabled() {
         saverMinutes.setEnabled(saverOn.isSelected());
         moduleList.setEnabled(saverOn.isSelected());
+        // The colours belong to the lava lamp; with Random they are used when the lava lamp comes up.
+        String id = selectedId();
+        lavaRow.setVisible(SaverModules.LAVA.equals(id) || ScreenSettings.RANDOM.equals(id));
+        lavaColors.setEnabled(saverOn.isSelected());
         lockMinutes.setEnabled(lockOn.isSelected());
     }
 
@@ -152,9 +179,27 @@ final class ScreenPage extends SettingsPage {
         return value instanceof SaverModules.Entry entry ? entry.id() : ScreenSettings.RANDOM;
     }
 
+    boolean lavaColorsShown() {
+        return lavaRow.isVisible();
+    }
+
+    String selectedLavaColors() {
+        Object value = lavaColors.getSelectedItem();
+        return value instanceof LavaColors c ? c.id() : LavaColors.DEFAULT;
+    }
+
+    private SaverModule createModule() {
+        return SaverModules.create(selectedId(), selectedLavaColors(), random);
+    }
+
+    /** The translated name of a colour set. */
+    private static String colorsName(LavaColors colors) {
+        return SettingsTexts.get("screen.lava." + colors.id());
+    }
+
     ScreenSettings settings() {
         return new ScreenSettings(saverOn.isSelected(), (Integer) saverMinutes.getValue(), lockOn.isSelected(),
-                (Integer) lockMinutes.getValue(), selectedId());
+                (Integer) lockMinutes.getValue(), selectedId(), selectedLavaColors());
     }
 
     @Override

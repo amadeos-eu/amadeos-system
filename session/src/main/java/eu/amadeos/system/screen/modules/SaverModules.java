@@ -23,18 +23,33 @@ public final class SaverModules {
             new Entry("qix", "Qix", QixModule::new),
             new Entry("swarm", "Swarm", SwarmModule::new),
             new Entry("starfield", "Starfield", StarfieldModule::new),
-            new Entry("logo", "Floating Logo", LogoModule::new));
+            new Entry("logo", "Floating Logo", LogoModule::new),
+            new Entry("lava", "Lava Lamp", LavaLampModule::new));
+
+    /** Id of the lava lamp, the module with a choice of colours. */
+    public static final String LAVA = "lava";
 
     private SaverModules() {
     }
 
     /** The module with this id, a random one for {@link ScreenSettings#RANDOM}, Qix for unknown ids. */
     public static SaverModule create(String id, Random random) {
+        return create(id, LavaColors.DEFAULT, random);
+    }
+
+    /**
+     * The module with this id, as {@link #create(String, Random)}; the lava lamp gets the colours with the
+     * id {@code lavaColors} (see {@link LavaColors}).
+     */
+    public static SaverModule create(String id, String lavaColors, Random random) {
+        Entry entry;
         if (ScreenSettings.RANDOM.equals(id)) {
             // Blank is not an animation; pick among the others.
-            return ALL.get(1 + random.nextInt(ALL.size() - 1)).factory().get();
+            entry = ALL.get(1 + random.nextInt(ALL.size() - 1));
+        } else {
+            entry = ALL.stream().filter(e -> e.id().equals(id)).findFirst().orElse(ALL.get(1));
         }
-        return ALL.stream().filter(e -> e.id().equals(id)).findFirst()
-                .orElse(ALL.get(1)).factory().get();
+        if (entry.id().equals(LAVA)) return new LavaLampModule(LavaColors.byId(lavaColors));
+        return entry.factory().get();
     }
 }

@@ -1,5 +1,6 @@
 package eu.amadeos.system.screen;
 
+import eu.amadeos.system.screen.modules.LavaColors;
 import eu.amadeos.system.screen.modules.SaverModule;
 import eu.amadeos.system.screen.modules.SaverModules;
 import org.junit.jupiter.api.Test;
@@ -28,6 +29,43 @@ class ScreenSettingsTest {
         store.save(settings);
         assertEquals(settings, store.load());
         assertNotNull(store.lastModified());
+    }
+
+    @Test
+    void lavaColorsAreStoredAndUnknownOnesFallBack() throws Exception {
+        ScreenSettingsStore store = new ScreenSettingsStore(dir.resolve("screen.conf"));
+        ScreenSettings ocean = new ScreenSettings(true, 5, true, 10, "lava", "ocean");
+        store.save(ocean);
+        assertEquals("ocean", store.load().lavaColors());
+        assertEquals("ocean", store.load().withModule("qix").lavaColors());
+
+        Files.writeString(dir.resolve("screen.conf"), "saver.module=lava\nsaver.lava.colors=plaid\n");
+        assertEquals(LavaColors.DEFAULT, store.load().lavaColors());
+        assertEquals(LavaColors.DEFAULT, ScreenSettings.DEFAULTS.lavaColors());
+    }
+
+    @Test
+    void lavaLampGetsItsColours() {
+        Random random = new Random(3);
+        assertEquals("lava", SaverModules.create("lava", "rose", random).id());
+        assertEquals("lava", SaverModules.create("lava", "unknown", random).id());
+        for (LavaColors colors : LavaColors.ALL) {
+            SaverModule module = SaverModules.create(SaverModules.LAVA, colors.id(), random);
+            BufferedImage image = new BufferedImage(320, 200, BufferedImage.TYPE_INT_RGB);
+            Graphics2D g = image.createGraphics();
+            module.reset(320, 200, random);
+            for (int frame = 0; frame < 30; frame++) {
+                module.step();
+                module.paint(g, 320, 200);
+            }
+            g.dispose();
+            // The wax pool at the bottom is lighter than the liquid at the top.
+            assertTrue(brightness(image.getRGB(160, 198)) > brightness(image.getRGB(160, 2)), colors.id());
+        }
+    }
+
+    private static int brightness(int rgb) {
+        return (rgb >> 16 & 0xFF) + (rgb >> 8 & 0xFF) + (rgb & 0xFF);
     }
 
     @Test

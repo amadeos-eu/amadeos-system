@@ -150,6 +150,25 @@ class SettingsWindowTest {
     }
 
     @Test
+    void screenPageKeepsTheLavaLampColours() throws Exception {
+        assumeFalse(GraphicsEnvironment.isHeadless());
+        ScreenSettingsStore store = new ScreenSettingsStore(dir.resolve("screen.conf"));
+        ScreenSettings lava = new ScreenSettings(true, 7, true, 12, "lava", "ocean");
+        store.save(lava);
+        SwingUtilities.invokeAndWait(() -> {
+            ScreenPage page = new ScreenPage(s -> { }, store);
+            assertTrue(page.lavaColorsShown(), "the colour choice shows for the lava lamp");
+            assertEquals(lava, page.settings());
+        });
+        store.save(lava.withModule("qix"));
+        SwingUtilities.invokeAndWait(() -> {
+            ScreenPage page = new ScreenPage(s -> { }, store);
+            assertFalse(page.lavaColorsShown(), "no colour choice for other modules");
+            assertEquals("ocean", page.settings().lavaColors());
+        });
+    }
+
+    @Test
     void clipboardDialogSavesTheSettingsAndClearsTheHistory() throws Exception {
         assumeFalse(GraphicsEnvironment.isHeadless());
         ClipboardSettingsStore store = new ClipboardSettingsStore(dir.resolve("clipboard.conf"));
