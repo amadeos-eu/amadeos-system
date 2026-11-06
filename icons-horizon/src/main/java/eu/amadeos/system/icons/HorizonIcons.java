@@ -224,6 +224,10 @@ public final class HorizonIcons {
             p.poly(false, 38, 34, 44, 50, 58, 42);
             p.poly(false, 64, 48, 64, 66, 76, 74);
         });
+        app("amade-call call-start video-call", 0x3FC27E, 0x1E8A52, p -> {
+            p.rect(26, 42, 52, 44, 9);
+            p.poly(true, 78, 56, 100, 44, 100, 84, 78, 72);
+        });
         app("amade-webcam camera-web cheese", 0x6C7A89, 0x3E4A58, p -> {
             p.circle(64, 58, 28);
             p.circle(64, 58, 12);
