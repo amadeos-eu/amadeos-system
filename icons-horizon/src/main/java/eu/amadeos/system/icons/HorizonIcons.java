@@ -179,6 +179,12 @@ public final class HorizonIcons {
             p.fillPoly(58, 50, 76, 61, 58, 72);
         });
         app("amade-imageviewer image-viewer eog", 0x45C2E0, 0x1F86B5, HorizonIcons::pictureGlyph);
+        app("amade-fontviewer preferences-desktop-font font-viewer", 0x7C6CE0, 0x4A3BA8, p -> {
+            p.poly(false, 28, 96, 52, 32, 76, 96);
+            p.line(37, 74, 67, 74);
+            p.circle(90, 84, 11);
+            p.line(101, 70, 101, 96);
+        });
         app("amade-imageeditor applications-graphics-editor gimp", 0xF0874E, 0xC2462A, p -> {
             p.rect(26, 38, 58, 50, 7);
             p.poly(false, 32, 82, 46, 66, 56, 76);
