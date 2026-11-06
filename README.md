@@ -8,6 +8,8 @@ multi-project: one module and one Debian package per component. The standalone a
 ![License](https://img.shields.io/badge/license-EUPL--1.2-blue)
 ![Java](https://img.shields.io/badge/Java-25-orange)
 
+![Settings in the Horizon look](docs/screenshots/amadeos-settings.png)
+
 ## Modules
 
 | Module | Package | What it is |
