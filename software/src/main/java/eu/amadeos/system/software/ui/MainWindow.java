@@ -232,6 +232,15 @@ public final class MainWindow extends JFrame {
         if (openSettings) openSettings();
     }
 
+    /**
+     * Fills the search, as {@code --search=TEXT} does when another program sends the user here (the Font
+     * Viewer's Get More Fonts with {@code fonts-}).
+     */
+    public void search(String text) {
+        search.setText(text);
+        search.requestFocusInWindow();
+    }
+
     /** Names, icons, descriptions and screenshots of the applications; read after the catalog, as it takes a while. */
     void readAppStream() {
         background(appStream::applications, read -> {

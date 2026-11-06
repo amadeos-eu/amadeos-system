@@ -167,6 +167,16 @@ class MainWindowTest {
     }
 
     @Test
+    void anotherProgramCanStartWithASearch() throws Exception {
+        service.catalog = List.of(entry("fonts-x", Category.OTHER, "", "1", false),
+                entry("gimp", Category.APPLICATION, "", "2.10", false));
+        open();
+        SwingUtilities.invokeAndWait(() -> window.search("fonts-"));
+        await(() -> onEdt(window::tabTitles).contains("Other (1)"));
+        assertEquals("fonts-", onEdt(() -> window.searchField().getText()));
+    }
+
+    @Test
     void applicationsShowTheirAppStreamNameAndAreFoundByIt() throws Exception {
         apps = Map.of("gimp", new AppData("org.gimp.GIMP", "gimp", "GNU Image Manipulation Program",
                 "Create images and edit photographs", "<p>GIMP is <em>free</em>.</p>", List.of("Graphics"),
