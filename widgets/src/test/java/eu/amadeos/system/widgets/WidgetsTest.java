@@ -115,6 +115,56 @@ class WidgetsTest {
         face.paint(img.createGraphics());
     }
 
+    @Test
+    void partsThatTakeTheMouseThemselvesPassItToTheCard() {
+        org.junit.jupiter.api.Assumptions.assumeFalse(java.awt.GraphicsEnvironment.isHeadless());
+        javax.swing.JLabel plain = new javax.swing.JLabel("plain");
+        javax.swing.JLabel clickable = new javax.swing.JLabel("opens the program");
+        clickable.addMouseListener(new java.awt.event.MouseAdapter() {
+        });
+        javax.swing.JTextField field = new javax.swing.JTextField();
+        javax.swing.JLabel ownMenu = new javax.swing.JLabel("own menu");
+        ownMenu.addMouseListener(new java.awt.event.MouseAdapter() {
+        });
+        ownMenu.setComponentPopupMenu(new javax.swing.JPopupMenu());
+        javax.swing.JPanel content = new javax.swing.JPanel();
+        for (var c : List.of(plain, clickable, field, ownMenu)) content.add(c);
+        DesktopWidget widget = new DesktopWidget() {
+            public String id() {
+                return "test";
+            }
+
+            public String name() {
+                return "Test";
+            }
+
+            public String description() {
+                return "";
+            }
+
+            public java.awt.Dimension defaultSize() {
+                return new java.awt.Dimension(200, 200);
+            }
+
+            public javax.swing.JComponent create(WidgetContext context) {
+                return content;
+            }
+        };
+        WidgetWindow window = new WidgetWindow("test-1", widget, new HostContext(dir.resolve("test-1.conf")),
+                new Rectangle(0, 0, 200, 200), r -> {
+                }, () -> {
+                });
+        try {
+            assertTrue(window.forwards(clickable), "a label with its own listener keeps the events from the card");
+            assertFalse(window.forwards(plain), "Swing sends the events of a plain label to the card anyway");
+            assertFalse(window.forwards(field), "text fields keep their own mouse");
+            assertFalse(window.forwards(ownMenu), "a part with its own menu keeps the right button");
+            assertFalse(window.forwards(new javax.swing.JLabel("elsewhere")));
+        } finally {
+            window.close();
+        }
+    }
+
     /** Words that are the same in English and that language. */
     private static final java.util.Set<String> SAME = java.util.Set.of("de:gallery.title", "it:gallery.title",
             "de:photo.name", "fr:photo.name", "it:photo.name", "es:photo.name", "fr:photo.description");

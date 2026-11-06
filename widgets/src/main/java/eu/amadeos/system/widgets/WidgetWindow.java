@@ -6,17 +6,29 @@ import eu.amadeos.commons.widget.WidgetCard;
 import eu.amadeos.commons.widget.WidgetSettings;
 import eu.amadeos.system.base.x11.X11EwmhHelper;
 
+import javax.swing.AbstractButton;
+import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JList;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPopupMenu;
+import javax.swing.JScrollBar;
+import javax.swing.JSlider;
+import javax.swing.JSpinner;
+import javax.swing.JTable;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
+import javax.swing.text.JTextComponent;
+import java.awt.AWTEvent;
+import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.Toolkit;
+import java.awt.event.AWTEventListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.function.Consumer;
@@ -26,7 +38,8 @@ import java.util.logging.Logger;
 /**
  * One widget copy on the desktop: a frameless window, marked {@code _AMADEOS_DESKTOP_WIDGET} so that the
  * window manager keeps it below the windows, with the widget on a {@link WidgetCard}. Dragging the card moves
- * it, dragging the lower right corner resizes it; the right mouse button opens Settings and Remove.
+ * it, dragging the lower right corner resizes it; the right mouse button opens Settings and Remove. Both also
+ * work on parts of the widget that handle the mouse themselves.
  */
 final class WidgetWindow extends JFrame {
     private static final Logger LOGGER = Logger.getLogger(WidgetWindow.class.getName());
@@ -39,6 +52,8 @@ final class WidgetWindow extends JFrame {
     private final DesktopWidget widget;
     private final HostContext context;
     private final WidgetCard card;
+    /** Mouse events on parts of the widget that take the mouse themselves, see {@link #forwardToCard}. */
+    private final AWTEventListener mouseOnContent = this::forwardToCard;
 
     WidgetWindow(String id, DesktopWidget widget, HostContext context, Rectangle bounds,
                  Consumer<Rectangle> moved, Runnable removed) {
@@ -107,6 +122,37 @@ final class WidgetWindow extends JFrame {
         };
         card.addMouseListener(drag);
         card.addMouseMotionListener(drag);
+        Toolkit.getDefaultToolkit().addAWTEventListener(mouseOnContent,
+                AWTEvent.MOUSE_EVENT_MASK | AWTEvent.MOUSE_MOTION_EVENT_MASK);
+    }
+
+    /**
+     * A part of the widget with its own mouse listener (such as the calendar, which opens Calendar on a click)
+     * gets the mouse events, so they would never reach the card. The card gets a copy of them, so that the
+     * widget can be moved and the right mouse button opens the menu there too, unless the part has its own
+     * menu or is a text field.
+     */
+    private void forwardToCard(AWTEvent event) {
+        if (!(event instanceof MouseEvent e) || !forwards(e.getComponent())) return;
+        if (e.getID() == MouseEvent.MOUSE_CLICKED || e.getID() == MouseEvent.MOUSE_ENTERED
+                || e.getID() == MouseEvent.MOUSE_EXITED) return;
+        // controls keep the left button to themselves; the card then sees no press, so no drag either
+        if (e.getID() == MouseEvent.MOUSE_PRESSED && !SwingUtilities.isRightMouseButton(e)
+                && isControl(e.getComponent())) return;
+        card.dispatchEvent(SwingUtilities.convertMouseEvent(e.getComponent(), e, card));
+    }
+
+    /** True for a part inside the card whose mouse events don't reach the card's own listener. */
+    boolean forwards(Component source) {
+        if (source == null || source == card || !SwingUtilities.isDescendingFrom(source, card)) return false;
+        if (source instanceof JTextComponent) return false;
+        if (source instanceof JComponent c && c.getComponentPopupMenu() != null) return false;
+        return source.getMouseListeners().length > 0 || source.getMouseMotionListeners().length > 0;
+    }
+
+    private static boolean isControl(Component c) {
+        return c instanceof AbstractButton || c instanceof JSlider || c instanceof JScrollBar
+                || c instanceof JComboBox || c instanceof JList || c instanceof JTable || c instanceof JSpinner;
     }
 
     private boolean inGrip(Point p) {
@@ -172,6 +218,7 @@ final class WidgetWindow extends JFrame {
     // --8<-- [end:on-desktop]
 
     void close() {
+        Toolkit.getDefaultToolkit().removeAWTEventListener(mouseOnContent);
         context.close();
         dispose();
     }
