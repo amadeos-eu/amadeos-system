@@ -1,5 +1,7 @@
 package eu.amadeos.system.screen;
 
+import eu.amadeos.system.screen.modules.LavaColors;
+
 /**
  * The "Screen" settings of the Settings, as in CDE: a screen saver that starts after some minutes
  * without input and a screen lock that starts after some (usually more) minutes.
@@ -9,9 +11,10 @@ package eu.amadeos.system.screen;
  * @param lockEnabled      lock the screen when the desktop is idle
  * @param lockMinutes      minutes without input before the screen locks
  * @param module           id of the saver module, or {@link #RANDOM}
+ * @param lavaColors       id of the colours of the lava lamp module ({@link LavaColors})
  */
 public record ScreenSettings(boolean saverEnabled, int saverMinutes, boolean lockEnabled, int lockMinutes,
-                             String module) {
+                             String module, String lavaColors) {
 
     public static final String RANDOM = "random";
     public static final String DEFAULT_MODULE = "qix";
@@ -22,6 +25,12 @@ public record ScreenSettings(boolean saverEnabled, int saverMinutes, boolean loc
         saverMinutes = clamp(saverMinutes);
         lockMinutes = clamp(lockMinutes);
         module = module == null || module.isBlank() ? DEFAULT_MODULE : module.strip();
+        lavaColors = LavaColors.byId(lavaColors == null ? null : lavaColors.strip()).id();
+    }
+
+    /** Settings with the default lava lamp colours. */
+    public ScreenSettings(boolean saverEnabled, int saverMinutes, boolean lockEnabled, int lockMinutes, String module) {
+        this(saverEnabled, saverMinutes, lockEnabled, lockMinutes, module, LavaColors.DEFAULT);
     }
 
     private static int clamp(int minutes) {
@@ -37,6 +46,6 @@ public record ScreenSettings(boolean saverEnabled, int saverMinutes, boolean loc
     }
 
     public ScreenSettings withModule(String id) {
-        return new ScreenSettings(saverEnabled, saverMinutes, lockEnabled, lockMinutes, id);
+        return new ScreenSettings(saverEnabled, saverMinutes, lockEnabled, lockMinutes, id, lavaColors);
     }
 }

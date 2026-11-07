@@ -143,7 +143,7 @@ public final class ScreenSaverDaemon {
 
     private void showSaver() {
         if (window != null) return;
-        window = new SaverWindow(SaverModules.create(settings.module(), random));
+        window = new SaverWindow(SaverModules.create(settings.module(), settings.lavaColors(), random));
         window.showSaver();
     }
 
