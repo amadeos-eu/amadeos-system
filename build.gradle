@@ -14,6 +14,15 @@ def desktopModules = ['wm', 'panel-cde', 'panel-horizon', 'dm', 'session', 'styl
 def libraryModules = ['base', 'packages', 'icons-horizon']
 // --8<-- [end:desktop-modules]
 
+// --8<-- [start:x-display]
+// The modules build in parallel (gradle.properties), but their tests share one X server (xvfb-run in CI): window
+// tests of two modules at once would steal each other's focus. So only one test task runs at a time.
+abstract class XDisplay implements org.gradle.api.services.BuildService<org.gradle.api.services.BuildServiceParameters.None> {}
+def xDisplay = gradle.sharedServices.registerIfAbsent('xDisplay', XDisplay) {
+    maxParallelUsages = 1
+}
+// --8<-- [end:x-display]
+
 subprojects {
     apply plugin: 'java'
 
@@ -46,6 +55,7 @@ subprojects {
     }
 
     test {
+        usesService(xDisplay)
         useJUnitPlatform()
         // Tests compare English texts, whatever the language of the build machine. The amadeOS texts follow
         // locale.conf in $XDG_CONFIG_HOME/amadeos and then LANGUAGE/LC_ALL/LANG, not the JVM locale, so the
