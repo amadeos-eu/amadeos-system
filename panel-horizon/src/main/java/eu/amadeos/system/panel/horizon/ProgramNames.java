@@ -28,8 +28,10 @@ final class ProgramNames {
     }
 
     /**
-     * The desktop entry of the program a window belongs to, by the window's class: the entry's id or program
-     * name; for Java programs that report their main class (eu-amadeos-apps-pad-PadApplication), an entry
+     * The desktop entry of the program a window belongs to, by the window's class: the entry's
+     * {@code StartupWMClass}, its id or program name (also the real program of snap and Flatpak entries, so
+     * Firefox's class {@code firefox} finds {@code firefox_firefox.desktop} or
+     * {@code org.mozilla.firefox.desktop}); for Java programs that report their main class (eu-amadeos-apps-pad-PadApplication), an entry
      * amade-&lt;part&gt; or amadeos-&lt;part&gt;.
      */
     static Optional<XdgDesktopEntry> entryOf(String windowClass, List<XdgDesktopEntry> entries) {
@@ -37,9 +39,15 @@ final class ProgramNames {
         if (cls.isEmpty()) return Optional.empty();
         String key = normalize(cls);
         for (XdgDesktopEntry e : entries) {
-            if (key.equals(normalize(stripDesktop(e.id()))) || key.equals(normalize(program(e)))) {
+            if (!e.startupWmClass().isBlank() && key.equals(normalize(e.startupWmClass()))) return Optional.of(e);
+        }
+        for (XdgDesktopEntry e : entries) {
+            if (key.equals(normalize(stripDesktop(e.id()))) || key.equals(normalize(e.program()))) {
                 return Optional.of(e);
             }
+        }
+        for (XdgDesktopEntry e : entries) {
+            if (packagedNames(stripDesktop(e.id())).contains(key)) return Optional.of(e);
         }
         String[] parts = cls.split("[-.]");
         if (parts.length >= 3) {
@@ -60,11 +68,20 @@ final class ProgramNames {
         return id.endsWith(".desktop") ? id.substring(0, id.length() - ".desktop".length()) : id;
     }
 
-    private static String program(XdgDesktopEntry e) {
-        String exec = e.exec() == null ? "" : e.exec().strip();
-        String first = exec.isEmpty() ? "" : exec.split("\\s+", 2)[0];
-        int slash = first.lastIndexOf('/');
-        return slash >= 0 ? first.substring(slash + 1) : first;
+    /**
+     * The names a snap or Flatpak entry id stands for: {@code firefox_firefox} (snap {@code <snap>_<app>}) gives
+     * firefox, {@code org.mozilla.firefox} (reverse domain) gives firefox.
+     */
+    private static List<String> packagedNames(String id) {
+        List<String> names = new java.util.ArrayList<>();
+        int underscore = id.indexOf('_');
+        if (underscore > 0) {
+            names.add(normalize(id.substring(0, underscore)));
+            names.add(normalize(id.substring(underscore + 1)));
+        }
+        String[] parts = id.split("\\.");
+        if (parts.length >= 3) names.add(normalize(parts[parts.length - 1]));
+        return names;
     }
 
     private static String normalize(String s) {

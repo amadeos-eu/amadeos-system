@@ -77,7 +77,8 @@ public final class HorizonDock extends JFrame {
         GRAPHICS("graphics", "graphics", XdgCategory.GRAPHICS),
         GAMES("games", "games", XdgCategory.GAMES),
         TOOLS("tools", "app-manager", XdgCategory.TERMINAL, XdgCategory.SETTINGS, XdgCategory.MONITOR,
-                XdgCategory.UTILITY, XdgCategory.DEVELOPMENT, XdgCategory.FILE_MANAGER, XdgCategory.HELP);
+                XdgCategory.UTILITY, XdgCategory.DEVELOPMENT, XdgCategory.FILE_MANAGER, XdgCategory.HELP,
+                XdgCategory.PRINTING, XdgCategory.OTHER);
 
         final String textKey;
         final String iconKey;

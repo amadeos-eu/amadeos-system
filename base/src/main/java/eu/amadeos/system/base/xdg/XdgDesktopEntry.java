@@ -28,7 +28,8 @@ public record XdgDesktopEntry(
         List<String> onlyShowIn,
         List<String> notShowIn,
         String tryExec,
-        Path filePath
+        Path filePath,
+        String startupWmClass
 ) {
     private static final Logger LOGGER = Logger.getLogger(XdgDesktopEntry.class.getName());
 
@@ -40,10 +41,58 @@ public record XdgDesktopEntry(
         icon = Objects.requireNonNullElse(icon, "window");
         exec = Objects.requireNonNullElse(exec, "");
         tryExec = Objects.requireNonNullElse(tryExec, "");
+        startupWmClass = Objects.requireNonNullElse(startupWmClass, "");
         categories = (categories != null) ? List.copyOf(categories) : List.of();
         mimeTypes = (mimeTypes != null) ? List.copyOf(mimeTypes) : List.of();
         onlyShowIn = (onlyShowIn != null) ? List.copyOf(onlyShowIn) : List.of();
         notShowIn = (notShowIn != null) ? List.copyOf(notShowIn) : List.of();
+    }
+
+    /** An entry without {@code StartupWMClass}. */
+    public XdgDesktopEntry(String id, String name, String genericName, String comment, String icon, String exec,
+                           boolean terminal, List<String> categories, List<String> mimeTypes, boolean noDisplay,
+                           boolean hidden, List<String> onlyShowIn, List<String> notShowIn, String tryExec,
+                           Path filePath) {
+        this(id, name, genericName, comment, icon, exec, terminal, categories, mimeTypes, noDisplay, hidden,
+                onlyShowIn, notShowIn, tryExec, filePath, "");
+    }
+
+    // --8<-- [start:program]
+    /**
+     * The program the entry really starts, without its directory: the first word of Exec, but for
+     * {@code env VAR=value program} the program after the variables, and for {@code flatpak run app.id} its
+     * {@code --command}, else the last part of the application id ({@code org.mozilla.firefox} gives
+     * {@code firefox}). Snap entries start
+     * {@code /snap/bin/firefox} or {@code env BAMF_DESKTOP_FILE_HINT=… /snap/bin/firefox}, so they give
+     * {@code firefox} too.
+     */
+    public String program() {
+        List<String> tokens = tokenize(exec);
+        int i = 0;
+        if (i < tokens.size() && baseName(tokens.get(i)).equals("env")) {
+            i++;
+            while (i < tokens.size() && (tokens.get(i).startsWith("-") || tokens.get(i).contains("="))) i++;
+        }
+        if (i >= tokens.size()) return "";
+        String program = baseName(tokens.get(i));
+        if (program.equals("flatpak")) {
+            for (int j = i + 1; j < tokens.size(); j++) {
+                if (tokens.get(j).startsWith("--command=")) return baseName(tokens.get(j).substring("--command=".length()));
+            }
+            for (int j = i + 1; j < tokens.size(); j++) {
+                String t = tokens.get(j);
+                if (t.equals("run") || t.startsWith("-") || t.startsWith("@@")) continue;
+                int dot = t.lastIndexOf('.');
+                return dot >= 0 ? t.substring(dot + 1) : t;
+            }
+        }
+        return program;
+    }
+    // --8<-- [end:program]
+
+    private static String baseName(String path) {
+        int slash = path.lastIndexOf('/');
+        return slash >= 0 ? path.substring(slash + 1) : path;
     }
 
     public boolean hasCategory(String category) {

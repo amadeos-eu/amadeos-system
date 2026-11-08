@@ -100,6 +100,7 @@ public final class XdgDesktopEntryParser {
         String exec = values.getOrDefault("Exec", "");
         String icon = values.getOrDefault("Icon", "window");
         String tryExec = values.getOrDefault("TryExec", "");
+        String startupWmClass = values.getOrDefault("StartupWMClass", "");
         boolean terminal = "true".equalsIgnoreCase(values.get("Terminal"));
         boolean noDisplay = "true".equalsIgnoreCase(values.get("NoDisplay"));
         boolean hidden = "true".equalsIgnoreCase(values.get("Hidden"));
@@ -112,7 +113,7 @@ public final class XdgDesktopEntryParser {
         return Optional.of(new XdgDesktopEntry(
                 id, name, genericName, comment, icon, exec,
                 terminal, categories, mimeTypes, noDisplay, hidden,
-                onlyShowIn, notShowIn, tryExec, path
+                onlyShowIn, notShowIn, tryExec, path, startupWmClass
         ));
     }
 
