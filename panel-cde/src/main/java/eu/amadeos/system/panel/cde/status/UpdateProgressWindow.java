@@ -1,7 +1,6 @@
 package eu.amadeos.system.panel.cde.status;
 
 import java.awt.BorderLayout;
-import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GraphicsEnvironment;
@@ -30,6 +29,8 @@ final class UpdateProgressWindow implements UpdatesCell.ProgressView {
 
     private final Messages texts;
     private final JFrame frame;
+    /** Width of the text above the bar, in pixels; long texts wrap. */
+    static final int STATUS_WIDTH = 420;
     private final JLabel status = new JLabel(" ");
     private final JProgressBar bar = new JProgressBar(0, 100);
     private final JToggleButton details;
@@ -56,7 +57,6 @@ final class UpdateProgressWindow implements UpdatesCell.ProgressView {
         log.setEditable(false);
         log.setFont(new Font(Font.MONOSPACED, Font.PLAIN, log.getFont().getSize()));
         logScroll.setVisible(false);
-        status.setPreferredSize(new Dimension(420, status.getPreferredSize().height));
 
         JPanel top = new JPanel(new BorderLayout(0, 6));
         top.setOpaque(false);
@@ -81,7 +81,7 @@ final class UpdateProgressWindow implements UpdatesCell.ProgressView {
     @Override
     public void begin() {
         running = true;
-        status.setText(texts.get("updates.progress.start"));
+        setStatus(texts.get("updates.progress.start"));
         bar.setIndeterminate(true);
         bar.setString("");
         bar.setVisible(true);
@@ -95,7 +95,7 @@ final class UpdateProgressWindow implements UpdatesCell.ProgressView {
         bar.setIndeterminate(false);
         bar.setValue(progress.overall());
         bar.setString(progress.overall() + " %");
-        if (!progress.message().isBlank()) status.setText(progress.message());
+        if (!progress.message().isBlank()) setStatus(progress.message());
     }
 
     @Override
@@ -115,7 +115,7 @@ final class UpdateProgressWindow implements UpdatesCell.ProgressView {
             return false;
         }
         bar.setVisible(false);
-        status.setText("<html>" + escape(message).replace("\n", "<br>") + "</html>");
+        setStatus(message);
         // A failure is easier to understand with apt's own words in view.
         if (warning) showLog(true);
         close.setText(texts.get("updates.progress.close"));
@@ -144,6 +144,20 @@ final class UpdateProgressWindow implements UpdatesCell.ProgressView {
         details.setSelected(show);
         logScroll.setVisible(show);
         frame.pack();
+    }
+
+    /**
+     * Shows a text above the bar, wrapped at the width of the window. A label with a fixed one-line height cut a
+     * longer message (the German "updates are installed, restart" text) at the top and bottom; as HTML with a set
+     * width the label is as tall as its lines, and pack() makes room for them.
+     */
+    private void setStatus(String text) {
+        status.setText(statusHtml(text, STATUS_WIDTH));
+    }
+
+    static String statusHtml(String text, int width) {
+        // The width attribute, not CSS: Swing's HTML ignores a CSS width.
+        return "<html><div width='" + width + "'>" + escape(text).replace("\n", "<br>") + "</div></html>";
     }
 
     private static String escape(String text) {
