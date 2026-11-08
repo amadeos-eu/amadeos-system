@@ -13,6 +13,15 @@ public final class SessionEnvironment {
     /** The locale chosen in the greeter, for {@code amadeos-session}. */
     public static final String LOGIN_LOCALE = "AMADEOS_LOGIN_LOCALE";
     static final String DEFAULT_PATH = "/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games";
+    /**
+     * {@code XDG_CURRENT_DESKTOP} of the session: amadeOS first, then GNOME as the desktop whose services the
+     * session offers. Electron and Chromium programs (Claude, VS Code, Chromium itself) pick their password
+     * store from this list and take the first name they know: with "amadeOS" alone they keep passwords
+     * unencrypted in a file instead of in gnome-keyring, which the login has started and unlocked. Desktop
+     * files with {@code OnlyShowIn=GNOME} still do not show in the panel, which matches only amadeOS; the
+     * portal choice is fixed by {@code /usr/share/xdg-desktop-portal/amadeos-portals.conf}.
+     */
+    static final String CURRENT_DESKTOP = "amadeOS:GNOME";
 
     private SessionEnvironment() {
     }
@@ -63,7 +72,7 @@ public final class SessionEnvironment {
             env.put("XAUTHORITY", xauthority);
         }
         env.put("XDG_SESSION_TYPE", "x11");
-        env.put("XDG_CURRENT_DESKTOP", "amadeOS");
+        env.put("XDG_CURRENT_DESKTOP", CURRENT_DESKTOP);
         env.put("XDG_SESSION_DESKTOP", "amadeOS");
         env.put("AMADEOS_SESSION", type.id());
         return env;
