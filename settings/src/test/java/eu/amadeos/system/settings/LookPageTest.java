@@ -9,10 +9,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class LookPageTest {
     @Test
     void onlyTheSchemePicturesFollowTheScheme() {
-        assertTrue(LookPage.isSchemePicture("/usr/share/backgrounds/amadeos/horizon-dark.png"));
-        assertTrue(LookPage.isSchemePicture("/usr/share/backgrounds/amadeos/horizon-light.png"));
-        assertFalse(LookPage.isSchemePicture("/usr/share/backgrounds/amadeos/horizon-dunes.jpg"));
-        assertFalse(LookPage.isSchemePicture("/usr/share/backgrounds/amadeos/halloween.png"));
-        assertFalse(LookPage.isSchemePicture(null));
+        assertTrue(HorizonColors.isSchemePicture("/usr/share/backgrounds/amadeos/horizon-dark.png"));
+        assertTrue(HorizonColors.isSchemePicture("/usr/share/backgrounds/amadeos/horizon-light.png"));
+        assertFalse(HorizonColors.isSchemePicture("/usr/share/backgrounds/amadeos/horizon-dunes.jpg"));
+        assertFalse(HorizonColors.isSchemePicture("/usr/share/backgrounds/amadeos/halloween.png"));
+        assertFalse(HorizonColors.isSchemePicture(null));
     }
 }
