@@ -23,7 +23,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
-import javax.imageio.ImageIO;
 import javax.swing.Icon;
 import javax.swing.ImageIcon;
 
@@ -33,9 +32,10 @@ import javax.swing.ImageIcon;
  *
  * The default icon theme is NsCDE ({@link DesktopTheme#DEFAULT_ICON_THEME}, package
  * {@code nscde-icon-theme}); other packs (Adwaita, Papirus, Tango, ...) installed in the standard XDG/system
- * directories and amadeOS theme folders can be chosen in the Settings. Names no theme provides fall
- * back to {@code /usr/share/pixmaps} and finally to icons drawn in Java2D, so the desktop stays usable
- * without any icon package.
+ * directories and amadeOS theme folders can be chosen in the Settings. A theme is searched in every base
+ * directory that has it (e.g. {@code ~/.local/share/icons/hicolor} and {@code /usr/share/icons/hicolor}).
+ * Icons can be PNG, SVG or XPM. Names no theme provides fall back to {@code /usr/share/pixmaps} and finally
+ * to icons drawn in Java2D, so the desktop stays usable without any icon package.
  */
 public final class IconManager {
     private static final Logger LOGGER = Logger.getLogger(IconManager.class.getName());
@@ -105,6 +105,7 @@ public final class IconManager {
     public static void clearCache() {
         ICON_CACHE.clear();
         THEME_INFO_CACHE.clear();
+        IconImages.clearCache();
     }
 
     /**
@@ -242,19 +243,11 @@ public final class IconManager {
     private static Icon loadOrGenerateIcon(String iconTheme, String key, int size) {
         if (key != null && (key.startsWith("/") || key.startsWith("."))) {
             File directFile = new File(key);
-            if (directFile.isFile()) {
-                try {
-                    BufferedImage pi = ImageIO.read(directFile);
-                    if (pi != null) return scaleIcon(pi, size);
-                } catch (Exception ignored) {}
+            BufferedImage direct = directFile.isFile() ? IconImages.read(directFile, size) : null;
+            if (direct == null) {
+                direct = IconImages.find(directFile.getParentFile(), directFile.getName(), size);
             }
-            File directPng = new File(key + ".png");
-            if (directPng.isFile()) {
-                try {
-                    BufferedImage pi = ImageIO.read(directPng);
-                    if (pi != null) return scaleIcon(pi, size);
-                } catch (Exception ignored) {}
-            }
+            if (direct != null) return scaleIcon(direct, size);
         }
 
         String normalizedKey = key;
@@ -277,7 +270,7 @@ public final class IconManager {
         Set<String> visitedThemes = new LinkedHashSet<>();
 
         // A theme that is not installed (e.g. the former built-in "classic") falls back to the default one.
-        if (findThemeDirectory(iconTheme) == null) {
+        if (findThemeDirectories(iconTheme).isEmpty()) {
             iconTheme = DesktopTheme.DEFAULT_ICON_THEME;
         }
 
@@ -287,25 +280,11 @@ public final class IconManager {
             return scaleIcon(img, size);
         }
 
-        // 2. Check unthemed pixmaps /usr/share/pixmaps/
+        // 2. Check unthemed pixmaps /usr/share/pixmaps/ (PNG, SVG and the XPM files older programs ship)
         File pixmapsDir = new File("/usr/share/pixmaps");
-        if (pixmapsDir.isDirectory()) {
-            for (String cand : candidates) {
-                File file = new File(pixmapsDir, cand + ".png");
-                if (file.isFile()) {
-                    try {
-                        BufferedImage pi = ImageIO.read(file);
-                        if (pi != null) return scaleIcon(pi, size);
-                    } catch (Exception ignored) {}
-                }
-                File fileXpm = new File(pixmapsDir, cand + ".xpm");
-                if (fileXpm.isFile()) {
-                    try {
-                        BufferedImage pi = ImageIO.read(fileXpm);
-                        if (pi != null) return scaleIcon(pi, size);
-                    } catch (Exception ignored) {}
-                }
-            }
+        for (String cand : candidates) {
+            BufferedImage pi = IconImages.find(pixmapsDir, cand, size);
+            if (pi != null) return scaleIcon(pi, size);
         }
 
         // 3. Fallback to programmatic pixel/vector generator
@@ -320,12 +299,13 @@ public final class IconManager {
         }
         visitedThemes.add(themeId);
 
-        // Find theme directory on disk
-        File themeDir = findThemeDirectory(themeId);
-        IconThemeInfo info = (themeDir != null) ? getThemeInfo(themeId, themeDir) : null;
+        // A theme can be spread over several base directories (~/.local/share/icons/hicolor next to
+        // /usr/share/icons/hicolor); all of them are searched, with index.theme from the first that has one.
+        List<File> themeDirs = findThemeDirectories(themeId);
+        IconThemeInfo info = themeInfo(themeId, themeDirs);
 
-        if (themeDir != null) {
-            BufferedImage match = searchThemeDirectory(themeDir, info, candidates, size);
+        if (!themeDirs.isEmpty()) {
+            BufferedImage match = searchThemeDirectories(themeDirs, info, candidates, size);
             if (match != null) {
                 return match;
             }
@@ -349,93 +329,87 @@ public final class IconManager {
         return null;
     }
 
-    private static File findThemeDirectory(String themeId) {
+    /** Every base directory's folder of the theme, in the order of {@link #getIconBaseDirectories()}. */
+    static List<File> findThemeDirectories(String themeId) {
+        List<File> dirs = new ArrayList<>();
+        if (themeId == null || themeId.isBlank()) return dirs;
+        Set<String> seen = new LinkedHashSet<>();
         for (File base : getIconBaseDirectories()) {
-            if (!base.isDirectory()) continue;
             File dir = new File(base, themeId);
-            if (dir.isDirectory()) {
-                return dir;
+            if (dir.isDirectory() && seen.add(dir.getAbsolutePath())) {
+                dirs.add(dir);
             }
         }
-        return null;
+        return dirs;
     }
 
-    private static BufferedImage searchThemeDirectory(
-            File themeDir, IconThemeInfo info, List<String> candidates, int size) {
+    private static IconThemeInfo themeInfo(String themeId, List<File> themeDirs) {
+        for (File dir : themeDirs) {
+            if (new File(dir, "index.theme").isFile()) {
+                return getThemeInfo(themeId, dir);
+            }
+        }
+        return themeDirs.isEmpty() ? null : getThemeInfo(themeId, themeDirs.get(0));
+    }
+
+    /**
+     * The order in which a theme's directories are searched for the requested size: a directory of exactly
+     * that size first, then scalable SVG (sharp at any size), then the nearest raster size; for the same
+     * rank, 'apps' wins over the other contexts.
+     */
+    static List<String> orderDirectories(List<String> directories, int size) {
+        List<String> sorted = new ArrayList<>(directories);
+        sorted.sort(java.util.Comparator
+                .comparingInt((String d) -> directoryRank(d, size))
+                .thenComparing(d -> !d.contains("apps")));
+        return sorted;
+    }
+
+    private static int directoryRank(String dir, int size) {
+        if (dir.toLowerCase().contains("scalable")) return 1;
+        int s = extractSize(dir);
+        if (s == size) return 0;
+        return 2 + Math.abs(s - size);
+    }
+
+    private static BufferedImage searchThemeDirectories(
+            List<File> themeDirs, IconThemeInfo info, List<String> candidates, int size) {
         String sizeStr = String.valueOf(size);
         String sizeXStr = size + "x" + size;
 
-        List<String> sortedDirs = new ArrayList<>();
-        if (info != null && !info.directories().isEmpty()) {
-            sortedDirs.addAll(info.directories());
-            sortedDirs.sort((a, b) -> {
-                int sa = extractSize(a);
-                int sb = extractSize(b);
-                int distA = Math.abs(sa - size);
-                int distB = Math.abs(sb - size);
-                if (distA != distB) {
-                    return Integer.compare(distA, distB);
-                }
-                // Prefer 'apps' over 'actions' or 'categories' for the same size
-                boolean aApp = a.contains("apps");
-                boolean bApp = b.contains("apps");
-                if (aApp && !bApp) return -1;
-                if (!aApp && bApp) return 1;
-                return 0;
-            });
-        }
+        List<String> sortedDirs = info != null ? orderDirectories(info.directories(), size) : List.of();
 
         // Freedesktop specification: search for candidate[0] across directories, then candidate[1], etc.
         for (String cand : candidates) {
-            // 1. Check directories specified in index.theme
-            for (String sub : sortedDirs) {
-                BufferedImage img = searchFileInDir(new File(themeDir, sub), cand);
-                if (img != null) return img;
-            }
-
-            // 2. Check standard Freedesktop layout: <theme>/<size>x<size>/<context>/<candidate>.png
-            for (String ctx : CONTEXT_DIRS) {
-                BufferedImage img = searchFileInDir(new File(themeDir, sizeXStr + "/" + ctx), cand);
-                if (img != null) return img;
-
-                img = searchFileInDir(new File(themeDir, ctx + "/" + sizeStr), cand);
-                if (img != null) return img;
-            }
-
-            // 3. Check flat icons subdirectory: <theme>/icons/<candidate>.png
-            File flatIcons = new File(themeDir, "icons");
-            BufferedImage img = searchFileInDir(flatIcons, cand);
-            if (img != null) return img;
-
-            // 4. Check root theme folder: <theme>/<candidate>.png
-            img = searchFileInDir(themeDir, cand);
-            if (img != null) return img;
-        }
-
-        return null;
-    }
-
-    private static BufferedImage searchFileInDir(File dir, String cand) {
-        if (!dir.isDirectory()) return null;
-        File f = new File(dir, cand + ".png");
-        if (f.isFile()) {
-            try {
-                BufferedImage img = ImageIO.read(f);
-                if (img != null) return img;
-            } catch (Exception ignored) {}
-        }
-        File[] files = dir.listFiles();
-        if (files != null) {
-            String target = cand + ".png";
-            for (File file : files) {
-                if (file.getName().equalsIgnoreCase(target)) {
-                    try {
-                        BufferedImage img = ImageIO.read(file);
-                        if (img != null) return img;
-                    } catch (Exception ignored) {}
+            for (File themeDir : themeDirs) {
+                // 1. Check directories specified in index.theme
+                for (String sub : sortedDirs) {
+                    BufferedImage img = IconImages.find(new File(themeDir, sub), cand, size);
+                    if (img != null) return img;
                 }
+
+                // 2. Check standard Freedesktop layout: <theme>/<size>x<size>/<context>/<candidate>.png
+                for (String ctx : CONTEXT_DIRS) {
+                    BufferedImage img = IconImages.find(new File(themeDir, sizeXStr + "/" + ctx), cand, size);
+                    if (img != null) return img;
+
+                    img = IconImages.find(new File(themeDir, ctx + "/" + sizeStr), cand, size);
+                    if (img != null) return img;
+
+                    img = IconImages.find(new File(themeDir, "scalable/" + ctx), cand, size);
+                    if (img != null) return img;
+                }
+
+                // 3. Check flat icons subdirectory: <theme>/icons/<candidate>.png
+                BufferedImage img = IconImages.find(new File(themeDir, "icons"), cand, size);
+                if (img != null) return img;
+
+                // 4. Check root theme folder: <theme>/<candidate>.png
+                img = IconImages.find(themeDir, cand, size);
+                if (img != null) return img;
             }
         }
+
         return null;
     }
 
