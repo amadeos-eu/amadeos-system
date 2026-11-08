@@ -8,14 +8,15 @@ application {
 debian = [
     section    : 'x11',
     javaOptions: '--enable-native-access=ALL-UNNAMED',
-    // Xorg and xauth (amadeos-dm), xset and setxkbmap (the script), chvt (kbd), mcookie (util-linux,
+    // Xorg and xauth (amadeos-dm), xset and setxkbmap (the script), xrandr (the user's monitor layout), chvt (kbd), mcookie (util-linux,
     // essential), PAM with logind sessions; the session it starts.
     depends    : ['xserver-xorg', 'xauth', 'x11-xserver-utils', 'kbd', 'libpam-systemd', 'amadeos-session'],
     conflicts  : ['amade-desktop', 'amade-dm'],
     replaces   : ['amade-desktop', 'amade-dm'],
     summary    : 'Display manager and login greeter of amadeOS',
     description: '''Starts Xorg at boot (amadeos-dm.service) and shows the login greeter of the amadeOS
-desktop: language and time zone of the session, power actions. Authenticates
+desktop: language and time zone of the session, power actions. Sets the monitor
+layout the last user kept in Settings > Display and greets on the primary monitor. Authenticates
 through PAM (/etc/pam.d/amadeos-dm) in a root worker process, opens a logind
 session and starts amadeos-session as the user. As root it sets the system
 time zone chosen in the greeter.'''

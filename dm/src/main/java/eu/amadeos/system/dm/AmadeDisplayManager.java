@@ -1,5 +1,6 @@
 package eu.amadeos.system.dm;
 
+import java.awt.Rectangle;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -17,6 +18,7 @@ import eu.amadeos.commons.i18n.Language;
 import eu.amadeos.system.dm.session.SessionType;
 import eu.amadeos.system.dm.session.SessionWorkerClient;
 import eu.amadeos.system.dm.session.LastUser;
+import eu.amadeos.system.dm.session.LoginMonitors;
 import eu.amadeos.system.dm.session.UserAccount;
 import eu.amadeos.system.dm.ui.AmadeLoginGreeter;
 
@@ -25,6 +27,7 @@ public final class AmadeDisplayManager {
 
     private final String display;
     private final SessionWorkerClient sessionWorkers;
+    private final LoginMonitors monitors = new LoginMonitors();
     private AmadeLoginGreeter greeter;
     private Process xorgProcess;
 
@@ -49,8 +52,13 @@ public final class AmadeDisplayManager {
         // Ensure Xorg is running if display :0 and not running
         ensureXServer();
 
+        // The monitors as the proposed user arranged them in Settings > Display, before AWT reads the screen
+        monitors.applyLayoutOf(LastUser.SYSTEM.propose());
+        Rectangle loginArea = monitors.loginArea().orElse(null);
+
         SwingUtilities.invokeLater(() -> {
             greeter = new AmadeLoginGreeter(this::handleLogin, this::handlePowerAction);
+            greeter.showOn(loginArea);
             greeter.setVisible(true);
         });
     }
@@ -138,8 +146,10 @@ public final class AmadeDisplayManager {
                         + "; see /var/log/amadeos-session-runner.log");
             }
 
-            // Re-arm the login greeter
+            // Re-arm the login greeter, on the primary monitor of the layout the session left behind
+            Rectangle loginArea = monitors.loginArea().orElse(null);
             SwingUtilities.invokeLater(() -> {
+                greeter.showOn(loginArea);
                 greeter.resetFields();
                 greeter.setVisible(true);
             });

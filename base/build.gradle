@@ -1,4 +1,5 @@
-// The library under the desktop modules: Xlib, Xss, Xkb, libc and PAM through JNA, the EWMH client helper
+// The library under the desktop modules: Xlib, Xss, Xkb, libc and PAM through JNA, the EWMH client helper,
+// the monitor layout through xrandr (eu.amadeos.system.display: Settings > Display and the login screen)
 // and launch feedback, the XDG directories and .desktop files, theme, icons and backdrops, the process
 // launcher, the network, sound and Bluetooth services and the bell. Nothing in here depends on the window manager, the panel,
 // the display manager or the other desktop modules; they all depend on this. Part of the amade-desktop jar,

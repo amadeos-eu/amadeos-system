@@ -8,9 +8,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 /**
- * Asks xrandr for the monitors and sets a layout. Used by the Settings (Display page) and at login
- * ({@code amadeos-settings display}, from {@code /etc/amadeos/autostart.d/15-amadeos-display}), which sets the
- * layout saved for the monitors that are connected.
+ * Asks xrandr for the monitors and sets a layout. Used by the Settings (Display page), at login
+ * ({@code amadeos-settings display-apply}, from {@code /etc/amadeos/autostart.d/15-amadeos-display}), which sets the
+ * layout saved for the monitors that are connected, and by the display manager, which sets the layout of the
+ * user it proposes before the login screen opens (in base, so that amadeos-dm needs no Settings).
  */
 public class DisplayApplier {
     private static final Logger LOGGER = Logger.getLogger(DisplayApplier.class.getName());
@@ -67,7 +68,7 @@ public class DisplayApplier {
         return store.load(names).map(this::apply).orElse(true);
     }
 
-    /** {@code amadeos-settings display}: sets the saved layout at login. */
+    /** {@code amadeos-settings display-apply}: sets the saved layout at login. */
     public static void main(String[] args) {
         System.exit(new DisplayApplier().applySaved(DisplaySettingsStore.user()) ? 0 : 1);
     }
