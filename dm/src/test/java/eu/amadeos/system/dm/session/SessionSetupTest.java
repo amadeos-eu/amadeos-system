@@ -37,6 +37,8 @@ class SessionSetupTest {
         assertEquals("/home/alice/.Xauthority", env.get("XAUTHORITY"));
         assertEquals(SessionEnvironment.DEFAULT_PATH, env.get("PATH"));
         assertEquals("desktop", env.get("AMADEOS_SESSION"));
+        assertEquals("amadeOS:GNOME", env.get("XDG_CURRENT_DESKTOP"),
+                "amadeOS first; GNOME so that Electron and Chromium keep passwords in gnome-keyring");
         assertFalse(env.containsKey("JAVA_HOME"), "nothing from the display manager's environment");
     }
 
