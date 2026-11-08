@@ -116,7 +116,7 @@ final class LookPage extends SettingsPage {
 
     /** The theme id the page would apply: Horizon's colours, or the classic palette last chosen. */
     String chosenThemeId() {
-        return look == DesktopLook.HORIZON ? HorizonThemes.id(scheme(), colors.accent()) : null;
+        return look == DesktopLook.HORIZON ? colors.themeId() : null;
     }
 
     // --8<-- [start:apply]
@@ -125,7 +125,7 @@ final class LookPage extends SettingsPage {
         boolean dockChanged = saveDockSettings();
         DesktopTheme before = ThemeManager.currentTheme();
         if (look == DesktopLook.HORIZON) {
-            ThemeManager.applyHorizonColors(scheme(), colors.accent());
+            ThemeManager.applyHorizonColors(scheme(), colors.accent(), colors.palette());
         } else {
             ThemeManager.applyLook(DesktopLook.CLASSIC);
         }
@@ -223,7 +223,7 @@ final class LookPage extends SettingsPage {
         }
 
         private void paintHorizon(Graphics2D g, int w, int h) {
-            DesktopTheme t = HorizonThemes.theme(scheme(), colors.accent());
+            DesktopTheme t = HorizonThemes.theme(scheme(), colors.accent(), colors.palette());
             g.setColor(t.look() == DesktopLook.HORIZON && scheme() == HorizonThemes.Scheme.DARK
                     ? new Color(0x23, 0x24, 0x3C) : new Color(0x9C, 0xA8, 0xC8));
             g.fillRect(0, 0, w, h);

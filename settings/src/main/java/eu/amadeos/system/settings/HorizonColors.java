@@ -29,7 +29,7 @@ import java.util.Map;
 import java.util.logging.Logger;
 
 /**
- * Horizon's colours, dark or light with an accent colour, and whether Horizon's picture follows the scheme. The
+ * Horizon's colours, dark or light in one of the scheme's palettes with an accent colour, and whether Horizon's picture follows the scheme. The
  * Desktop look page shows them under its look cards, the Color page instead of the classic palettes while the
  * desktop has the Horizon look.
  */
@@ -41,17 +41,30 @@ final class HorizonColors {
     private final JRadioButton dark = new JRadioButton(SettingsTexts.get("look.scheme.dark"));
     private final JRadioButton light = new JRadioButton(SettingsTexts.get("look.scheme.light"));
     private final Map<HorizonThemes.Accent, AccentButton> accents = new EnumMap<>(HorizonThemes.Accent.class);
+    private final Map<HorizonThemes.Palette, PaletteButton> palettes = new EnumMap<>(HorizonThemes.Palette.class);
+    private final JPanel paletteRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 2));
     private final JCheckBox backdrop = new JCheckBox(SettingsTexts.get("look.backdrop"), true);
     private final JPanel box = new JPanel();
     private HorizonThemes.Accent accent;
+    private HorizonThemes.Palette palette = HorizonThemes.Palette.standard(HorizonThemes.DEFAULT_SCHEME);
+    private final Runnable changed;
 
     /** @param changed called when the scheme or the accent changes, for previews */
     HorizonColors(Runnable changed) {
+        this.changed = changed;
         ButtonGroup schemes = new ButtonGroup();
         schemes.add(dark);
         schemes.add(light);
-        dark.addActionListener(e -> changed.run());
-        light.addActionListener(e -> changed.run());
+        dark.addActionListener(e -> schemeChosen());
+        light.addActionListener(e -> schemeChosen());
+        for (HorizonThemes.Palette p : HorizonThemes.Palette.values()) {
+            PaletteButton b = new PaletteButton(p);
+            b.addActionListener(e -> {
+                select(p);
+                changed.run();
+            });
+            palettes.put(p, b);
+        }
         JPanel accentRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 2));
         for (HorizonThemes.Accent a : HorizonThemes.Accent.values()) {
             AccentButton b = new AccentButton(a);
@@ -65,6 +78,7 @@ final class HorizonColors {
         box.setLayout(new BoxLayout(box, BoxLayout.Y_AXIS));
         box.setBorder(BorderFactory.createTitledBorder(SettingsTexts.get("look.horizon.colors")));
         box.add(SettingsPage.line(new JLabel(SettingsTexts.get("look.scheme")), dark, light));
+        box.add(SettingsPage.line(new JLabel(SettingsTexts.get("look.palette")), paletteRow));
         box.add(SettingsPage.line(new JLabel(SettingsTexts.get("look.accent")), accentRow));
         box.add(SettingsPage.line(backdrop));
         box.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -81,11 +95,36 @@ final class HorizonColors {
         String id = current.look() == DesktopLook.HORIZON ? current.id() : storedHorizonId();
         select(HorizonThemes.accent(id));
         (HorizonThemes.scheme(id) == HorizonThemes.Scheme.LIGHT ? light : dark).setSelected(true);
+        showPalettes();
+        select(HorizonThemes.palette(id));
+    }
+
+    /** Another scheme: its palettes, starting with its default one. */
+    private void schemeChosen() {
+        if (palette.scheme() != scheme()) {
+            showPalettes();
+            select(HorizonThemes.Palette.standard(scheme()));
+        }
+        changed.run();
+    }
+
+    /** The palettes of the chosen scheme. */
+    private void showPalettes() {
+        paletteRow.removeAll();
+        for (HorizonThemes.Palette p : HorizonThemes.Palette.of(scheme())) paletteRow.add(palettes.get(p));
+        paletteRow.revalidate();
+        paletteRow.repaint();
+    }
+
+    private void select(HorizonThemes.Palette chosen) {
+        palette = chosen.scheme() == scheme() ? chosen : HorizonThemes.Palette.standard(scheme());
+        palettes.values().forEach(x -> x.setSelected(x.palette == palette));
     }
 
     private void select(HorizonThemes.Accent chosen) {
         accent = chosen;
         accents.values().forEach(x -> x.setSelected(x.accent == accent));
+        paletteRow.repaint();
     }
 
     HorizonThemes.Scheme scheme() {
@@ -96,18 +135,27 @@ final class HorizonColors {
         return accent;
     }
 
-    /** A status line naming the scheme and the accent. */
+    HorizonThemes.Palette palette() {
+        return palette;
+    }
+
+    /** The theme id of the chosen scheme, palette and accent. */
+    String themeId() {
+        return HorizonThemes.id(scheme(), accent, palette);
+    }
+
+    /** A status line naming the scheme (with its palette, unless the default one) and the accent. */
     String status() {
-        return SettingsTexts.format("look.status.horizon", SettingsTexts.get("look.scheme." + scheme().id()),
-                SettingsTexts.get("look.accent." + accent.id()));
+        String scheme = SettingsTexts.get("look.scheme." + scheme().id());
+        if (!palette.isStandard()) scheme += " (" + SettingsTexts.get("look.palette." + palette.id()) + ")";
+        return SettingsTexts.format("look.status.horizon", scheme, SettingsTexts.get("look.accent." + accent.id()));
     }
 
     /** The Horizon colours last chosen (look.conf). */
     static String storedHorizonId() {
         java.util.Properties p = eu.amadeos.commons.theme.ThemeStore.readLook(
                 eu.amadeos.system.base.xdg.XdgDirectories.amadeosConfigDir());
-        return HorizonThemes.id(HorizonThemes.Scheme.of(p.getProperty("scheme")),
-                HorizonThemes.Accent.of(p.getProperty("accent")));
+        return HorizonThemes.id(p);
     }
 
     /**
@@ -150,6 +198,58 @@ final class HorizonColors {
         if (path == null || !path.startsWith(HORIZON_BACKDROPS)) return false;
         String rest = path.substring(HORIZON_BACKDROPS.length());
         return rest.equals("dark.png") || rest.equals("light.png");
+    }
+
+    /**
+     * A small window in the colours of a palette (the top bar, the window and a field with text), with the
+     * palette's name under it.
+     */
+    private final class PaletteButton extends JToggleButton {
+        private static final int PREVIEW_HEIGHT = 44;
+        private final HorizonThemes.Palette palette;
+        private final String name;
+
+        PaletteButton(HorizonThemes.Palette palette) {
+            this.palette = palette;
+            this.name = SettingsTexts.get("look.palette." + palette.id());
+            setToolTipText(name);
+            setPreferredSize(new Dimension(70, PREVIEW_HEIGHT + getFontMetrics(getFont()).getHeight() + 2));
+            setContentAreaFilled(false);
+            setBorderPainted(false);
+            setFocusPainted(false);
+            getAccessibleContext().setAccessibleName(name);
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            int w = 62, x = (getWidth() - w) / 2 + 4, y = 4, h = PREVIEW_HEIGHT - 8;
+            w -= 8;
+            java.awt.Shape clip = new java.awt.geom.RoundRectangle2D.Float(x, y, w, h, 8, 8);
+            g2.setColor(palette.base());
+            g2.fill(clip);
+            g2.setClip(clip);
+            g2.setColor(palette.bar());
+            g2.fillRect(x, y, w, 7);
+            g2.setColor(accent != null ? accent.color() : HorizonThemes.DEFAULT_ACCENT.color());
+            g2.fillRect(x + 6, y + 12, w - 12, 2);
+            g2.setColor(palette.fields());
+            g2.fillRoundRect(x + 6, y + 17, w - 12, h - 22, 4, 4);
+            g2.setColor(palette.text());
+            g2.fillRect(x + 10, y + 21, w / 2 - 6, 2);
+            g2.fillRect(x + 10, y + 26, w / 3, 2);
+            g2.setClip(null);
+            g2.setStroke(new BasicStroke(isSelected() ? 2f : 1f));
+            g2.setColor(isSelected() ? getForeground() : new Color(0x80, 0x80, 0x88, 160));
+            g2.draw(isSelected() ? new java.awt.geom.RoundRectangle2D.Float(x - 2, y - 2, w + 4, h + 4, 10, 10) : clip);
+            g2.setColor(getForeground());
+            g2.setFont(getFont());
+            java.awt.FontMetrics fm = g2.getFontMetrics();
+            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            g2.drawString(name, (getWidth() - fm.stringWidth(name)) / 2, PREVIEW_HEIGHT + fm.getAscent());
+            g2.dispose();
+        }
     }
 
     /** A round swatch of an accent colour. */

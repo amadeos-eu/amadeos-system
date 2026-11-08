@@ -31,7 +31,7 @@ import java.util.logging.Logger;
 
 /**
  * Color: the colours of the desktop and the icon theme. With the classic look these are the palettes (themes)
- * with a preview of their colours; with the Horizon look Horizon's scheme and accent colour, the same controls as
+ * with a preview of their colours; with the Horizon look Horizon's scheme, palette and accent colour, the same controls as
  * on the Desktop look page, so that changing the colours never changes the look. Which of the two the page shows
  * follows the look whenever the page is shown.
  */
@@ -185,7 +185,7 @@ final class ColorPage extends SettingsPage {
         if (shownLook == DesktopLook.HORIZON) {
             // Horizon's colours: the look stays Horizon
             DesktopTheme before = ThemeManager.currentTheme();
-            ThemeManager.applyHorizonColors(horizonColors.scheme(), horizonColors.accent());
+            ThemeManager.applyHorizonColors(horizonColors.scheme(), horizonColors.accent(), horizonColors.palette());
             DesktopTheme after = ThemeManager.currentTheme();
             if (!after.id().equals(before.id())) {
                 horizonColors.followTheme(before, after);
