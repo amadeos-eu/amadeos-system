@@ -36,8 +36,7 @@ final class GreeterLook {
     static DesktopTheme themeFor(SessionType session, Optional<Path> home, DesktopTheme classic) {
         Optional<Path> config = home.map(h -> h.resolve(".config").resolve("amadeos"));
         Properties look = config.map(ThemeStore::readLook).orElseGet(Properties::new);
-        DesktopTheme horizon = HorizonThemes.theme(HorizonThemes.Scheme.of(look.getProperty("scheme")),
-                HorizonThemes.Accent.of(look.getProperty("accent")));
+        DesktopTheme horizon = HorizonThemes.find(HorizonThemes.id(look)).orElse(HORIZON_DEFAULT);
         DesktopTheme ownClassic = config.filter(c -> Files.isRegularFile(c.resolve(ThemeStore.THEME_FILE)))
                 .map(GreeterLook::storedTheme).filter(t -> t.look() == DesktopLook.CLASSIC).orElse(classic);
         return switch (session) {

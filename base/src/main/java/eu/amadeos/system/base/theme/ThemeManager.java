@@ -103,7 +103,7 @@ public final class ThemeManager {
 
     // --8<-- [start:look]
     /**
-     * Switches the desktop look: Horizon with the scheme and accent last chosen for it, or classic with the
+     * Switches the desktop look: Horizon with the scheme, palette and accent last chosen for it, or classic with the
      * classic palette last chosen. The window manager, the panels and the applications follow.
      */
     public static synchronized void applyLook(DesktopLook look) {
@@ -111,8 +111,7 @@ public final class ThemeManager {
         Path dir = XdgDirectories.amadeosConfigDir();
         if (look == DesktopLook.HORIZON) {
             Properties p = ThemeStore.readLook(dir);
-            applyTheme(HorizonThemes.id(HorizonThemes.Scheme.of(p.getProperty("scheme")),
-                    HorizonThemes.Accent.of(p.getProperty("accent"))));
+            applyTheme(HorizonThemes.id(p));
         } else {
             String classic = readLine(dir.resolve(ThemeStore.THEME_FILE));
             applyTheme(REGISTRY.find(classic).filter(t -> t.look() == DesktopLook.CLASSIC)
@@ -121,9 +120,15 @@ public final class ThemeManager {
     }
     // --8<-- [end:look]
 
-    /** Horizon's colours: the scheme (dark or light) and the accent. */
+    /** Horizon's colours: the scheme (dark or light) in its default palette, and the accent. */
     public static void applyHorizonColors(HorizonThemes.Scheme scheme, HorizonThemes.Accent accent) {
-        applyTheme(HorizonThemes.id(scheme, accent));
+        applyHorizonColors(scheme, accent, HorizonThemes.Palette.standard(scheme));
+    }
+
+    /** Horizon's colours: the scheme (dark or light), one of its palettes and the accent. */
+    public static void applyHorizonColors(HorizonThemes.Scheme scheme, HorizonThemes.Accent accent,
+                                          HorizonThemes.Palette palette) {
+        applyTheme(HorizonThemes.id(scheme, accent, palette));
     }
 
     /**

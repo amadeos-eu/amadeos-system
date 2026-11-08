@@ -36,6 +36,13 @@ class GreeterLookTest {
     }
 
     @Test
+    void theGreeterShowsTheUsersHorizonPalette(@TempDir Path home) throws Exception {
+        config(home, "look=horizon\nscheme=light\naccent=amber\npalette=mist\n", null);
+        assertEquals("horizon-light-amber-mist",
+                GreeterLook.themeFor(SessionType.DESKTOP, Optional.of(home), CLASSIC).id());
+    }
+
+    @Test
     void theDesktopSessionKeepsTheLastLook(@TempDir Path home) throws Exception {
         config(home, "look=classic\n", "cde-desert\n");
         DesktopTheme last = GreeterLook.themeFor(SessionType.DESKTOP, Optional.of(home), CLASSIC);
