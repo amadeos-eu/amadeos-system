@@ -318,6 +318,12 @@ public final class HorizonIcons {
             p.dot(98, 74, 6);
             p.rect(24, 90, 20, 10, 3);
         });
+        app("amade-pinball-game", 0xB06AD8, 0x6A2E9A, p -> {
+            p.circle(64, 42, 13);
+            p.dot(80, 70, 7);
+            p.width(9).line(30, 84, 56, 98);
+            p.line(98, 84, 72, 98);
+        });
         app("amade-bricks-game", 0xE07A4A, 0xA84222, p -> {
             for (int col = 0; col < 3; col++) p.fillRect(26 + col * 26, 28, 22, 11, 3);
             for (int col = 0; col < 2; col++) p.fillRect(39 + col * 26, 44, 22, 11, 3);
