@@ -281,7 +281,7 @@ public final class AmadeDesktopPanel extends JFrame {
         widgets.add(graphicsDrawer);
         leftSlots.add(graphicsDrawer.component());
 
-        // Slot 9: Games (with drawer ▲), filled from Game desktop entries
+        // Slot 8: Games (with drawer ▲), filled from Game desktop entries
         DrawerDockWidget gamesDrawer = createCategoryDrawer(
                 "games", PanelTexts.get("panel.drawer.games"), "games",
                 XdgCategory.GAMES,
@@ -338,8 +338,20 @@ public final class AmadeDesktopPanel extends JFrame {
         widgets.add(printerDrawer);
         rightSlots.add(printerDrawer.component());
 
+        // --8<-- [start:settings]
+        // Slot 10: Settings (flat tab, no drawer ▲), where CDE had its Style Manager: one click to amadeos-settings
+        DrawerDockWidget settingsWidget = new DrawerDockWidget(
+                "settings", PanelTexts.get("panel.tool.style"), "style",
+                e -> launchProcess("amadeos-settings"),
+                List.of(),
+                false
+        );
+        widgets.add(settingsWidget);
+        rightSlots.add(settingsWidget.component());
+        // --8<-- [end:settings]
+
         // --8<-- [start:tools]
-        // Slot 10: Tools (with drawer ▲): desktop settings, application catalog, terminals, clipboard history and diagnostics,
+        // Slot 11: Tools (with drawer ▲): desktop settings, application catalog, terminals, clipboard history and diagnostics,
         // like CDE's Tools subpanel; then the other installed Settings and System applications (the
         // installer of the live image, for example), except those the fixed entries already start.
         Supplier<List<DrawerTool>> toolsTools = () -> {
@@ -366,7 +378,7 @@ public final class AmadeDesktopPanel extends JFrame {
         rightSlots.add(toolsDrawer.component());
         // --8<-- [end:tools]
 
-        // Slot 11: Help (with drawer ▲): the User's Handbook in the web browser, then the Documentation
+        // Slot 12: Help (with drawer ▲): the User's Handbook in the web browser, then the Documentation
         // entries (other handbooks such as the Game Developer's Handbook bring their own)
         Supplier<List<DrawerTool>> helpTools = () -> {
             List<DrawerTool> tools = new ArrayList<>();
@@ -382,7 +394,7 @@ public final class AmadeDesktopPanel extends JFrame {
         widgets.add(helpDrawer);
         rightSlots.add(helpDrawer.component());
 
-        // Slot 12: Trash Can (flat notch tab, no drawer ▲): the trash folder in amade-files
+        // Slot 13: Trash Can (flat notch tab, no drawer ▲): the trash folder in amade-files
         DrawerDockWidget trashWidget = new DrawerDockWidget(
                 "trash", PanelTexts.get("panel.drawer.trash"), "trash",
                 e -> openTrash(),
@@ -393,7 +405,7 @@ public final class AmadeDesktopPanel extends JFrame {
         rightSlots.add(trashWidget.component());
 
         // --8<-- [start:status]
-        // Slot 13: Status (network, sound, battery, Bluetooth, the notifications' bell and software updates),
+        // Slot 14: Status (network, sound, battery, Bluetooth, the notifications' bell and software updates),
         // outermost on the right. The battery cell shows only on computers with a battery, the Bluetooth cell only
         // with an adapter, the updates cell only while updates are waiting; more than four open a second slot.
         networkCell = new NetworkCell(new NmcliNetworkService(), () -> launchProcess("amadeos-settings", "network"));

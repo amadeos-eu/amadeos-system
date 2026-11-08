@@ -47,6 +47,29 @@ class DockTest {
     }
 
     @Test
+    void settingsIsFixedAfterTheOtherProgramsAndShownOnce() {
+        List<XdgDesktopEntry> more = new java.util.ArrayList<>(entries);
+        more.add(entry("amadeos-settings.desktop", "Settings", "/usr/bin/amadeos-settings"));
+        List<DockModel.Window> windows = List.of(
+                new DockModel.Window(1, "eu-amadeos-system-settings-SettingsLauncher", "Settings", false),
+                new DockModel.Window(2, "xterm", "bash", false));
+        List<DockModel.Program> programs = DockModel.programs(
+                List.of("amadeos-settings.desktop", "amade-files.desktop"), HorizonDock.FIXED, more, windows);
+
+        assertEquals(List.of("amade-files.desktop", "class:xterm", "amadeos-settings.desktop"),
+                programs.stream().map(DockModel.Program::key).toList(), "an old favourite Settings is not shown twice");
+        DockModel.Program settings = programs.get(2);
+        assertTrue(settings.fixed());
+        assertFalse(settings.favourite());
+        assertTrue(settings.running(), "its window belongs to it, not to a program of its own");
+        assertFalse(programs.get(0).fixed());
+
+        assertEquals(List.of("amade-files.desktop"), DockModel.programs(List.of("amade-files.desktop"),
+                HorizonDock.FIXED, entries, List.of()).stream().map(DockModel.Program::key).toList(),
+                "no Settings icon if Settings is not installed");
+    }
+
+    @Test
     void clickingGoesThroughTheWindowsOfAProgram() {
         List<DockModel.Window> windows = List.of(
                 new DockModel.Window(2, "amade-writepad", "Letter", false),
