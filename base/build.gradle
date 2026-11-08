@@ -11,6 +11,8 @@ dependencies {
     // The Bluetooth service talks to BlueZ on the system bus (Settings page and Front Panel cell).
     implementation 'com.github.hypfvieh:dbus-java-core:5.1.1'
     implementation 'com.github.hypfvieh:dbus-java-transport-native-unixsocket:5.1.1'
+    // Draws the SVG icons of icon themes (hicolor/scalable) for the drawers, dock and menus; no dependencies.
+    implementation 'com.github.weisj:jsvg:2.2.0'
 }
 
 jar {
