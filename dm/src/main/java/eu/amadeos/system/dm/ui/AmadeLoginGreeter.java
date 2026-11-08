@@ -16,6 +16,7 @@ import java.awt.GridBagLayout;
 import java.awt.Image;
 import java.awt.Insets;
 import java.awt.RenderingHints;
+import java.awt.Rectangle;
 import java.awt.Toolkit;
 import java.awt.geom.RoundRectangle2D;
 import java.io.File;
@@ -149,6 +150,15 @@ public final class AmadeLoginGreeter extends JFrame {
     private final JButton clearBtn = new JButton("Clear");
     private final JButton rebootBtn = new JButton("Reboot...");
     private final JButton poweroffBtn = new JButton("Shut Down...");
+    /** The login screen on the primary monitor, see {@link #showOn}. */
+    private final JPanel rootPanel = new JPanel(new BorderLayout()) {
+        @Override
+        protected void paintComponent(Graphics g) {
+            paintBackdrop((Graphics2D) g, getWidth(), getHeight());
+        }
+    };
+    /** The primary monitor's part of the X screen; null shows the login screen across the whole screen. */
+    private Rectangle loginArea;
 
     public AmadeLoginGreeter(LoginCallback loginCallback, Consumer<String> powerActionCallback) {
         super("amadeOS Login Greeter");
@@ -161,14 +171,22 @@ public final class AmadeLoginGreeter extends JFrame {
         Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
         setBounds(0, 0, screenSize.width, screenSize.height);
 
-        // Root background: the classic UNIX workstation slate blue, or Horizon's picture
-        JPanel rootPanel = new JPanel(new BorderLayout()) {
+        // Root background: the classic UNIX workstation slate blue, or Horizon's picture, over all monitors;
+        // the login screen itself (rootPanel) sits on the primary monitor (showOn)
+        JPanel screenPanel = new JPanel(null) {
             @Override
             protected void paintComponent(Graphics g) {
                 paintBackdrop((Graphics2D) g, getWidth(), getHeight());
             }
+
+            @Override
+            public void doLayout() {
+                Rectangle area = loginArea != null ? loginArea.intersection(new Rectangle(getSize())) : null;
+                rootPanel.setBounds(area != null && !area.isEmpty() ? area : new Rectangle(getSize()));
+            }
         };
-        setContentPane(rootPanel);
+        setContentPane(screenPanel);
+        screenPanel.add(rootPanel);
 
         // 1. TOP HEADER BAR
         headerBar.setOpaque(false);
@@ -659,6 +677,25 @@ public final class AmadeLoginGreeter extends JFrame {
             // The JDK's time zone data may not know a zone the system has.
             return name;
         }
+    }
+
+    /**
+     * Covers the whole X screen, which may have changed since the greeter was last shown (the display manager
+     * sets the user's monitor layout, a session may have changed it), and puts the login screen on the given
+     * part of it, the primary monitor; null puts it across the whole screen.
+     */
+    public void showOn(Rectangle area) {
+        loginArea = area == null ? null : new Rectangle(area);
+        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+        if (loginArea != null) {
+            // AWT may not have seen a new size of the screen yet; it is at least as large as the monitor
+            screenSize = new Dimension(Math.max(screenSize.width, loginArea.x + loginArea.width),
+                    Math.max(screenSize.height, loginArea.y + loginArea.height));
+        }
+        setBounds(0, 0, screenSize.width, screenSize.height);
+        getContentPane().revalidate();
+        getContentPane().doLayout();
+        repaint();
     }
 
     public void resetFields() {
