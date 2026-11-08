@@ -5,8 +5,6 @@ import eu.amadeos.commons.theme.DesktopTheme;
 import eu.amadeos.commons.theme.HorizonThemes;
 import eu.amadeos.system.base.panel.DockSettings;
 import eu.amadeos.system.base.theme.ThemeManager;
-import eu.amadeos.system.base.theme.WallpaperManager;
-import eu.amadeos.system.base.x11.X11EwmhHelper;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -22,14 +20,10 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
-import java.awt.FlowLayout;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridLayout;
 import java.awt.RenderingHints;
-import java.util.EnumMap;
-import java.util.Locale;
-import java.util.Map;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
 
@@ -43,11 +37,8 @@ final class LookPage extends SettingsPage {
 
     private final LookCard classic = new LookCard(DesktopLook.CLASSIC);
     private final LookCard horizon = new LookCard(DesktopLook.HORIZON);
-    private final JRadioButton dark = new JRadioButton(SettingsTexts.get("look.scheme.dark"));
-    private final JRadioButton light = new JRadioButton(SettingsTexts.get("look.scheme.light"));
-    private final Map<HorizonThemes.Accent, AccentButton> accents = new EnumMap<>(HorizonThemes.Accent.class);
-    private final JPanel horizonBox = new JPanel();
-    private final JCheckBox backdrop = new JCheckBox(SettingsTexts.get("look.backdrop"), true);
+    private final HorizonColors colors = new HorizonColors(this::repaintCards);
+    private final JPanel horizonBox = colors.component();
     private final JPanel dockBox = new JPanel();
     private final JRadioButton[] dockSizes = {
             new JRadioButton(SettingsTexts.get("look.dock.small")),
@@ -55,17 +46,11 @@ final class LookPage extends SettingsPage {
             new JRadioButton(SettingsTexts.get("look.dock.large"))};
     private final JCheckBox dockDrawers = new JCheckBox(SettingsTexts.get("look.dock.drawers"));
     private final JCheckBox dockFolders = new JCheckBox(SettingsTexts.get("look.dock.folders"));
-    /** Horizon's pictures, one per scheme (package amadeos-settings). */
-    static final String HORIZON_BACKDROPS = "/usr/share/backgrounds/amadeos/horizon-";
     private DesktopLook look;
-    private HorizonThemes.Accent accent;
 
     LookPage(Consumer<String> status) {
         super(SettingsCategory.LOOK, status);
-        DesktopTheme current = ThemeManager.currentTheme();
-        look = current.look();
-        String horizonId = look == DesktopLook.HORIZON ? current.id() : storedHorizonId();
-        accent = HorizonThemes.accent(horizonId);
+        look = ThemeManager.currentTheme().look();
 
         JPanel cards = new JPanel(new GridLayout(1, 2, 16, 0));
         // Horizon first: it is the look a new account starts with
@@ -77,30 +62,6 @@ final class LookPage extends SettingsPage {
         lookBox.setBorder(BorderFactory.createTitledBorder(SettingsTexts.get("look.look")));
         lookBox.add(cards, BorderLayout.CENTER);
         lookBox.add(note(SettingsTexts.get("look.note")), BorderLayout.SOUTH);
-
-        ButtonGroup schemes = new ButtonGroup();
-        schemes.add(dark);
-        schemes.add(light);
-        (HorizonThemes.scheme(horizonId) == HorizonThemes.Scheme.LIGHT ? light : dark).setSelected(true);
-        dark.addActionListener(e -> repaintCards());
-        light.addActionListener(e -> repaintCards());
-        JPanel accentRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 2));
-        for (HorizonThemes.Accent a : HorizonThemes.Accent.values()) {
-            AccentButton b = new AccentButton(a);
-            b.addActionListener(e -> {
-                accent = a;
-                accents.values().forEach(x -> x.setSelected(x.accent == accent));
-                repaintCards();
-            });
-            b.setSelected(a == accent);
-            accents.put(a, b);
-            accentRow.add(b);
-        }
-        horizonBox.setLayout(new BoxLayout(horizonBox, BoxLayout.Y_AXIS));
-        horizonBox.setBorder(BorderFactory.createTitledBorder(SettingsTexts.get("look.horizon.colors")));
-        horizonBox.add(line(new JLabel(SettingsTexts.get("look.scheme")), dark, light));
-        horizonBox.add(line(new JLabel(SettingsTexts.get("look.accent")), accentRow));
-        horizonBox.add(line(backdrop));
 
         // --8<-- [start:dock]
         ButtonGroup sizes = new ButtonGroup();
@@ -116,7 +77,6 @@ final class LookPage extends SettingsPage {
         JPanel content = new JPanel();
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
         lookBox.setAlignmentX(Component.LEFT_ALIGNMENT);
-        horizonBox.setAlignmentX(Component.LEFT_ALIGNMENT);
         dockBox.setAlignmentX(Component.LEFT_ALIGNMENT);
         content.add(lookBox);
         content.add(Box.createVerticalStrut(10));
@@ -127,14 +87,6 @@ final class LookPage extends SettingsPage {
         holder.add(content, BorderLayout.NORTH);
         layoutPage(holder);
         choose(look);
-    }
-
-    /** The Horizon colours last chosen (look.conf), shown while the classic look is active. */
-    private static String storedHorizonId() {
-        java.util.Properties p = eu.amadeos.commons.theme.ThemeStore.readLook(
-                eu.amadeos.system.base.xdg.XdgDirectories.amadeosConfigDir());
-        return HorizonThemes.id(HorizonThemes.Scheme.of(p.getProperty("scheme")),
-                HorizonThemes.Accent.of(p.getProperty("accent")));
     }
 
     private void choose(DesktopLook chosen) {
@@ -159,12 +111,12 @@ final class LookPage extends SettingsPage {
     }
 
     HorizonThemes.Scheme scheme() {
-        return light.isSelected() ? HorizonThemes.Scheme.LIGHT : HorizonThemes.Scheme.DARK;
+        return colors.scheme();
     }
 
     /** The theme id the page would apply: Horizon's colours, or the classic palette last chosen. */
     String chosenThemeId() {
-        return look == DesktopLook.HORIZON ? HorizonThemes.id(scheme(), accent) : null;
+        return look == DesktopLook.HORIZON ? HorizonThemes.id(scheme(), colors.accent()) : null;
     }
 
     // --8<-- [start:apply]
@@ -173,7 +125,7 @@ final class LookPage extends SettingsPage {
         boolean dockChanged = saveDockSettings();
         DesktopTheme before = ThemeManager.currentTheme();
         if (look == DesktopLook.HORIZON) {
-            ThemeManager.applyHorizonColors(scheme(), accent);
+            ThemeManager.applyHorizonColors(scheme(), colors.accent());
         } else {
             ThemeManager.applyLook(DesktopLook.CLASSIC);
         }
@@ -181,58 +133,16 @@ final class LookPage extends SettingsPage {
         if (after.id().equals(before.id())) {
             return SettingsTexts.get(dockChanged ? "look.dock.saved" : "look.unchanged");
         }
-        matchBackdrop(before, after);
-        // The window manager and the panel follow the theme on the root window
-        try (X11EwmhHelper helper = X11EwmhHelper.open(null)) {
-            helper.setDesktopTheme(after.id());
-        } catch (Exception e) {
-            LOGGER.fine("No X11 theme broadcast: " + e.getMessage());
-        }
-        return look == DesktopLook.HORIZON
-                ? SettingsTexts.format("look.status.horizon", SettingsTexts.get("look.scheme." + scheme().id()),
-                        SettingsTexts.get("look.accent." + accent.id()))
-                : SettingsTexts.get("look.status.classic");
+        colors.followTheme(before, after);
+        return look == DesktopLook.HORIZON ? colors.status() : SettingsTexts.get("look.status.classic");
     }
     // --8<-- [end:apply]
 
-    // --8<-- [start:backdrop]
-    /**
-     * Horizon brings its picture for the chosen scheme (unless the box is cleared); back to classic, a Horizon
-     * picture gives way to amadeOS's own backdrop again. Backdrops the user chose stay, the extra Horizon
-     * wallpapers (horizon-dunes.jpg and so on) too: only the two scheme pictures follow the scheme.
-     */
-    private void matchBackdrop(DesktopTheme before, DesktopTheme after) {
-        String current = WallpaperManager.defaultBackdrop().path();
-        boolean horizonPicture = isSchemePicture(current);
-        if (after.look() == DesktopLook.HORIZON) {
-            if (!backdrop.isSelected()) return;
-            String picture = HORIZON_BACKDROPS + scheme().id() + ".png";
-            boolean schemeChanged = before.look() == DesktopLook.CLASSIC || horizonPicture && !picture.equals(current);
-            if (schemeChanged && new java.io.File(picture).isFile()) {
-                WallpaperManager.applyWallpaper(picture, WallpaperManager.ScaleMode.FILL, after.base());
-            }
-        } else if (horizonPicture) {
-            WallpaperManager.applyWallpaper(WallpaperManager.initialWallpaper(), WallpaperManager.ScaleMode.FILL, null);
-        }
-    }
-    // --8<-- [end:backdrop]
-
-    /** Whether the path is one of the scheme pictures horizon-dark.png and horizon-light.png. */
-    static boolean isSchemePicture(String path) {
-        if (path == null || !path.startsWith(HORIZON_BACKDROPS)) return false;
-        String rest = path.substring(HORIZON_BACKDROPS.length());
-        return rest.equals("dark.png") || rest.equals("light.png");
-    }
-
     @Override
     protected void cancelled() {
-        DesktopTheme current = ThemeManager.currentTheme();
-        String id = current.look() == DesktopLook.HORIZON ? current.id() : storedHorizonId();
-        accent = HorizonThemes.accent(id);
-        accents.values().forEach(x -> x.setSelected(x.accent == accent));
-        (HorizonThemes.scheme(id) == HorizonThemes.Scheme.LIGHT ? light : dark).setSelected(true);
+        colors.reset();
         showDockSettings(DockSettings.load(DockSettings.userFile()));
-        choose(current.look());
+        choose(ThemeManager.currentTheme().look());
     }
 
     private void showDockSettings(DockSettings d) {
@@ -313,7 +223,7 @@ final class LookPage extends SettingsPage {
         }
 
         private void paintHorizon(Graphics2D g, int w, int h) {
-            DesktopTheme t = HorizonThemes.theme(scheme(), accent);
+            DesktopTheme t = HorizonThemes.theme(scheme(), colors.accent());
             g.setColor(t.look() == DesktopLook.HORIZON && scheme() == HorizonThemes.Scheme.DARK
                     ? new Color(0x23, 0x24, 0x3C) : new Color(0x9C, 0xA8, 0xC8));
             g.fillRect(0, 0, w, h);
@@ -336,36 +246,6 @@ final class LookPage extends SettingsPage {
             g.fillRoundRect(w / 4, h - 15, w / 2, 11, 6, 6);
             g.setColor(t.activeTitleBg());
             for (int i = 0; i < 6; i++) g.fillRoundRect(w / 4 + 6 + i * (w / 2 - 12) / 6, h - 13, 6, 6, 3, 3);
-        }
-    }
-
-    /** A round swatch of an accent colour. */
-    private static final class AccentButton extends JToggleButton {
-        private final HorizonThemes.Accent accent;
-
-        AccentButton(HorizonThemes.Accent accent) {
-            this.accent = accent;
-            setToolTipText(SettingsTexts.get("look.accent." + accent.id()));
-            setPreferredSize(new Dimension(28, 28));
-            setContentAreaFilled(false);
-            setBorderPainted(false);
-            setFocusPainted(false);
-            getAccessibleContext().setAccessibleName(accent.id().toUpperCase(Locale.ROOT));
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            Color c = isEnabled() ? accent.color() : Color.GRAY;
-            g2.setColor(c);
-            g2.fillOval(5, 5, 18, 18);
-            if (isSelected()) {
-                g2.setStroke(new BasicStroke(2f));
-                g2.setColor(getForeground());
-                g2.drawOval(2, 2, 24, 24);
-            }
-            g2.dispose();
         }
     }
 }

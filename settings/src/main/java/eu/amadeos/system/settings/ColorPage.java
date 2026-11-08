@@ -1,5 +1,6 @@
 package eu.amadeos.system.settings;
 
+import eu.amadeos.commons.theme.DesktopLook;
 import eu.amadeos.commons.theme.DesktopTheme;
 import eu.amadeos.system.base.x11.X11EwmhHelper;
 import eu.amadeos.system.base.theme.IconManager;
@@ -16,18 +17,23 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.ListSelectionModel;
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Graphics;
 import java.awt.GridLayout;
+import java.awt.event.HierarchyEvent;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
 
 /**
- * Color: the desktop palette (theme) with a preview of its colours, and the icon theme.
+ * Color: the colours of the desktop and the icon theme. With the classic look these are the palettes (themes)
+ * with a preview of their colours; with the Horizon look Horizon's scheme and accent colour, the same controls as
+ * on the Desktop look page, so that changing the colours never changes the look. Which of the two the page shows
+ * follows the look whenever the page is shown.
  */
 final class ColorPage extends SettingsPage {
     private static final Logger LOGGER = Logger.getLogger(ColorPage.class.getName());
@@ -36,6 +42,10 @@ final class ColorPage extends SettingsPage {
     private final JPanel palette = new JPanel(new GridLayout(2, 7, 6, 6));
     private final JComboBox<IconManager.IconThemeInfo> iconThemes;
     private final JPanel iconPreview = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 6));
+    private final HorizonColors horizonColors = new HorizonColors(() -> { });
+    private final CardLayout colorCards = new CardLayout();
+    private final JPanel colorBox = new JPanel(colorCards);
+    private DesktopLook shownLook;
 
     ColorPage(Consumer<String> status) {
         super(SettingsCategory.COLOR, status);
@@ -90,14 +100,40 @@ final class ColorPage extends SettingsPage {
         iconBox.add(iconPreview, BorderLayout.CENTER);
         updateIconPreview();
 
+        JPanel horizonCard = new JPanel(new BorderLayout(0, 10));
+        horizonCard.add(note(SettingsTexts.get("color.horizon.note")), BorderLayout.NORTH);
+        // At the top, as tall as its lines: the card is as tall as the palettes of the classic look
+        JPanel horizonTop = new JPanel(new BorderLayout());
+        horizonTop.add(horizonColors.component(), BorderLayout.NORTH);
+        horizonCard.add(horizonTop, BorderLayout.CENTER);
+        colorBox.add(paletteBox, DesktopLook.CLASSIC.id());
+        colorBox.add(horizonCard, DesktopLook.HORIZON.id());
+
         JPanel content = new JPanel(new BorderLayout(0, 10));
-        if (ThemeManager.currentLook() == eu.amadeos.commons.theme.DesktopLook.HORIZON) {
-            // The palettes are the classic look's; Horizon's colours are on the Desktop look page
-            content.add(note(SettingsTexts.get("color.horizon.note")), BorderLayout.NORTH);
-        }
-        content.add(paletteBox, BorderLayout.CENTER);
+        content.add(colorBox, BorderLayout.CENTER);
         content.add(iconBox, BorderLayout.SOUTH);
         layoutPage(content);
+        showLook();
+        // The look can change while Settings is open (Desktop look page, a session switch): follow it.
+        addHierarchyListener(e -> {
+            if ((e.getChangeFlags() & HierarchyEvent.SHOWING_CHANGED) != 0 && isShowing()) showLook();
+        });
+    }
+
+    @Override
+    protected void cancelled() {
+        shownLook = null;
+        showLook();
+    }
+
+    /** Shows the palettes or Horizon's colours, whichever belong to the current look. */
+    private void showLook() {
+        DesktopLook look = ThemeManager.currentLook();
+        if (look == shownLook) return;
+        shownLook = look;
+        horizonColors.reset();
+        themes.setSelectedValue(ThemeManager.currentTheme(), true);
+        colorCards.show(colorBox, look.id());
     }
 
     private void updatePalette() {
@@ -146,8 +182,18 @@ final class ColorPage extends SettingsPage {
     @Override
     protected String apply() {
         StringBuilder message = new StringBuilder();
+        if (shownLook == DesktopLook.HORIZON) {
+            // Horizon's colours: the look stays Horizon
+            DesktopTheme before = ThemeManager.currentTheme();
+            ThemeManager.applyHorizonColors(horizonColors.scheme(), horizonColors.accent());
+            DesktopTheme after = ThemeManager.currentTheme();
+            if (!after.id().equals(before.id())) {
+                horizonColors.followTheme(before, after);
+                message.append(horizonColors.status());
+            }
+        }
         DesktopTheme theme = themes.getSelectedValue();
-        if (theme != null && !theme.id().equals(ThemeManager.currentTheme().id())) {
+        if (shownLook == DesktopLook.CLASSIC && theme != null && !theme.id().equals(ThemeManager.currentTheme().id())) {
             ThemeManager.applyTheme(theme.id());
             try (X11EwmhHelper helper = X11EwmhHelper.open(null)) {
                 helper.setDesktopTheme(theme.id());
