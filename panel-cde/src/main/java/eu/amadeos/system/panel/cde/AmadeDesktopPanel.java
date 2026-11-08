@@ -364,7 +364,10 @@ public final class AmadeDesktopPanel extends JFrame {
                     new DrawerTool(PanelTexts.get("panel.tool.logs"), "diagnostics", e -> launchProcess("amadeos-logviewer")),
                     new DrawerTool(PanelTexts.get("panel.tool.sysinfo"), "diagnostics", e -> launchProcess("amadeos-sysinfo"))
             ));
-            tools.addAll(xdgTools(List.of(XdgCategory.SETTINGS, XdgCategory.MONITOR),
+            // ... and the programs no other drawer has: accessories, development tools, other terminals and
+            // the programs of no known group (Education, Science, ...), so every installed program is in a drawer
+            tools.addAll(xdgTools(List.of(XdgCategory.SETTINGS, XdgCategory.MONITOR, XdgCategory.UTILITY,
+                            XdgCategory.DEVELOPMENT, XdgCategory.TERMINAL, XdgCategory.OTHER),
                     Set.of("amadeos-settings", "amadeos-style", "amadeos-logviewer", "amadeos-sysinfo", "xterm",
                             Terminals.AMADE_TERMINAL)));
             return tools;

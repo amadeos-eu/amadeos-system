@@ -117,4 +117,26 @@ class DockTest {
         java.nio.file.Files.writeString(blocked, "x");
         assertEquals(home, HorizonDock.ensureFolder(blocked, home));
     }
+
+    @Test
+    void snapFlatpakAndStartupWmClassEntriesAreFoundForTheirWindows() {
+        XdgDesktopEntry snap = entry("firefox_firefox.desktop", "Firefox",
+                "env BAMF_DESKTOP_FILE_HINT=/var/lib/snapd/desktop/applications/firefox_firefox.desktop /snap/bin/firefox %u");
+        XdgDesktopEntry flatpak = entry("org.gnome.Calculator.desktop", "Calculator",
+                "/usr/bin/flatpak run --branch=stable --command=gnome-calculator org.gnome.Calculator");
+        XdgDesktopEntry wmClass = new XdgDesktopEntry("foo.desktop", "Foo", "", "", "icon", "/opt/foo/run.sh", false,
+                List.of("Utility"), List.of(), false, false, List.of(), List.of(), "", null, "FooMain");
+        List<XdgDesktopEntry> all = List.of(snap, flatpak, wmClass);
+        assertEquals("firefox_firefox.desktop", ProgramNames.entryOf("firefox", all).orElseThrow().id());
+        assertEquals("org.gnome.Calculator.desktop", ProgramNames.entryOf("gnome-calculator", all).orElseThrow().id(),
+                "the program flatpak runs");
+        assertEquals("org.gnome.Calculator.desktop", ProgramNames.entryOf("Calculator", all).orElseThrow().id(),
+                "the last part of the application id");
+        assertEquals("foo.desktop", ProgramNames.entryOf("FooMain", all).orElseThrow().id());
+
+        DockModel.Program firefox = DockModel.programs(List.of(), all,
+                List.of(new DockModel.Window(1, "firefox", "Mozilla Firefox", false))).get(0);
+        assertNotNull(firefox.entry(), "with an entry the dock offers Keep in Dock");
+        assertEquals("Firefox", firefox.name());
+    }
 }

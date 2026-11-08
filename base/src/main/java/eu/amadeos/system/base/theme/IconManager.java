@@ -129,17 +129,10 @@ public final class IconManager {
         // 3. User amadeOS themes $XDG_CONFIG_HOME/amadeos/themes (default ~/.config/amadeos/themes)
         list.add(XdgDirectories.amadeosConfigDir().resolve("themes").toFile());
 
-        // 4. $XDG_DATA_DIRS/icons (defaults to /usr/local/share/icons and /usr/share/icons)
-        String xdgDataDirs = System.getenv("XDG_DATA_DIRS");
-        if (xdgDataDirs != null && !xdgDataDirs.isBlank()) {
-            for (String dir : xdgDataDirs.split(":")) {
-                if (!dir.isBlank()) {
-                    list.add(new File(dir, "icons"));
-                }
-            }
-        } else {
-            list.add(new File("/usr/local/share/icons"));
-            list.add(new File("/usr/share/icons"));
+        // 4. $XDG_DATA_DIRS/icons (defaults to /usr/local/share/icons and /usr/share/icons), then the icons
+        // of Flatpak and snap programs
+        for (java.nio.file.Path dir : XdgDirectories.systemDataDirs()) {
+            list.add(dir.resolve("icons").toFile());
         }
 
         // 5. System amadeOS themes

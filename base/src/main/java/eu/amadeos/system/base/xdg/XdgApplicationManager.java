@@ -57,31 +57,16 @@ public final class XdgApplicationManager {
         LOGGER.info(() -> "Loaded " + entries.size() + " visible XDG desktop applications.");
     }
 
+    /**
+     * The folders of the desktop entries, the user's first: {@code $XDG_DATA_HOME/applications}, then
+     * {@code applications} in each {@link XdgDirectories#systemDataDirs() system data folder}, which include the
+     * Flatpak and snap folders.
+     */
     public static List<Path> getApplicationDirectories() {
         List<Path> dirs = new ArrayList<>();
         String userHome = System.getProperty("user.home", "/tmp");
-
-        // 1. $XDG_DATA_HOME/applications (default ~/.local/share/applications)
-        String dataHome = System.getenv("XDG_DATA_HOME");
-        if (dataHome != null && !dataHome.isBlank()) {
-            dirs.add(Path.of(dataHome, "applications"));
-        } else {
-            dirs.add(Path.of(userHome, ".local/share", "applications"));
-        }
-
-        // 2. $XDG_DATA_DIRS/applications (defaults to /usr/local/share and /usr/share)
-        String dataDirs = System.getenv("XDG_DATA_DIRS");
-        if (dataDirs != null && !dataDirs.isBlank()) {
-            for (String d : dataDirs.split(":")) {
-                if (!d.isBlank()) {
-                    dirs.add(Path.of(d, "applications"));
-                }
-            }
-        } else {
-            dirs.add(Path.of("/usr/local/share", "applications"));
-            dirs.add(Path.of("/usr/share", "applications"));
-        }
-
+        dirs.add(XdgDirectories.dataHome(System.getenv(), userHome).resolve("applications"));
+        for (Path d : XdgDirectories.systemDataDirs()) dirs.add(d.resolve("applications"));
         return dirs;
     }
 

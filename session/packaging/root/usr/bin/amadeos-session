@@ -13,6 +13,24 @@ fi
 export HOME="${HOME:-/home/$(id -un 2>/dev/null || echo amadeos)}"
 export USER="${USER:-$(id -un 2>/dev/null || echo amadeos)}"
 
+# Snap and Flatpak programs: their scripts in /etc/profile.d add these folders only to login shells, which
+# this session is not. Without them programs started from the desktop do not find /snap/bin, and xdg-open,
+# gio and the like miss their desktop entries and icons (the Java desktop adds the folders itself).
+XDG_DATA_DIRS="${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+for data_dir in "${XDG_DATA_HOME:-$HOME/.local/share}/flatpak/exports/share" /var/lib/flatpak/exports/share /var/lib/snapd/desktop; do
+    case ":$XDG_DATA_DIRS:" in
+        *":$data_dir:"*|*":$data_dir/:"*) ;;
+        *) [ -d "$data_dir" ] && XDG_DATA_DIRS="$XDG_DATA_DIRS:$data_dir" ;;
+    esac
+done
+export XDG_DATA_DIRS
+if [ -d /snap/bin ]; then
+    case ":$PATH:" in
+        *":/snap/bin:"*) ;;
+        *) export PATH="$PATH:/snap/bin" ;;
+    esac
+fi
+
 # Default configuration values: the window manager (package amadeos-wm) and the panel (/usr/bin/amadeos-panel,
 # the alternative registered by amadeos-panel-cde or another panel package)
 WM_COMMAND="${WM_COMMAND:-/usr/bin/amadeos-wm}"

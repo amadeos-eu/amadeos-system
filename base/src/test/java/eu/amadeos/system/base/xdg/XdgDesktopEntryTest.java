@@ -222,5 +222,34 @@ class XdgDesktopEntryTest {
         assertTrue(p1.get().matchesCategory(XdgCategory.UTILITY));
         assertTrue(p2.get().matchesCategory(XdgCategory.TERMINAL));
     }
-}
 
+    @Test
+    void programSeesThroughEnvAndFlatpak() throws IOException {
+        assertEquals("firefox", exec("Exec=env BAMF_DESKTOP_FILE_HINT=/var/lib/snapd/desktop/applications/firefox_firefox.desktop /snap/bin/firefox %u").program());
+        assertEquals("firefox", exec("Exec=/usr/bin/flatpak run --branch=stable --arch=x86_64 --command=firefox --file-forwarding org.mozilla.firefox @@u %u @@").program());
+        assertEquals("amade-pad", exec("Exec=/usr/bin/amade-pad %F").program());
+        assertEquals("xterm", exec("Exec=xterm -e top").program());
+    }
+
+    @Test
+    void readsStartupWmClass() throws IOException {
+        assertEquals("Navigator", exec("Exec=firefox\nStartupWMClass=Navigator").startupWmClass());
+        assertEquals("", exec("Exec=firefox").startupWmClass());
+    }
+
+    @Test
+    void otherTakesEveryProgramOfNoKnownGroup() throws IOException {
+        assertTrue(entry("edu.desktop", "Categories=Education;Science;").matchesCategory(XdgCategory.OTHER));
+        assertTrue(entry("kde.desktop", "Categories=Qt;KDE;").matchesCategory(XdgCategory.OTHER));
+        assertTrue(entry("none.desktop", "").matchesCategory(XdgCategory.OTHER));
+        XdgDesktopEntry browser = entry("firefox_firefox.desktop", "Categories=GNOME;GTK;Network;WebBrowser;");
+        assertTrue(browser.matchesCategory(XdgCategory.NETWORK));
+        assertFalse(browser.matchesCategory(XdgCategory.OTHER));
+    }
+
+    private static XdgDesktopEntry exec(String lines) throws IOException {
+        String content = "[Desktop Entry]\nType=Application\nName=x\n" + lines + "\n";
+        return XdgDesktopEntryParser.parse(new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8)), "x.desktop", null)
+                .orElseThrow();
+    }
+}

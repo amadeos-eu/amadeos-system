@@ -1,6 +1,8 @@
 package eu.amadeos.system.base.xdg;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -49,5 +51,48 @@ public final class XdgDirectories {
             return Path.of(configured);
         }
         return Path.of(userHome, fallback);
+    }
+
+    // --8<-- [start:datadirs]
+    /**
+     * The system data folders: {@code $XDG_DATA_DIRS} (by default {@code /usr/local/share} and
+     * {@code /usr/share}), then the export folders of Flatpak and the desktop folder of snapd, if they are not
+     * already listed. Their scripts in {@code /etc/profile.d} add them only to login shells, which the amadeOS
+     * session does not start, so Firefox from a snap, for example, would be missing from the drawers.
+     */
+    public static List<Path> systemDataDirs() {
+        return systemDataDirs(System.getenv(), System.getProperty("user.home", "/tmp"));
+    }
+
+    static List<Path> systemDataDirs(Map<String, String> environment, String userHome) {
+        List<Path> dirs = new ArrayList<>();
+        String configured = environment.get("XDG_DATA_DIRS");
+        if (configured != null && !configured.isBlank()) {
+            for (String d : configured.split(":")) {
+                if (d.startsWith("/")) add(dirs, Path.of(d));
+            }
+        }
+        if (dirs.isEmpty()) {
+            dirs.add(Path.of("/usr/local/share"));
+            dirs.add(Path.of("/usr/share"));
+        }
+        add(dirs, dataHome(environment, userHome).resolve("flatpak/exports/share"));
+        add(dirs, Path.of("/var/lib/flatpak/exports/share"));
+        add(dirs, Path.of("/var/lib/snapd/desktop"));
+        return dirs;
+    }
+
+    /** {@code $XDG_DATA_HOME} if it is set to an absolute path, otherwise {@code ~/.local/share}. */
+    static Path dataHome(Map<String, String> environment, String userHome) {
+        return baseDir(environment, "XDG_DATA_HOME", userHome, ".local/share");
+    }
+    // --8<-- [end:datadirs]
+
+    private static void add(List<Path> dirs, Path dir) {
+        Path normalized = dir.normalize();
+        for (Path d : dirs) {
+            if (d.normalize().equals(normalized)) return;
+        }
+        dirs.add(normalized);
     }
 }

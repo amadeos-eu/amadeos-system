@@ -18,7 +18,8 @@ public enum XdgCategory {
     HELP("Help", "Help & Information", "help", Set.of("documentation", "help", "systemhelp")),
     MONITOR("Monitor", "System & Monitor", "diagnostics", Set.of("monitor", "system", "hardwaresettings", "systemmonitor")),
     SETTINGS("Settings", "Settings & Tools", "style", Set.of("settings", "desktopsettings", "preferences", "packagemanager")),
-    UTILITY("Utility", "Accessories", "app-manager", Set.of("utility", "accessories")),
+    UTILITY("Utility", "Accessories", "app-manager", Set.of("utility", "accessories", "accessibility", "archiving",
+            "compression", "calculator", "clock")),
     DEVELOPMENT("Development", "Development", "terminal", Set.of("development", "ide", "debugger")),
     GRAPHICS("Graphics", "Graphics", "graphics", Set.of("graphics", "viewer", "rastergraphics", "2dgraphics", "vectorgraphics", "3dgraphics", "photography", "scanning")),
     NETWORK("Network", "Internet & Network", "window", Set.of("network", "webbrowser", "chat")),
@@ -52,9 +53,20 @@ public enum XdgCategory {
         return iconKey;
     }
 
+    /**
+     * Whether a program with these categories belongs to this group. {@link #OTHER} takes every program that
+     * belongs to no other group, such as Education or Science programs, or those that only name their
+     * toolkit ({@code Qt;KDE;}), so each installed program is in some drawer and menu.
+     */
     public boolean matches(List<String> entryCategories) {
+        if (this == OTHER) {
+            for (XdgCategory c : values()) {
+                if (c != OTHER && c.matches(entryCategories)) return false;
+            }
+            return true;
+        }
         if (entryCategories == null || entryCategories.isEmpty()) {
-            return this == OTHER;
+            return false;
         }
         for (String cat : entryCategories) {
             String normalized = cat.trim().toLowerCase();
