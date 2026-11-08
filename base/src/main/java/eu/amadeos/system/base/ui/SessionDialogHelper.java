@@ -58,7 +58,38 @@ public final class SessionDialogHelper {
         } catch (Exception e) {
             LOGGER.warning(() -> "Failed to write session action file: " + e.getMessage());
         }
+        endPanelIfElsewhere();
         System.exit(0);
+    }
+
+    /**
+     * The session (amadeos-session) ends when its panel ends. The Exit dialog usually runs in the panel, so its
+     * own exit is enough; opened by the window manager (desktop menu, power button), the window manager's exit
+     * would only make the session start it again. So the panel, the session script's Java child, is asked to
+     * quit too. The script exports its PID as {@code AMADEOS_SESSION_PID}.
+     */
+    static void endPanelIfElsewhere() {
+        String value = System.getenv("AMADEOS_SESSION_PID");
+        if (value == null || value.isBlank()) {
+            return;
+        }
+        long sessionPid;
+        try {
+            sessionPid = Long.parseLong(value.trim());
+        } catch (NumberFormatException e) {
+            return;
+        }
+        ProcessHandle self = ProcessHandle.current();
+        if (self.parent().map(ProcessHandle::pid).orElse(-1L) == sessionPid) {
+            return;
+        }
+        ProcessHandle.of(sessionPid).ifPresent(session -> session.children()
+                .filter(child -> child.pid() != self.pid())
+                .filter(child -> child.info().command().map(c -> c.endsWith("/java")).orElse(false))
+                .forEach(child -> {
+                    LOGGER.info(() -> "Ending the session's panel, PID " + child.pid());
+                    child.destroy();
+                }));
     }
 
     public static void showSessionPowerDialog(Component parent) {

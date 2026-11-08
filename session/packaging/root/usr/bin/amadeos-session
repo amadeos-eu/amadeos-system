@@ -125,6 +125,10 @@ if [ "$WM_ENABLED" = "true" ] && [ ! -x "$WM_COMMAND" ]; then
     report_error_and_fallback "Window manager not found at $WM_COMMAND (package amadeos-wm)."
 fi
 
+# For the Exit dialog when the window manager shows it (desktop menu, power button): Log Out there ends the
+# panel, the Java child of this script, and with it the session (SessionDialogHelper).
+export AMADEOS_SESSION_PID=$$
+
 SESSION_ACTIVE=1
 WM_SUPERVISOR_PID=""
 WM_CHILD_PID=""
