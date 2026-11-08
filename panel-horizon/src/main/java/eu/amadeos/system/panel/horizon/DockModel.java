@@ -11,7 +11,7 @@ import java.util.Optional;
 
 /**
  * What the program part of the dock shows: the favourite programs in the user's order, then the programs that
- * run without being favourites. Windows are grouped by their program (the desktop entry found from the window
+ * run without being favourites, then the fixed programs (Settings), which the dock shows in its system group. Windows are grouped by their program (the desktop entry found from the window
  * class, else the class itself), so a program with three windows is one icon with its windows behind it.
  */
 final class DockModel {
@@ -29,8 +29,10 @@ final class DockModel {
      * @param entry     its desktop entry, if it has one
      * @param windows   its windows, oldest first
      * @param favourite kept in the dock while it is not running
+     * @param fixed     always in the dock and cannot be removed, such as Settings
      */
-    record Program(String key, XdgDesktopEntry entry, String name, List<Window> windows, boolean favourite) {
+    record Program(String key, XdgDesktopEntry entry, String name, List<Window> windows, boolean favourite,
+                   boolean fixed) {
         boolean running() {
             return !windows.isEmpty();
         }
@@ -40,8 +42,17 @@ final class DockModel {
         }
     }
 
-    // --8<-- [start:programs]
     static List<Program> programs(List<String> favourites, List<XdgDesktopEntry> entries, List<Window> windows) {
+        return programs(favourites, List.of(), entries, windows);
+    }
+
+    // --8<-- [start:programs]
+    /**
+     * The dock's programs. A fixed program comes last, once, even if it is also among the favourites, and only
+     * if it is installed.
+     */
+    static List<Program> programs(List<String> favourites, List<String> fixed, List<XdgDesktopEntry> entries,
+                                  List<Window> windows) {
         Map<String, XdgDesktopEntry> byId = new LinkedHashMap<>();
         for (XdgDesktopEntry e : entries) byId.putIfAbsent(e.id(), e);
 
@@ -57,16 +68,27 @@ final class DockModel {
         }
 
         List<Program> result = new ArrayList<>();
+        List<Program> fixedPrograms = new ArrayList<>();
+        for (String id : fixed) {
+            XdgDesktopEntry e = byId.get(id);
+            if (e == null) continue;
+            fixedPrograms.add(new Program(id, e, e.name(), List.copyOf(windowsByKey.getOrDefault(id, List.of())),
+                    false, true));
+            windowsByKey.remove(id);
+        }
         for (String id : favourites) {
             XdgDesktopEntry e = byId.get(id);
-            if (e == null) continue; // not installed (any more)
-            result.add(new Program(id, e, e.name(), List.copyOf(windowsByKey.getOrDefault(id, List.of())), true));
+            if (e == null || fixed.contains(id)) continue; // not installed (any more), or in its fixed place
+            result.add(new Program(id, e, e.name(), List.copyOf(windowsByKey.getOrDefault(id, List.of())), true,
+                    false));
             windowsByKey.remove(id);
         }
         for (Map.Entry<String, List<Window>> running : windowsByKey.entrySet()) {
             String key = running.getKey();
-            result.add(new Program(key, entryByKey.get(key), nameByKey.get(key), List.copyOf(running.getValue()), false));
+            result.add(new Program(key, entryByKey.get(key), nameByKey.get(key), List.copyOf(running.getValue()),
+                    false, false));
         }
+        result.addAll(fixedPrograms);
         return result;
     }
     // --8<-- [end:programs]

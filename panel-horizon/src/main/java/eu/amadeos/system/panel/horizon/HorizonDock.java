@@ -53,7 +53,7 @@ import java.util.stream.Stream;
 
 /**
  * Horizon's dock: a floating bar at the bottom of the screen with the favourite programs and the running ones,
- * the program drawers (the groups of the Front Panel), the Downloads and Documents folders and the Trash. A
+ * Settings, which is always there, the program drawers (the groups of the Front Panel), the Downloads and Documents folders and the Trash. A
  * dot under an icon marks a running program. Minimised windows stay in their program's icon instead of
  * becoming icons on the desktop: the dock tells the window manager so with {@code _AMADEOS_DOCK_TAKES_MINIMIZED}.
  * It runs in the top bar's program, which starts it.
@@ -65,6 +65,8 @@ public final class HorizonDock extends JFrame {
     static final int GAP = 6;
     private static final int PADDING = 6;
     private static final int DRAWER_ICON = 32;
+    /** The programs that are always in the dock, before the drawers: Settings. */
+    static final List<String> FIXED = List.of("amadeos-settings.desktop");
 
     // --8<-- [start:drawers]
     /** The program drawers, the groups of the Front Panel's drawers. */
@@ -239,18 +241,25 @@ public final class HorizonDock extends JFrame {
 
     private void rebuild() {
         XdgApplicationManager apps = XdgApplicationManager.getInstance();
-        programs = DockModel.programs(settings.favourites(), apps.getAllApplications(), currentWindows);
+        programs = DockModel.programs(settings.favourites(), FIXED, apps.getAllApplications(), currentWindows);
         int size = settings.iconSize();
         row.removeAll();
         programButtons.clear();
+        // --8<-- [start:fixed]
+        boolean separated = false;
         for (DockModel.Program p : programs) {
+            if (p.fixed() && !separated) {
+                if (row.getComponentCount() > 0) row.add(separator()); // Settings opens the system group
+                separated = true;
+            }
             DockButton b = new DockButton(programIcon(p, size), size, p.name(), HorizonDock::colors,
                     e -> programClicked(p, e));
             programButtons.put(p.key(), b);
             row.add(b);
         }
+        // --8<-- [end:fixed]
         if (settings.drawers()) {
-            row.add(separator());
+            if (!separated) row.add(separator());
             for (Drawer d : Drawer.values()) {
                 if (d.programs(apps).isEmpty()) continue;
                 DockButton[] holder = new DockButton[1];
@@ -377,6 +386,8 @@ public final class HorizonDock extends JFrame {
             JMenuItem open = new JMenuItem(p.running() ? TopBarTexts.get("dock.new.window") : p.name());
             open.addActionListener(ev -> start(p));
             menu.add(open);
+        }
+        if (p.entry() != null && !p.fixed()) {
             boolean favourite = settings.favourites().contains(p.entry().id());
             JMenuItem keep = new JMenuItem(TopBarTexts.get(favourite ? "dock.remove" : "dock.keep"));
             keep.addActionListener(ev -> {
