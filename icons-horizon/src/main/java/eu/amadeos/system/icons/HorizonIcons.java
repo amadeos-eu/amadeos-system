@@ -318,6 +318,14 @@ public final class HorizonIcons {
             p.dot(98, 74, 6);
             p.rect(24, 90, 20, 10, 3);
         });
+        app("amade-cruise-game", 0xF29A5E, 0xC2456E, p -> {
+            p.circle(88, 38, 10);
+            p.line(22, 60, 106, 60);
+            p.line(58, 60, 26, 104);
+            p.line(70, 60, 102, 104);
+            p.line(64, 68, 64, 76);
+            p.line(64, 86, 64, 100);
+        });
         app("amade-pinball-game", 0xB06AD8, 0x6A2E9A, p -> {
             p.circle(64, 42, 13);
             p.dot(80, 70, 7);
