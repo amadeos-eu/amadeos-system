@@ -161,6 +161,13 @@ public final class HorizonIcons {
             p.line(64, 46, 64, 72);
             person(p, 64, 92, 0.62);
         });
+        app("amade-labelprinter labelprinter", 0xEE7A9A, 0xB8406A, p -> {
+            p.rect(32, 22, 64, 84, 7);
+            p.rect(42, 34, 18, 26, 4);
+            p.rect(68, 34, 18, 26, 4);
+            p.rect(42, 70, 18, 26, 4);
+            p.fillRect(68, 70, 18, 26, 4);
+        });
         app("amade-web web-browser internet-web-browser", 0x4FA8F0, 0x2463C2, p -> {
             p.circle(64, 64, 34);
             p.path("M 64 30 Q 44 64 64 98 Q 84 64 64 30");
