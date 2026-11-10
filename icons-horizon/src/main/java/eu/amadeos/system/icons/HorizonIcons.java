@@ -154,6 +154,13 @@ public final class HorizonIcons {
             p.line(98, 42, 98, 52);
             p.line(98, 64, 98, 74);
         });
+        app("amade-familytree familytree", 0x5CC08A, 0x2E8A5A, p -> {
+            person(p, 40, 42, 0.62);
+            person(p, 88, 42, 0.62);
+            p.line(56, 46, 72, 46);
+            p.line(64, 46, 64, 72);
+            person(p, 64, 92, 0.62);
+        });
         app("amade-web web-browser internet-web-browser", 0x4FA8F0, 0x2463C2, p -> {
             p.circle(64, 64, 34);
             p.path("M 64 30 Q 44 64 64 98 Q 84 64 64 30");
