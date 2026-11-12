@@ -4,14 +4,15 @@
 // own build.gradle; `base` is the library the desktop modules share and has no package of its own.
 // `packages` is a library too (bundled into the modules that use it), but has a package: amadeos-packages
 // with the root helper and polkit action and no jar. `icons-horizon` draws the Horizon icon theme at build time;
-// its package amadeos-icons-horizon holds only the PNG files.
+// its package amadeos-icons-horizon holds only the PNG files. `java-options` has no code either: its package
+// amadeos-java-options holds the Java options files every launcher reads, and every program depends on it.
 
 // --8<-- [start:desktop-modules]
 // The modules of the desktop: they build on base, log through java.util.logging and talk to X11 through
 // JNA, so they run with native access enabled.
 def desktopModules = ['wm', 'panel-cde', 'panel-horizon', 'dm', 'session', 'style', 'logviewer', 'taskmanager', 'disks', 'widgets']
 // Libraries: no main class and no program of their own.
-def libraryModules = ['base', 'packages', 'icons-horizon']
+def libraryModules = ['base', 'packages', 'icons-horizon', 'java-options']
 // --8<-- [end:desktop-modules]
 
 // --8<-- [start:x-display]
@@ -167,7 +168,7 @@ configure(subprojects.findAll { it.name != 'base' }) {
                     }
 
                     // The options all amadeOS programs share (heap, collector) come first from the argument file
-                    // amadeos-session installs; the module's own options after it win over them.
+                    // amadeos-java-options installs; the module's own options after it win over them.
                     def javaOptions = deb.javaOptions ? "${deb.javaOptions} " : ''
                     def launcher = new File(launcherDir, packageName)
                     launcher.text = """#!/bin/sh
@@ -235,7 +236,10 @@ exec /usr/bin/java "@\$OPTIONS" ${javaOptions}-jar /opt/${packageName}/${package
                     }
                 }
 
-                def depends = ((program ? ['openjdk-25-jre | java-runtime (>= 25)'] : []) + (deb.depends ?: [])).join(', ')
+                // Every program depends on the options file its launcher reads, also on a system without the
+                // amadeOS desktop.
+                def depends = ((program ? ['openjdk-25-jre | java-runtime (>= 25)', 'amadeos-java-options'] : [])
+                        + (deb.depends ?: [])).join(', ')
                 def control = """Package: ${packageName}
 Version: ${project.debVersion}
 Section: ${deb.section}
@@ -245,6 +249,7 @@ Depends: ${depends}
 """
                 if (deb.recommends) control += "Recommends: ${deb.recommends.join(', ')}\n"
                 if (deb.provides) control += "Provides: ${deb.provides.join(', ')}\n"
+                if (deb.breaks) control += "Breaks: ${deb.breaks.join(', ')}\n"
                 if (deb.conflicts) control += "Conflicts: ${deb.conflicts.join(', ')}\n"
                 if (deb.replaces) control += "Replaces: ${deb.replaces.join(', ')}\n"
                 control += """Maintainer: amadeOS Project <developers@datazuul.com>
