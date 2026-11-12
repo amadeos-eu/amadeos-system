@@ -1,0 +1,16 @@
+# Java options of the amadeOS programs: every launcher in /usr/bin (amade-*, amadeos-*) passes this file to
+# java first, so the options a program's launcher adds after it win (a larger heap for the Image Editor).
+# Games read game.options instead. One option per line; changes apply to programs started afterwards.
+
+# Memory. Java's defaults reserve a quarter of the RAM for each program and keep what it once used: the
+# Software manager stayed at 600 to 800 MB after reading its catalog. A capped heap, the serial collector
+# (short pauses on heaps this small) and giving unused memory back keep a program near what it needs.
+-XX:+UseSerialGC
+-Xmx256m
+-XX:MinHeapFreeRatio=10
+-XX:MaxHeapFreeRatio=30
+
+# Start child processes with fork/exec instead of the JDK's jspawnhelper. An upgrade of the Java package
+# replaces jspawnhelper under the running programs; they would then fail to start any process
+# ("Spawn helper ran into version mismatch") until the next login.
+-Djdk.lang.Process.launchMechanism=FORK
