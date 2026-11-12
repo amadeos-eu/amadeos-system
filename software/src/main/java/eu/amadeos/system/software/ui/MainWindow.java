@@ -88,6 +88,8 @@ public final class MainWindow extends JFrame {
     private final Marks marks = new Marks();
     private final MarksBar marksBar;
     private final JPanel restartBar = new JPanel(new BorderLayout(8, 0));
+    private final JPanel reloginBar = new JPanel(new BorderLayout(8, 0));
+    private JavaRuntimeWatch javaRuntime = JavaRuntimeWatch.current();
     private final JTextField search = new JTextField(24);
     private final JComboBox<String> show;
     private final JCheckBox libraries;
@@ -170,6 +172,14 @@ public final class MainWindow extends JFrame {
         restartBar.add(restartNow, BorderLayout.EAST);
         restartBar.setVisible(false);
 
+        // After an upgrade of Java the desktop keeps running on the old version until the next login.
+        reloginBar.setBackground(RESTART_BACKGROUND);
+        reloginBar.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
+        JLabel reloginText = new JLabel(msg.get("relogin.needed"));
+        reloginText.setForeground(Color.BLACK);
+        reloginBar.add(reloginText, BorderLayout.CENTER);
+        reloginBar.setVisible(false);
+
         // One search and filter for all catalog tabs.
         show = new JComboBox<>(new String[]{msg.get("filter.all"), msg.get("filter.installed")});
         show.addActionListener(e -> applyFilter());
@@ -203,8 +213,11 @@ public final class MainWindow extends JFrame {
         filterBar.add(show);
         filterBar.add(libraries);
 
+        JPanel bars = new JPanel(new BorderLayout());
+        bars.add(restartBar, BorderLayout.NORTH);
+        bars.add(reloginBar, BorderLayout.SOUTH);
         JPanel north = new JPanel(new BorderLayout());
-        north.add(restartBar, BorderLayout.NORTH);
+        north.add(bars, BorderLayout.NORTH);
         north.add(filterBar, BorderLayout.SOUTH);
         add(north, BorderLayout.NORTH);
         add(tabs, BorderLayout.CENTER);
@@ -575,6 +588,8 @@ public final class MainWindow extends JFrame {
         readAppStream();
         operation.end(outcome(msg, result, doneText));
         if (result.rebootRequired()) restartBar.setVisible(true);
+        // A restart includes a new login, so one bar is enough.
+        reloginBar.setVisible(!restartBar.isVisible() && (reloginBar.isVisible() || javaRuntime.replaced()));
         if (result.status() == Result.Status.FAILED) {
             operation.showLog(true);
             JOptionPane.showMessageDialog(this, outcome(msg, result, doneText), getTitle(),
@@ -620,6 +635,15 @@ public final class MainWindow extends JFrame {
 
     boolean restartBarShown() {
         return restartBar.isVisible();
+    }
+
+    boolean reloginBarShown() {
+        return reloginBar.isVisible();
+    }
+
+    /** For tests: the runtime whose replacement asks for a new login. */
+    void watchJavaRuntime(JavaRuntimeWatch watch) {
+        this.javaRuntime = watch;
     }
 
     UpdatesTab updatesTab() {
