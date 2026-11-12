@@ -16,5 +16,6 @@ debian = [
 front panel's update cell, the update window and the app store of amadeOS
 refresh the package lists, upgrade, install and remove software through it
 with apt. The administrator's password is asked for everything except
-refreshing the lists.'''
+refreshing the lists. It also lets apt's daily timer fetch the package lists
+once a day, so that waiting updates show without a manual apt update.'''
 ]

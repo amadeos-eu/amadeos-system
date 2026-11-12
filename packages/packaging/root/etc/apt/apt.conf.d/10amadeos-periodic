@@ -1,0 +1,4 @@
+// amadeOS: let Debian's apt-daily.timer fetch the package lists once a day, so that the front panel's
+// update cell and Software show new updates without a manual "apt update". Debian leaves this at 0.
+// Software > Settings (automatic security updates) writes 50amadeos-unattended, which keeps it at 1.
+APT::Periodic::Update-Package-Lists "1";

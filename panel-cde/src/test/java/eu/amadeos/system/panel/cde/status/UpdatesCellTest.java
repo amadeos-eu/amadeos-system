@@ -65,6 +65,28 @@ class UpdatesCellTest {
     // --8<-- [end:shown]
 
     @Test
+    void staleOrMissingListsAreFetchedByTheCellAtMostEverySixHours() {
+        java.time.Instant now = java.time.Instant.parse("2026-11-12T20:00:00Z");
+        assertTrue(UpdatesCell.refreshDue(Optional.empty(), null, now), "a new installation has no lists");
+        assertFalse(UpdatesCell.refreshDue(Optional.of(now.minus(java.time.Duration.ofHours(20))), null, now),
+                "the daily timer fetched them");
+        assertTrue(UpdatesCell.refreshDue(Optional.of(now.minus(java.time.Duration.ofDays(3))), null, now),
+                "the timer is late or failed");
+        assertFalse(UpdatesCell.refreshDue(Optional.empty(), now.minus(java.time.Duration.ofHours(1)), now),
+                "an offline computer is not tried every 30 minutes");
+        assertTrue(UpdatesCell.refreshDue(Optional.empty(), now.minus(java.time.Duration.ofHours(7)), now));
+    }
+
+    @Test
+    void theCellFetchesMissingListsOnce() {
+        FakeService service = new FakeService();
+        UpdatesCell cell = cell(service, null);
+        cell.refreshIfStale();
+        cell.refreshIfStale();
+        assertEquals(List.of("refresh"), new ArrayList<>(service.calls));
+    }
+
+    @Test
     void menuListsSecurityUpdatesFirstAndOffersSecurityOnly() {
         UpdatesCell cell = cell(new FakeService(), null);
         cell.show(PENDING);
