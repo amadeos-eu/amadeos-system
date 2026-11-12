@@ -96,6 +96,22 @@ jobs:
           done
           grep -q '^-rwxr-xr-x .* ./usr/libexec/amadeos-packages$' contents.txt
           bash -n packages/packaging/root/usr/libexec/amadeos-packages
+      - name: Check the Java options package
+        run: |
+          # amadeos-java-options has no jar: only the two argument files, as conffiles; every program depends on it.
+          deb=$(ls java-options/build/distributions/amadeos-java-options_*_all.deb)
+          dpkg-deb --info "$deb"
+          dpkg-deb --contents "$deb" > contents.txt
+          ! grep -q '\.jar$' contents.txt || { echo "amadeos-java-options must not contain a jar"; exit 1; }
+          rm -rf control-java-options && dpkg-deb --control "$deb" control-java-options
+          for f in /etc/amadeos/java/app.options /etc/amadeos/java/game.options; do
+            grep -q " .$f\$" contents.txt || { echo "missing in amadeos-java-options: $f"; exit 1; }
+            grep -qx "$f" control-java-options/conffiles || { echo "not a conffile: $f"; exit 1; }
+          done
+          for module in wm panel-cde dm session settings logviewer print sysinfo software; do
+            dpkg-deb --field $module/build/distributions/amadeos-${module}_*_all.deb Depends | grep -q 'amadeos-java-options' \
+              || { echo "amadeos-$module does not depend on amadeos-java-options"; exit 1; }
+          done
       - name: Upload the Debian packages
         uses: actions/upload-artifact@v7
         with:

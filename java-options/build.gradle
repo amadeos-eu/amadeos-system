@@ -1,0 +1,18 @@
+// The Java options all amadeOS programs and games start with: /etc/amadeos/java/app.options and game.options,
+// which every launcher passes to java first ("java @file"). A package of their own, so that a program
+// installed on a plain Debian or Ubuntu without the amadeOS desktop gets them too: each program and game
+// depends on amadeos-java-options. No Java code, only the two conffiles.
+
+debian = [
+    section    : 'misc',
+    // The files came with amadeos-session before (amadeos-system 1.x up to this version).
+    replaces   : ["amadeos-session (<< ${project.debVersion})"],
+    breaks     : ["amadeos-session (<< ${project.debVersion})"],
+    summary    : 'Shared Java options of the amadeOS programs and games',
+    description: '''The argument files /etc/amadeos/java/app.options and game.options, which the
+launchers of all amadeOS programs and games pass to Java first: a heap limit,
+a garbage collector that gives unused memory back to the system, and starting
+child processes without the JDK's spawn helper, so that programs keep working
+while the Java package is upgraded. A program's launcher can raise the limit
+for itself. Administrators can change the files; dpkg keeps their changes.'''
+]
