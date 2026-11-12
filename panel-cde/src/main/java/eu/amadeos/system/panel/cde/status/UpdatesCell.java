@@ -3,6 +3,8 @@ package eu.amadeos.system.panel.cde.status;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -40,9 +42,14 @@ import eu.amadeos.system.panel.cde.widget.AbstractDockWidget.MotifBevelBorder;
  * first updates and Install all / Install security updates only / Check now. An installation can be followed in
  * {@link UpdateProgressWindow}.
  * <p>
- * The cell reads what Debian's daily refresh (apt-daily.timer) fetched: every 30 minutes and whenever the
- * installed packages or the package lists change. Reading needs no privileges and no network; installing and
- * Check now go through the helper, which asks for the password where it has to.
+ * The cell reads what Debian's daily refresh (apt-daily.timer, switched on by amadeos-packages'
+ * {@code /etc/apt/apt.conf.d/10amadeos-periodic}) fetched: every 30 minutes and whenever the installed packages
+ * or the package lists change. Reading needs no privileges and no network; installing and Check now go through
+ * the helper, which asks for the password where it has to.
+ * <p>
+ * When the lists are missing (a new installation) or older than {@link #STALE_AFTER}, because the timer has not
+ * run yet or could not reach the server, the cell fetches them itself, quietly and at most every
+ * {@link #RETRY_AFTER}. Refreshing needs no password for the active local user (the helper's polkit rule).
  */
 public final class UpdatesCell implements StatusCell {
     private static final Logger LOGGER = Logger.getLogger(UpdatesCell.class.getName());
@@ -50,6 +57,10 @@ public final class UpdatesCell implements StatusCell {
     private static final long POLL_MINUTES = 30;
     /** The first read waits until the session has settled (seconds). */
     private static final long FIRST_READ_SECONDS = 20;
+    /** Package lists older than this are fetched by the cell itself (the daily timer is late or failed). */
+    static final Duration STALE_AFTER = Duration.ofHours(26);
+    /** The cell's own fetches are tried at most this often, so that an offline computer is not pestered. */
+    static final Duration RETRY_AFTER = Duration.ofHours(6);
     static final int MENU_ENTRIES = 8;
     static final Color SECURITY = new Color(0xC0, 0x28, 0x28);
 
@@ -129,6 +140,8 @@ public final class UpdatesCell implements StatusCell {
     private Runnable relayout = () -> {};
     private java.util.function.Consumer<List<Change>> readings = pending -> { };
     private AutoCloseable watch;
+    /** When the cell last fetched the package lists itself, or null; only touched on the reader thread. */
+    private Instant ownRefresh;
     JPopupMenu menu;
 
     /**
@@ -266,12 +279,33 @@ public final class UpdatesCell implements StatusCell {
     }
 
     private void readNow() {
+        refreshIfStale();
         try {
             List<Change> pending = service.upgrades();
             SwingUtilities.invokeLater(() -> show(pending));
         } catch (PackageException e) {
             LOGGER.log(Level.FINE, "Cannot read the pending updates", e);
         }
+    }
+
+    /** Fetches the package lists quietly when they are missing or stale; runs on the reader thread. */
+    void refreshIfStale() {
+        Instant now = Instant.now();
+        if (busy != Busy.NONE || !refreshDue(service.lastRefresh(), ownRefresh, now)) return;
+        ownRefresh = now;
+        Result result = service.refresh(ProgressListener.NONE);
+        LOGGER.fine(() -> "Fetched the stale package lists: " + result.status());
+    }
+
+    /**
+     * Whether the cell should fetch the package lists itself.
+     *
+     * @param lastRefresh when the lists were last fetched, empty when there are none
+     * @param ownRefresh  when the cell last tried, or null
+     */
+    static boolean refreshDue(Optional<Instant> lastRefresh, Instant ownRefresh, Instant now) {
+        if (ownRefresh != null && ownRefresh.plus(RETRY_AFTER).isAfter(now)) return false;
+        return lastRefresh.map(last -> last.plus(STALE_AFTER).isBefore(now)).orElse(true);
     }
 
     void openMenu() {
