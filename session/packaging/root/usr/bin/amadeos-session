@@ -150,23 +150,62 @@ export AMADEOS_SESSION_PID=$$
 SESSION_ACTIVE=1
 WM_SUPERVISOR_PID=""
 WM_CHILD_PID=""
+# The loops of /etc/amadeos/autostart.d (clipboard manager, notifications, screen saver ...) restart their
+# program whenever it ends, so the session ends them itself (stop_with_children).
+AUTOSTART_PIDS=""
+
+# Ends a process and the programs it started. The loop script goes first, so that it cannot restart its program;
+# its children are looked up before, since they belong to init once the script is gone.
+stop_with_children() {
+    children="$(pgrep -P "$1" 2>/dev/null || true)"
+    kill "$1" 2>/dev/null || true
+    for child in $children; do
+        kill "$child" 2>/dev/null || true
+    done
+}
+
+# Waits up to five seconds for a process to end, then kills it.
+wait_for_exit() {
+    tries=0
+    while kill -0 "$1" 2>/dev/null; do
+        if [ "$tries" -ge 50 ]; then
+            echo "[amadeos-session] PID $1 did not end in time; killing it"
+            kill -KILL "$1" 2>/dev/null || true
+            return
+        fi
+        sleep 0.1
+        tries=$((tries + 1))
+    done
+}
 
 cleanup_session() {
+    [ "$SESSION_ACTIVE" = "1" ] || return 0
     echo "[amadeos-session] Cleaning up session processes..."
     SESSION_ACTIVE=0
+    # The supervisor first: it runs in a subshell, which does not see SESSION_ACTIVE change, and would start the
+    # window manager again once it ends.
+    if [ -n "$WM_SUPERVISOR_PID" ]; then
+        kill "$WM_SUPERVISOR_PID" 2>/dev/null || true
+    fi
+    # Then the window manager, and wait until it has let go of the screen. The display manager shows the login
+    # screen as soon as this script has ended; while the window manager still holds the screen, the X server
+    # hands the login screen to it instead of showing it, and only the backdrop stays on the screen.
     if [ -f "${HOME:-/tmp}/.amadeos-wm.pid" ]; then
         WM_PID="$(cat "${HOME:-/tmp}/.amadeos-wm.pid" 2>/dev/null || true)"
         if [ -n "$WM_PID" ]; then
             kill "$WM_PID" 2>/dev/null || true
+            wait_for_exit "$WM_PID"
         fi
         rm -f "${HOME:-/tmp}/.amadeos-wm.pid"
     fi
     if [ -n "$WM_CHILD_PID" ]; then
         kill "$WM_CHILD_PID" 2>/dev/null || true
     fi
-    if [ -n "$WM_SUPERVISOR_PID" ]; then
-        kill "$WM_SUPERVISOR_PID" 2>/dev/null || true
-    fi
+    # The session's helpers would otherwise stay on the display into the next login, which may be another
+    # user's: the clipboard manager would keep that user's clipboard.
+    for pid in $AUTOSTART_PIDS; do
+        stop_with_children "$pid"
+    done
     echo "[amadeos-session] Session terminated cleanly at $(date)"
 }
 trap cleanup_session EXIT INT TERM HUP
@@ -230,6 +269,7 @@ for autostart_dir in "/etc/amadeos/autostart.d" "${XDG_CONFIG_HOME:-$HOME/.confi
                 esac
                 echo "[amadeos-session] Executing autostart script: $script"
                 "$script" &
+                AUTOSTART_PIDS="$AUTOSTART_PIDS $!"
             fi
         done
     fi
