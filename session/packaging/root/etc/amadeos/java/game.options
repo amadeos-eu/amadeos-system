@@ -1,0 +1,17 @@
+# Java options of the amadeOS games: every game's launcher in /usr/bin passes this file to java first, so the
+# options a game's launcher adds after it win. The programs read app.options instead. One option per line;
+# changes apply to games started afterwards.
+
+# Memory. Java's defaults reserve a quarter of the RAM for each program and keep what it once used. Games
+# keep G1, whose pauses stay short enough for smooth frames, with a capped heap; when a game idles, a
+# collection every 10 seconds gives unused memory back.
+-XX:+UseG1GC
+-Xmx512m
+-XX:G1PeriodicGCInterval=10000
+-XX:MinHeapFreeRatio=10
+-XX:MaxHeapFreeRatio=30
+
+# Start child processes with fork/exec instead of the JDK's jspawnhelper. An upgrade of the Java package
+# replaces jspawnhelper under the running programs; they would then fail to start any process
+# ("Spawn helper ran into version mismatch") until the next login.
+-Djdk.lang.Process.launchMechanism=FORK
