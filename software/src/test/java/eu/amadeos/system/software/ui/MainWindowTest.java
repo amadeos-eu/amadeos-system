@@ -18,7 +18,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import javax.swing.SwingUtilities;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -81,6 +83,25 @@ class MainWindowTest {
         assertEquals("openssl", onEdt(() -> window.updatesTab().selectedUpdate().orElseThrow().name()));
         await(() -> onEdt(() -> window.updatesTab().details().summaryText().equals("Secure sockets")));
         assertTrue(onEdt(() -> window.updatesTab().installSecurityButton().isEnabled()));
+    }
+
+    @Test
+    void anUpgradeOfJavaAsksForANewLogin(@TempDir Path javaHome) throws Exception {
+        Files.createDirectories(javaHome.resolve("lib"));
+        Files.writeString(javaHome.resolve("lib/modules"), "25.0.4");
+        service.updates = List.of(update("openjdk-25-jre-headless", STABLE));
+        service.result = new Result(Result.Status.DONE, "", false);
+        open();
+        SwingUtilities.invokeAndWait(() -> window.watchJavaRuntime(new JavaRuntimeWatch(javaHome)));
+        await(() -> onEdt(() -> window.updatesTab().model().getRowCount()) == 1);
+        assertFalse(onEdt(window::reloginBarShown));
+
+        // dpkg unpacks the new version next to the old file and renames it over it.
+        Path unpacked = Files.writeString(javaHome.resolve("lib/modules.dpkg-new"), "25.0.5");
+        Files.move(unpacked, javaHome.resolve("lib/modules"), StandardCopyOption.REPLACE_EXISTING);
+        SwingUtilities.invokeAndWait(() -> window.updatesTab().installSelectedButton().doClick());
+        await(() -> onEdt(window::reloginBarShown));
+        assertFalse(onEdt(window::restartBarShown));
     }
 
     @Test
