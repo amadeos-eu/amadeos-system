@@ -21,6 +21,12 @@ debian = [
     // appstream makes apt fetch the AppStream data (names, descriptions, icons, screenshots of the
     // applications); packaging/root/etc/apt/apt.conf.d/60amadeos-software adds the icons.
     depends    : ['amadeos-packages', 'appstream'],
+    // Reading the catalog (apt-cache dumpavail, about 100 MB of text) and the AppStream data makes a lot of
+    // short-lived garbage, while the data kept is about 50 MB. With the JVM's defaults (G1, a heap of up to a
+    // quarter of the RAM) the heap grew to that garbage and stayed there: 600 to 800 MB after a start or an
+    // upgrade (the catalog is read again afterwards). The serial collector with a capped heap that gives
+    // unused memory back keeps the program near 250 MB; the collections take well under a second in all.
+    javaOptions: '-XX:+UseSerialGC -Xmx256m -XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=30',
     summary    : 'Software manager of amadeOS',
     description: '''Finds, installs, updates and removes software. Applications, command-line
 programs and libraries each have a tab, with one search over all of them.
