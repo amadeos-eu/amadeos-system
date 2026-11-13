@@ -143,6 +143,29 @@ if [ "$WM_ENABLED" = "true" ] && [ ! -x "$WM_COMMAND" ]; then
     report_error_and_fallback "Window manager not found at $WM_COMMAND (package amadeos-wm)."
 fi
 
+# Hand the session's environment (DISPLAY, XAUTHORITY, XDG_CURRENT_DESKTOP, XDG_DATA_DIRS, PATH, language,
+# proxy ...) to the D-Bus user bus and systemd --user, as /etc/X11/Xsession.d does for other X sessions, which
+# this session does not go through. Services they start on demand for the programs of the session (the desktop
+# portals with their file dialogs, the accessibility bus, gvfs, gnome-keyring) otherwise run without a display:
+# they fail or hang, and GTK programs such as Firefox, LibreOffice or a file manager wait for the D-Bus timeout
+# of 25 seconds before a window or a file dialog appears.
+if [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ] || [ -S "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/bus" ]; then
+    if command -v dbus-update-activation-environment >/dev/null 2>&1; then
+        dbus-update-activation-environment --systemd --all \
+            && echo "[amadeos-session] Session environment handed to D-Bus and systemd --user" \
+            || echo "[amadeos-session] WARNING: could not hand the session environment to D-Bus"
+    else
+        echo "[amadeos-session] WARNING: dbus-update-activation-environment missing (package dbus-bin);" \
+            "programs started by D-Bus have no display"
+    fi
+    # A portal started before (a session without display, an earlier login) keeps its old environment; stop it so
+    # that D-Bus starts it again with this one when a program asks for it.
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl --user stop xdg-desktop-portal.service xdg-desktop-portal-gtk.service \
+            xdg-desktop-portal-gnome.service 2>/dev/null || true
+    fi
+fi
+
 # For the Exit dialog when the window manager shows it (desktop menu, power button): Log Out there ends the
 # panel, the Java child of this script, and with it the session (SessionDialogHelper).
 export AMADEOS_SESSION_PID=$$

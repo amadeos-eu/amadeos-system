@@ -16,9 +16,10 @@ debian = [
     // polkitd for the agent, which asks for the password when a program of the session uses pkexec; the
     // XFIXES library tells the clipboard manager when the clipboard changes hands; xset (x11-xserver-utils)
     // turns the screen off, systemd-inhibit (systemd) keeps logind away from the lid while the session runs;
-    // pgrep (procps) finds the programs of the autostart scripts when the session ends.
+    // pgrep (procps) finds the programs of the autostart scripts when the session ends; dbus-update-activation-environment
+    // (dbus-bin) gives the services D-Bus starts for the session's programs (portals, file dialogs) the display.
     depends    : ['amadeos-wm', 'amadeos-panel', 'x11-utils', 'libxss1', 'libpam-runtime', 'polkitd', 'libxfixes3',
-                  'x11-xserver-utils', 'systemd', 'procps'],
+                  'x11-xserver-utils', 'systemd', 'procps', 'dbus-bin'],
     // xterm: the fallback of a failed session; xinit: startx without the display manager (amadeos-session
     // is registered as x-session-manager).
     // xdg-user-dirs: the user's folders (Documents, Downloads ...) in the session's language at login.
