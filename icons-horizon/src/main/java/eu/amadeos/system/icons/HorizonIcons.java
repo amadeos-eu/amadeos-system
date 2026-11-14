@@ -219,6 +219,14 @@ public final class HorizonIcons {
             p.poly(true, 45, 62, 83, 62, 64, 96);
             p.poly(true, 54.5, 45, 73.5, 45, 64, 62);
         });
+        app("amade-artstudio artstudio", 0xE86FB0, 0x7A4BD0, p -> {
+            // A painter's palette with a thumb hole and three blobs of paint.
+            p.path("M 64 28 Q 102 28 102 62 Q 102 80 86 80 Q 74 80 76 90 Q 78 102 62 102 Q 26 100 26 64 Q 26 28 64 28 Z");
+            p.circle(52, 84, 7);
+            p.dot(46, 54, 7);
+            p.dot(64, 42, 7);
+            p.dot(84, 52, 7);
+        });
         app("amade-imagescan scanner xsane", 0x5FB0A0, 0x2F7A6E, p -> {
             p.rect(26, 62, 76, 30, 7);
             p.line(36, 77, 70, 77);
