@@ -181,4 +181,30 @@ class WidgetsTest {
             }
         }
     }
+
+    @Test
+    void theHostEndsWithTheSessionThatStartedIt() throws Exception {
+        Process session = new ProcessBuilder("sleep", "30").start();
+        java.util.concurrent.CompletableFuture<Void> ended = new java.util.concurrent.CompletableFuture<>();
+        try {
+            assertTrue(WidgetHost.endWithSession(Long.toString(session.pid()), () -> ended.complete(null)));
+            assertFalse(ended.isDone(), "The session still runs");
+        } finally {
+            session.destroy();
+        }
+        ended.get(10, java.util.concurrent.TimeUnit.SECONDS);
+    }
+
+    @Test
+    void aSessionThatIsGoneEndsTheHostAtOnce() {
+        boolean[] ended = {false};
+        assertTrue(WidgetHost.endWithSession(Integer.toString(Integer.MAX_VALUE), () -> ended[0] = true));
+        assertTrue(ended[0]);
+    }
+
+    @Test
+    void withoutASessionTheHostRunsOn() {
+        assertFalse(WidgetHost.endWithSession(null, () -> fail("must not end")));
+        assertFalse(WidgetHost.endWithSession("not-a-pid", () -> fail("must not end")));
+    }
 }

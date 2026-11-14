@@ -86,6 +86,35 @@ public final class WidgetHost {
         } catch (IOException e) {
             LOGGER.log(Level.WARNING, "A second start cannot reach the widget host", e);
         }
+        endWithSession(System.getenv("AMADEOS_SESSION_PID"), () -> {
+            LOGGER.info("The session has ended: the widgets leave the desktop");
+            System.exit(0);
+        });
+    }
+
+    /**
+     * Ends the host with the session that started it ({@code AMADEOS_SESSION_PID}, exported by amadeos-session).
+     * The host is the top bar's child, and nothing else ends it at Log Out: a host left over from an earlier session
+     * kept the channel, so every later start only handed its arguments over and ended, while the old host's
+     * windows were gone with the old window manager. No widget came back until the old host was killed by hand.
+     *
+     * @return whether the session is watched (false without a valid PID; the host then runs as before)
+     */
+    static boolean endWithSession(String sessionPid, Runnable end) {
+        if (sessionPid == null || sessionPid.isBlank()) return false;
+        long pid;
+        try {
+            pid = Long.parseLong(sessionPid.trim());
+        } catch (NumberFormatException e) {
+            return false;
+        }
+        java.util.Optional<ProcessHandle> session = ProcessHandle.of(pid);
+        if (session.isEmpty() || !session.get().isAlive()) {
+            end.run();
+            return true;
+        }
+        session.get().onExit().thenRun(end);
+        return true;
     }
 
     /** The colours the desktop has now (the window manager keeps their name on the root window). */
