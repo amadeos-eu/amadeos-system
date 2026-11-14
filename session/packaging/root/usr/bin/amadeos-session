@@ -149,6 +149,7 @@ fi
 # portals with their file dialogs, the accessibility bus, gvfs, gnome-keyring) otherwise run without a display:
 # they fail or hang, and GTK programs such as Firefox, LibreOffice or a file manager wait for the D-Bus timeout
 # of 25 seconds before a window or a file dialog appears.
+# --8<-- [start:dbus-activation]
 if [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ] || [ -S "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/bus" ]; then
     if command -v dbus-update-activation-environment >/dev/null 2>&1; then
         dbus-update-activation-environment --systemd --all \
@@ -165,6 +166,7 @@ if [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ] || [ -S "${XDG_RUNTIME_DIR:-/run/user/
             xdg-desktop-portal-gnome.service 2>/dev/null || true
     fi
 fi
+# --8<-- [end:dbus-activation]
 
 # For the Exit dialog when the window manager shows it (desktop menu, power button): Log Out there ends the
 # panel, the Java child of this script, and with it the session (SessionDialogHelper).
