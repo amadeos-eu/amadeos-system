@@ -871,6 +871,31 @@ class X11WindowManagerIntegrationTest {
         }
     }
 
+    @Test
+    void aBackdropWrittenByAnotherProgramIsShownAtOnce() throws Exception {
+        java.nio.file.Path dir = eu.amadeos.system.base.theme.WallpaperManager.configDirectory();
+        java.nio.file.Files.createDirectories(dir);
+        java.nio.file.Path conf = dir.resolve(eu.amadeos.system.base.theme.WallpaperManager.CONFIG_FILE_NAME);
+        java.nio.file.Path picture = java.nio.file.Files.createTempFile("backdrop-", ".png");
+        java.awt.image.BufferedImage image = new java.awt.image.BufferedImage(8, 8, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        javax.imageio.ImageIO.write(image, "png", picture.toFile());
+        java.nio.file.Files.deleteIfExists(conf);
+        try (X11WindowManagerService wm = X11WindowManagerService.open(display)) {
+            // As Art Studio's "Set as Backdrop" does: a picture of its own for the current (first) workspace.
+            java.nio.file.Files.writeString(conf, "wallpaper=/usr/share/backgrounds/amadeos/wallpaper.png\n"
+                    + "workspace.1.wallpaper=" + picture + "\nworkspace.1.mode=FILL\nworkspace.1.color=#102030\n");
+            long deadline = System.currentTimeMillis() + 5000;
+            while (System.currentTimeMillis() < deadline
+                    && (wm.shownBackdrop() == null || !picture.toString().equals(wm.shownBackdrop().path()))) {
+                Thread.sleep(50);
+            }
+            assertEquals(picture.toString(), wm.shownBackdrop().path(), "The new backdrop must be shown at once");
+        } finally {
+            java.nio.file.Files.deleteIfExists(conf);
+            java.nio.file.Files.deleteIfExists(picture);
+        }
+    }
+
     /** Lets the window manager handle its events until the condition holds; slow CI machines need more than a fixed pause. */
     private static boolean waitFor(X11WindowManagerService wm, java.util.function.BooleanSupplier condition)
             throws InterruptedException {
