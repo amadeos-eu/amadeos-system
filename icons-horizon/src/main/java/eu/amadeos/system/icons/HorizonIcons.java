@@ -227,6 +227,16 @@ public final class HorizonIcons {
             p.dot(64, 42, 7);
             p.dot(84, 52, 7);
         });
+        app("amade-musicstudio musicstudio", 0xF2A03D, 0xC4561E, p -> {
+            // Equalizer bars and two beamed notes: music that is made, not only played.
+            p.line(32, 98, 32, 70);
+            p.line(44, 98, 44, 56);
+            p.line(56, 98, 56, 78);
+            p.path("M 72 82 L 72 36 L 98 30 L 98 76");
+            p.line(72, 46, 98, 40);
+            p.dot(66, 84, 7);
+            p.dot(92, 78, 7);
+        });
         app("amade-imagescan scanner xsane", 0x5FB0A0, 0x2F7A6E, p -> {
             p.rect(26, 62, 76, 30, 7);
             p.line(36, 77, 70, 77);
