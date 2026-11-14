@@ -212,6 +212,15 @@ public final class X11WindowManagerService implements AutoCloseable {
     private final java.util.Set<Long> dockWindows = new java.util.HashSet<>();
     /** The rendered backdrops of the workspaces, so a switch only swaps the root window's pixmap. */
     private final Map<Backdrop, NativeLong> backdropPixmaps = new HashMap<>();
+    /** The backdrop on the root window now; null before the first. */
+    private volatile Backdrop shownBackdrop;
+    /**
+     * Other programs, such as Art Studio's "Set as Backdrop", write wallpaper.conf without painting the root
+     * window: the backdrop of the current workspace is shown at once when it changes there.
+     */
+    private final ConfigWatcher backdropWatcher = new ConfigWatcher(
+            WallpaperManager.configDirectory(), Set.of(WallpaperManager.CONFIG_FILE_NAME), "amadeos-wm-backdrops",
+            () -> runOnEventThread(this::backdropsChanged));
     private int dockMarginBottom = 0;
     /** The space at the top of the screen the docks reserve (Horizon's top bar). */
     private int dockMarginTop = 0;
@@ -619,6 +628,7 @@ public final class X11WindowManagerService implements AutoCloseable {
         ThemeManager.addListener(newTheme -> runOnEventThread(() -> applyThemeGlobally(newTheme)));
         windowSettingsWatcher.start();
         shortcutWatcher.start();
+        backdropWatcher.start();
 
         try {
             showWorkspaceBackdrop();
@@ -643,6 +653,7 @@ public final class X11WindowManagerService implements AutoCloseable {
             backdropPixmaps.put(backdrop, pixmap);
         }
         WallpaperManager.showPixmap(x11, display, rootWindow, pixmap);
+        shownBackdrop = backdrop;
         // Keep only the pixmaps of backdrops a workspace still has.
         java.util.Set<Backdrop> inUse = new java.util.HashSet<>();
         for (int i = 0; i < NUMBER_OF_DESKTOPS; i++) {
@@ -654,6 +665,20 @@ public final class X11WindowManagerService implements AutoCloseable {
             x11.XFreePixmap(display, entry.getValue());
             return true;
         });
+    }
+
+    /** The backdrop on the root window now, for tests. */
+    Backdrop shownBackdrop() {
+        return shownBackdrop;
+    }
+
+    /** wallpaper.conf changed: shows the current workspace's backdrop if it is another one now. */
+    void backdropsChanged() {
+        try {
+            if (!WallpaperManager.backdropOf(currentDesktop).equals(shownBackdrop)) showWorkspaceBackdrop();
+        } catch (RuntimeException e) {
+            LOGGER.fine("Backdrop not redrawn: " + e.getMessage());
+        }
     }
     // --8<-- [end:backdrop]
 
@@ -3506,6 +3531,7 @@ public final class X11WindowManagerService implements AutoCloseable {
         }
         windowSettingsWatcher.close();
         shortcutWatcher.close();
+        backdropWatcher.close();
         desktopMenu.dispose();
         windowMenu.dispose();
         if (switcherPopup != null) switcherPopup.dispose();

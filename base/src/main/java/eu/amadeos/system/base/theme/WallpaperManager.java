@@ -495,8 +495,16 @@ public final class WallpaperManager {
         x11.XFlush(display);
     }
 
+    /** The file with the backdrops, in {@link #configDirectory()}; other programs may write it too. */
+    public static final String CONFIG_FILE_NAME = "wallpaper.conf";
+
+    /** {@code ~/.config/amadeos}, where {@link #CONFIG_FILE_NAME} is. */
+    public static java.nio.file.Path configDirectory() {
+        return XdgDirectories.amadeosConfigDir();
+    }
+
     private static File configFile() {
-        return XdgDirectories.amadeosConfigDir().resolve("wallpaper.conf").toFile();
+        return configDirectory().resolve(CONFIG_FILE_NAME).toFile();
     }
 
     private static Properties readConfig() {
