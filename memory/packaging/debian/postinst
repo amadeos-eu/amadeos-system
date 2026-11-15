@@ -1,0 +1,13 @@
+#!/bin/sh
+# amadeos-memory: apply the settings to the running system; at the next boot they apply by themselves.
+set -e
+
+if [ "$1" = "configure" ] && [ -d /run/systemd/system ]; then
+    # Not in a chroot (image build, container): reload the units so the generator creates the zram device and
+    # earlyoom gets its drop-in, then switch both on now.
+    systemctl daemon-reload >/dev/null 2>&1 || true
+    systemctl restart systemd-sysctl.service >/dev/null 2>&1 || true
+    systemctl start dev-zram0.swap >/dev/null 2>&1 || true
+    systemctl enable earlyoom.service >/dev/null 2>&1 || true
+    systemctl restart earlyoom.service >/dev/null 2>&1 || true
+fi

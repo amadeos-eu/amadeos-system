@@ -1,0 +1,8 @@
+#!/bin/sh
+# amadeos-memory: earlyoom goes back to its own arguments. The zram device stays until the next boot.
+set -e
+
+if [ "$1" = "remove" ] && [ -d /run/systemd/system ]; then
+    systemctl daemon-reload >/dev/null 2>&1 || true
+    systemctl try-restart earlyoom.service >/dev/null 2>&1 || true
+fi
