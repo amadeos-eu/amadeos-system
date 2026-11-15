@@ -1,0 +1,19 @@
+// Memory protection of the desktop: compressed swap in RAM (zram), kernel settings that suit it, and earlyoom,
+// which ends the program that uses up the memory before the system freezes. No Java code, only configuration
+// for systemd-zram-generator, sysctl and earlyoom. amadeOS installs no swap partition by default; without these
+// a program that takes all the memory (VS Code, a browser) made the whole desktop stall for minutes until the
+// kernel killed some process, which could be X or the window manager instead of the program.
+
+debian = [
+    section    : 'admin',
+    depends    : ['systemd-zram-generator', 'earlyoom'],
+    summary    : 'Memory protection of the amadeOS desktop (zram, earlyoom)',
+    description: '''Keeps the desktop responsive when programs use up the memory: compressed
+swap in RAM (zram, as large as the RAM, at most 8 GB), kernel settings for it
+and more file watches for editors, and earlyoom, which ends the largest
+program before the system freezes. earlyoom spares X, the Java desktop and
+system services and ends browsers, editors such as VS Code and other
+Electron programs first. The files are under /usr/lib; a file of the same
+name in /etc (systemd/zram-generator.conf.d, sysctl.d,
+systemd/system/earlyoom.service.d) replaces it.'''
+]
