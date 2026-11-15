@@ -72,4 +72,12 @@ class UpdateTableModelTest {
         assertEquals("12 Aktualisierungen warten, davon 3 Sicherheitsupdates.", UpdatesTab.summaryText(DE, 12, 3));
         assertEquals("Eine Aktualisierung wartet, davon ein Sicherheitsupdate.", UpdatesTab.summaryText(DE, 1, 1));
     }
+
+    @Test
+    void heldBackUpdatesAreExplainedOnlyWhenThereAreSome() {
+        assertEquals("", UpdatesTab.deferredText(EN, List.of()));
+        assertTrue(UpdatesTab.deferredText(EN, List.of("snapd")).startsWith("One more update is held back"));
+        assertTrue(UpdatesTab.deferredText(EN, List.of("snapd")).endsWith("It appears here when it is this computer\u2019s turn."));
+        assertTrue(UpdatesTab.deferredText(DE, List.of("a", "b")).startsWith("2 weitere Aktualisierungen werden"));
+    }
 }

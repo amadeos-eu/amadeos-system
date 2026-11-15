@@ -264,7 +264,7 @@ public final class MainWindow extends JFrame {
 
     /** Reads the waiting updates, the time of the last check and the catalog again. */
     void reload() {
-        background(() -> new Snapshot(packages.upgrades(), packages.lastRefresh()), this::showUpdates,
+        background(() -> new Snapshot(packages.upgrades(), packages.lastRefresh(), deferred()), this::showUpdates,
                 error -> operation.end(msg.format("error.read", message(error))));
         if (!catalogRead) operation.begin(msg.get("progress.reading"));
         background(packages::catalog, this::showCatalog, error -> {
@@ -273,11 +273,25 @@ public final class MainWindow extends JFrame {
         });
     }
 
-    record Snapshot(List<Change> updates, Optional<Instant> lastRefresh) {
+    /** The upgrades held back by a phased rollout; reading them must not hide the updates that can be installed. */
+    private List<String> deferred() {
+        try {
+            return packages.deferredUpgrades();
+        } catch (PackageService.PackageException e) {
+            LOG.warn("Cannot read the deferred updates", e);
+            return List.of();
+        }
+    }
+
+    /** @param deferred the upgrades the distribution holds back for now (Ubuntu's phased updates) */
+    record Snapshot(List<Change> updates, Optional<Instant> lastRefresh, List<String> deferred) {
+        Snapshot(List<Change> updates, Optional<Instant> lastRefresh) {
+            this(updates, lastRefresh, List.of());
+        }
     }
 
     void showUpdates(Snapshot snapshot) {
-        updatesTab.setUpdates(snapshot.updates(), snapshot.lastRefresh());
+        updatesTab.setUpdates(snapshot.updates(), snapshot.lastRefresh(), snapshot.deferred());
         if (snapshot.lastRefresh().isEmpty() && !listsFetched && !busy) {
             // Without lists the catalog holds only the installed packages; fetching needs no password.
             listsFetched = true;
@@ -285,7 +299,8 @@ public final class MainWindow extends JFrame {
         }
         int count = snapshot.updates().size();
         // The tab stays while it is looked at, so "up to date" is seen after installing.
-        showUpdatesTab(count > 0 || tabs.getSelectedComponent() == updatesTab);
+        // Held-back updates keep the tab too, so that it can say why apt counts more than amadeOS offers.
+        showUpdatesTab(count > 0 || !snapshot.deferred().isEmpty() || tabs.getSelectedComponent() == updatesTab);
         int index = tabs.indexOfComponent(updatesTab);
         if (index >= 0) {
             tabs.setTitleAt(index, count == 0 ? msg.get("tab.updates") : msg.format("tab.updates.count", count));

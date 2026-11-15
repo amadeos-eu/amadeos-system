@@ -51,6 +51,31 @@ class AptTest {
     }
 
     @Test
+    void phasedUpgradesAreDeferredNotOffered() {
+        String output = Fixtures.read("simulate-phasing.txt");
+        assertEquals(List.of("amade-pad"), Apt.parseSimulation(output).stream().map(Change::name).toList());
+        List<String> deferred = Apt.parseDeferred(output);
+        assertEquals(12, deferred.size());
+        assertEquals("distro-info", deferred.getFirst());
+        assertEquals("software-properties-gtk", deferred.getLast());
+        assertFalse(deferred.contains("libclutter-gst-3.0-0"), "the autoremove list is not deferred");
+        assertFalse(deferred.contains("amade-pad"));
+    }
+
+    @Test
+    void apt3PhasingLayout() {
+        String output = """
+                Not upgrading yet due to phasing:
+                  snapd lintian
+                \s
+                Summary:
+                  Upgrading: 0, Installing: 0, Removing: 0, Not Upgrading: 2
+                """;
+        assertEquals(List.of("snapd", "lintian"), Apt.parseDeferred(output));
+        assertEquals(List.of(), Apt.parseDeferred(Fixtures.read("simulate-debian.txt")));
+    }
+
+    @Test
     void removals() {
         List<Change> changes = Apt.parseSimulation(Fixtures.read("simulate-remove.txt"));
         assertEquals(List.of("gimp", "gimp-data", "amade-pad"), changes.stream().map(Change::name).toList());

@@ -37,6 +37,8 @@ final class UpdatesTab extends JPanel {
     private final DetailsPane details;
     private final JLabel summary = new JLabel(" ");
     private final JLabel lastCheck = new JLabel(" ");
+    /** Grey line about the updates the distribution holds back for a gradual rollout; hidden when there are none. */
+    private final JLabel deferred = new JLabel(" ");
     private final JButton installSelected;
     private final JButton installSecurity;
     private final JButton selectAll;
@@ -65,7 +67,10 @@ final class UpdatesTab extends JPanel {
         JPanel head = new JPanel(new BorderLayout(0, 2));
         head.setOpaque(false);
         head.add(summary, BorderLayout.NORTH);
-        head.add(lastCheck, BorderLayout.SOUTH);
+        head.add(lastCheck, BorderLayout.CENTER);
+        head.add(deferred, BorderLayout.SOUTH);
+        deferred.setForeground(Color.GRAY);
+        deferred.setVisible(false);
 
         table.setFillsViewportHeight(true);
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -116,6 +121,14 @@ final class UpdatesTab extends JPanel {
     }
 
     void setUpdates(List<Change> updates, Optional<Instant> lastRefresh) {
+        setUpdates(updates, lastRefresh, List.of());
+    }
+
+    /** @param held the names of the upgrades the distribution holds back for now (Ubuntu's phased updates) */
+    void setUpdates(List<Change> updates, Optional<Instant> lastRefresh, List<String> held) {
+        deferred.setText(deferredText(msg, held));
+        deferred.setToolTipText(held.isEmpty() ? null : String.join(", ", held));
+        deferred.setVisible(!held.isEmpty());
         String selected = selectedUpdate().map(Change::name).orElse(null);
         model.setUpdates(updates);
         summary.setText(summaryText(msg, model.updates().size(), model.securityCount()));
@@ -139,6 +152,15 @@ final class UpdatesTab extends JPanel {
         if (count == 0) return msg.get("updates.none");
         return security == 0 ? msg.format("updates.count", count)
                 : msg.format("updates.count.security", count, security);
+    }
+
+    /** "12 more updates are held back by Ubuntu's gradual rollout …", or "" when there are none. */
+    static String deferredText(Messages msg, List<String> held) {
+        return held.isEmpty() ? "" : msg.format("updates.deferred", held.size());
+    }
+
+    String deferredText() {
+        return deferred.isVisible() ? deferred.getText() : "";
     }
 
     /** The repository's description of an update, once it has been read. */
