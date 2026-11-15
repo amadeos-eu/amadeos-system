@@ -6,13 +6,14 @@
 // with the root helper and polkit action and no jar. `icons-horizon` draws the Horizon icon theme at build time;
 // its package amadeos-icons-horizon holds only the PNG files. `java-options` has no code either: its package
 // amadeos-java-options holds the Java options files every launcher reads, and every program depends on it.
+// `memory` has no code either: amadeos-memory sets up zram and earlyoom (system settings in /usr/lib).
 
 // --8<-- [start:desktop-modules]
 // The modules of the desktop: they build on base, log through java.util.logging and talk to X11 through
 // JNA, so they run with native access enabled.
 def desktopModules = ['wm', 'panel-cde', 'panel-horizon', 'dm', 'session', 'style', 'logviewer', 'taskmanager', 'disks', 'widgets']
 // Libraries: no main class and no program of their own.
-def libraryModules = ['base', 'packages', 'icons-horizon', 'java-options']
+def libraryModules = ['base', 'packages', 'icons-horizon', 'java-options', 'memory']
 // --8<-- [end:desktop-modules]
 
 // --8<-- [start:x-display]

@@ -1,0 +1,13 @@
+#!/bin/sh
+# amadeos-memory: apply the settings now, not only after the next start of the computer. In the chroot of the
+# image build there is no running systemd; the settings apply there at the first boot.
+set -e
+
+if [ "$1" = "configure" ] && [ -d /run/systemd/system ]; then
+    sysctl -q --system || true
+    systemctl daemon-reload || true
+    # daemon-reload runs the generator, which makes the units of /dev/zram0; starting its swap unit sets the
+    # device up first. A zram swap that is already active keeps its size until the next start.
+    systemctl start dev-zram0.swap || true
+    systemctl try-restart earlyoom.service || true
+fi

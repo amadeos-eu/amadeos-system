@@ -112,6 +112,19 @@ jobs:
             dpkg-deb --field $module/build/distributions/amadeos-${module}_*_all.deb Depends | grep -q 'amadeos-java-options' \
               || { echo "amadeos-$module does not depend on amadeos-java-options"; exit 1; }
           done
+      - name: Check the memory protection package
+        run: |
+          # amadeos-memory has no jar: only settings in /usr/lib for zram, earlyoom and the kernel.
+          deb=$(ls memory/build/distributions/amadeos-memory_*_all.deb)
+          dpkg-deb --info "$deb"
+          dpkg-deb --contents "$deb" > contents.txt
+          ! grep -q '\.jar$' contents.txt || { echo "amadeos-memory must not contain a jar"; exit 1; }
+          for f in usr/lib/systemd/zram-generator.conf.d/50-amadeos.conf usr/lib/sysctl.d/90-amadeos-memory.conf \
+                   usr/lib/systemd/system/earlyoom.service.d/50-amadeos.conf; do
+            grep -q " ./$f\$" contents.txt || { echo "missing in amadeos-memory: $f"; exit 1; }
+          done
+          dpkg-deb --field "$deb" Depends | grep -q 'earlyoom' && dpkg-deb --field "$deb" Depends | grep -q 'systemd-zram-generator'
+          sh -n memory/packaging/debian/postinst && sh -n memory/packaging/debian/postrm
       - name: Upload the Debian packages
         uses: actions/upload-artifact@v7
         with:

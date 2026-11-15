@@ -1,0 +1,19 @@
+// Memory protection of amadeOS: when one program (an editor with many extensions, a browser with many tabs)
+// uses up the memory, the computer stays usable and only that program ends, instead of the whole desktop
+// freezing for minutes until the kernel ends something, often the session itself. No Java code, only system
+// settings in /usr/lib, which an administrator overrides with files of the same name in /etc:
+// compressed swap in memory (zram, through systemd-zram-generator), earlyoom, which ends the biggest program
+// before the memory runs out, and kernel settings for both. Debian, Ubuntu and Fedora desktops do the same.
+
+debian = [
+    section    : 'admin',
+    depends    : ['earlyoom', 'systemd-zram-generator'],
+    summary    : 'Keeps amadeOS usable when a program uses up the memory',
+    description: '''Compressed swap in memory (zram) and earlyoom, set up for the amadeOS desktop:
+when a program uses up the memory, the system first moves unused pages into
+the compressed swap, and when that is full too, earlyoom ends the program
+that uses the most memory before the computer freezes. The X server, the
+display manager and the system services are never chosen. Also raises the
+inotify limits that editors such as Visual Studio Code need to watch large
+projects for changes.'''
+]
