@@ -10,6 +10,9 @@
 -XX:G1PeriodicGCInterval=10000
 -XX:MinHeapFreeRatio=10
 -XX:MaxHeapFreeRatio=30
+# A small initial heap: without it Java commits 1/64 of the RAM at the start, and G1 never gives back memory
+# below that size even when the game idles. Games keep both compilers for their frame loops.
+-Xms64m
 
 # Start child processes with fork/exec instead of the JDK's jspawnhelper. An upgrade of the Java package
 # replaces jspawnhelper under the running programs; they would then fail to start any process
