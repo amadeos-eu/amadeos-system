@@ -146,6 +146,11 @@ public final class AptPackageService implements PackageService {
     }
 
     @Override
+    public List<String> deferredUpgrades() throws PackageException {
+        return Apt.parseDeferred(read(Apt.simulateUpgrade()));
+    }
+
+    @Override
     public List<Change> simulateInstall(List<String> names) throws PackageException {
         return Apt.parseSimulation(read(Apt.simulateInstall(checked(names))));
     }

@@ -130,6 +130,16 @@ class MainWindowTest {
     }
 
     @Test
+    void heldBackPhasedUpdatesKeepTheTabAndAreExplained() throws Exception {
+        service.deferred = List.of("snapd", "lintian");
+        open(false);
+        await(() -> onEdt(window::updatesTabTitle) != null);
+        assertEquals("Updates", onEdt(window::updatesTabTitle), "held-back updates are not counted");
+        assertTrue(onEdt(() -> window.updatesTab().deferredText()).startsWith("2 more updates are held back"));
+        assertFalse(onEdt(() -> window.updatesTab().installSelectedButton().isEnabled()));
+    }
+
+    @Test
     void anEmptyListSaysSoInTheTabWhenItIsAskedFor() throws Exception {
         open(true);
         await(() -> service.calls.contains("upgrades"));
@@ -383,6 +393,7 @@ class MainWindowTest {
     private static final class FakeService implements PackageService {
         final List<String> calls = new CopyOnWriteArrayList<>();
         volatile List<Change> updates = List.of();
+        volatile List<String> deferred = List.of();
         volatile List<CatalogEntry> catalog = List.of();
         /** What a simulation changes besides the marked packages. */
         volatile List<Change> simulated = List.of();
@@ -393,6 +404,11 @@ class MainWindowTest {
         public List<Change> upgrades() {
             calls.add("upgrades");
             return updates;
+        }
+
+        @Override
+        public List<String> deferredUpgrades() {
+            return deferred;
         }
 
         @Override

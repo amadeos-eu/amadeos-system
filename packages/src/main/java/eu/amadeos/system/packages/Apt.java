@@ -173,6 +173,26 @@ public final class Apt {
         }
     }
 
+    /**
+     * The names apt lists under "The following upgrades have been deferred due to phasing:" (apt-get) or
+     * "Not upgrading yet due to phasing:" (apt 3's new layout) in a simulated upgrade.
+     */
+    public static List<String> parseDeferred(String output) {
+        List<String> names = new ArrayList<>();
+        boolean inList = false;
+        for (String line : output.lines().toList()) {
+            if (line.startsWith(" ") || line.startsWith("\t")) {
+                if (!inList) continue;
+                for (String name : line.strip().split("\\s+")) {
+                    if (!name.isEmpty()) names.add(name);
+                }
+            } else {
+                inList = line.contains("due to phasing");
+            }
+        }
+        return names;
+    }
+
     /** The changes of a simulation, in apt's order (which installs dependencies first). */
     public static List<Change> parseSimulation(String output) {
         List<Change> changes = new ArrayList<>();

@@ -18,6 +18,15 @@ public interface PackageService {
     /** The upgrades a plain upgrade would install now, from the package lists last fetched. */
     List<Change> upgrades() throws PackageException;
 
+    /**
+     * The names of the upgrades the distribution holds back for now, because it rolls them out to a growing share
+     * of computers over some days (Ubuntu's phased updates). A plain upgrade leaves them out until this computer's
+     * turn comes, but {@code apt update} counts them. Empty where the distribution has no phasing.
+     */
+    default List<String> deferredUpgrades() throws PackageException {
+        return List.of();
+    }
+
     /** What installing the packages would change, dependencies included. */
     List<Change> simulateInstall(List<String> names) throws PackageException;
 
