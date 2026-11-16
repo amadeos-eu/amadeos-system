@@ -9,6 +9,16 @@
 -Xmx256m
 -XX:MinHeapFreeRatio=10
 -XX:MaxHeapFreeRatio=30
+# Start with a small heap. Without -Xms Java commits 1/64 of the RAM (256 MB on 16 GB) at the start, and the
+# young generation of the serial collector is a third of that: every allocation sweeps through it, so it all
+# becomes resident and a heap never shrinks below its initial size. The window manager reached 395 MB that way.
+# With 16 MB a program grows its heap only as far as it needs (Text Editor at start: 99 instead of 141 MB).
+-Xms16m
+
+# Only the quick C1 compiler: less compiled code, no C2 compiler threads with their memory, about 20 MB less
+# per program; plenty for desktop programs. Programs that compute a lot (Image Editor, Fractals, Art Studio,
+# Music Studio, Image Scan) add -XX:TieredStopAtLevel=4 in their launcher to get the optimising compiler back.
+-XX:TieredStopAtLevel=1
 
 # Start child processes with fork/exec instead of the JDK's jspawnhelper. An upgrade of the Java package
 # replaces jspawnhelper under the running programs; they would then fail to start any process
